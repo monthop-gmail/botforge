@@ -1,0 +1,44 @@
+services:
+  # Claude Code API server (Agent SDK → Anthropic API)
+  server:
+    build: ./server
+    container_name: {{CONTAINER_PREFIX}}-server
+    environment:
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - API_PASSWORD=${API_PASSWORD:-}
+      - CLAUDE_MODEL=${CLAUDE_MODEL:-sonnet}
+      - CLAUDE_MAX_TURNS=${CLAUDE_MAX_TURNS:-10}
+      - CLAUDE_MAX_BUDGET_USD=${CLAUDE_MAX_BUDGET_USD:-1.00}
+      - PORT=4096
+      - WORKSPACE_DIR=/workspace
+    volumes:
+      - ${PROJECT_DIR:-./workspace}:/workspace
+      - {{CONTAINER_PREFIX}}-data:/home/claude/.claude
+    restart: unless-stopped
+
+  # LINE bot - bridges LINE messages to server
+  line-bot:
+    build: .
+    container_name: {{CONTAINER_PREFIX}}-line-bot
+    environment:
+      - LINE_CHANNEL_ACCESS_TOKEN=${LINE_CHANNEL_ACCESS_TOKEN}
+      - LINE_CHANNEL_SECRET=${LINE_CHANNEL_SECRET}
+      - SERVER_URL=http://server:4096
+      - SERVER_PASSWORD=${API_PASSWORD:-}
+      - PROMPT_TIMEOUT_MS=${PROMPT_TIMEOUT_MS:-300000}
+      - PORT=3000
+    depends_on:
+      - server
+    restart: unless-stopped
+
+  # Cloudflare tunnel - exposes LINE webhook to internet
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: {{CONTAINER_PREFIX}}-tunnel
+    command: tunnel --no-autoupdate run --token ${CLOUDFLARE_TUNNEL_TOKEN}
+    depends_on:
+      - line-bot
+    restart: unless-stopped
+
+volumes:
+  {{CONTAINER_PREFIX}}-data:

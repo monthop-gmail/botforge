@@ -1,0 +1,19 @@
+# Generated projects (user data)
+projects/
+
+# Environment
+.env
+
+# Node
+node_modules/
+
+# Claude Code
+.claude/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Cloned reference repos (not part of botforge)
+oc-line-claude/
+workspace-cowork-opencode/
