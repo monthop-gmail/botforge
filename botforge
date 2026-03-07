@@ -91,7 +91,7 @@ cmd_new() {
     engine_choice="${engine_choice:-1}"
 
     local engine="opencode"
-    local bot_template="bot-service"
+    local bot_template="bot-service-opencode"
     case "$engine_choice" in
         2) engine="claude-code"; bot_template="bot-service-claude-code" ;;
         3) engine="gocode"; bot_template="bot-service-gocode" ;;

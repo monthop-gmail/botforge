@@ -305,7 +305,7 @@ Create `workspace/opencode.jsonc` with your MCP server configuration.
 
 ### Modify templates
 
-Edit files in `templates/bot-service/`, `templates/bot-service-claude-code/`, `templates/bot-service-gocode/`, `templates/bot-service-adkcode/`, or `templates/workspace/`. Use these placeholders:
+Edit files in `templates/bot-service-opencode/`, `templates/bot-service-claude-code/`, `templates/bot-service-gocode/`, `templates/bot-service-adkcode/`, or `templates/workspace/`. Use these placeholders:
 
 | Placeholder | Replaced with |
 |-------------|--------------|
