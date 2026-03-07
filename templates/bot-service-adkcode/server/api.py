@@ -101,7 +101,7 @@ async def send_message(session_id: str, req: MessageRequest):
     try:
         content = types.Content(
             role="user",
-            parts=[types.Part.from_text(req.content)],
+            parts=[types.Part.from_text(text=req.content)],
         )
 
         result_text = ""
