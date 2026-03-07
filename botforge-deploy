@@ -1,0 +1,812 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# --- Botforge Deploy CLI ---
+# Manage deployment of all LINE Bot projects
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECTS_DIR="$SCRIPT_DIR/projects"
+CONFIG_FILE="$SCRIPT_DIR/.botforge-deploy.env"
+
+# Default domain suffix
+DEFAULT_DOMAIN_SUFFIX="sumana.online"
+
+# --- Colors ---
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+CYAN='\033[0;36m'
+BOLD='\033[1m'
+DIM='\033[2m'
+NC='\033[0m'
+
+# --- Helpers ---
+print_header() {
+    echo ""
+    echo -e "${CYAN}${BOLD}Botforge Deploy — Multi-Bot Manager${NC}"
+    echo -e "${CYAN}────────────────────────────────────${NC}"
+    echo ""
+}
+
+print_success() { echo -e "${GREEN}$1${NC}"; }
+print_error()   { echo -e "${RED}$1${NC}"; }
+print_warn()    { echo -e "${YELLOW}$1${NC}"; }
+
+# Get list of all project names
+get_projects() {
+    if [[ ! -d "$PROJECTS_DIR" ]]; then
+        return
+    fi
+    for dir in "$PROJECTS_DIR"/*/; do
+        if [[ -f "$dir/bot-service/docker-compose.yml" ]]; then
+            basename "$dir"
+        fi
+    done
+}
+
+# Resolve target projects: "all" or specific name(s)
+resolve_targets() {
+    local target="${1:-}"
+    if [[ -z "$target" || "$target" == "all" ]]; then
+        get_projects
+    else
+        # Validate project exists
+        if [[ ! -f "$PROJECTS_DIR/$target/bot-service/docker-compose.yml" ]]; then
+            print_error "Project '$target' not found or has no docker-compose.yml"
+            exit 1
+        fi
+        echo "$target"
+    fi
+}
+
+# Detect engine type for a project
+detect_engine() {
+    local name="$1"
+    local dir="$PROJECTS_DIR/$name/bot-service"
+    if [[ -f "$dir/server/api.py" ]]; then
+        echo "adkcode"
+    elif [[ -f "$dir/server/go.mod" ]]; then
+        echo "gocode"
+    elif [[ -d "$dir/server" ]]; then
+        echo "claude-code"
+    elif [[ -f "$dir/opencode.json" ]]; then
+        echo "opencode"
+    else
+        echo "unknown"
+    fi
+}
+
+# Run docker compose in a project's bot-service directory
+dc() {
+    local name="$1"
+    shift
+    local dir="$PROJECTS_DIR/$name/bot-service"
+    docker compose -f "$dir/docker-compose.yml" --project-directory "$dir" --project-name "$name" "$@"
+}
+
+# --- Command: up ---
+cmd_up() {
+    local target="${1:-all}"
+    local build_flag="${2:-}"
+    print_header
+
+    local projects
+    projects=$(resolve_targets "$target")
+
+    for name in $projects; do
+        local engine
+        engine=$(detect_engine "$name")
+        echo -ne "  ${BOLD}$name${NC} ${DIM}($engine)${NC} — starting... "
+        if [[ "$build_flag" == "--build" ]]; then
+            dc "$name" up -d --build 2>/dev/null && print_success "ok" || print_error "FAILED"
+        else
+            dc "$name" up -d 2>/dev/null && print_success "ok" || print_error "FAILED"
+        fi
+    done
+    echo ""
+}
+
+# --- Command: down ---
+cmd_down() {
+    local target="${1:-all}"
+    print_header
+
+    local projects
+    projects=$(resolve_targets "$target")
+
+    for name in $projects; do
+        echo -ne "  ${BOLD}$name${NC} — stopping... "
+        dc "$name" down 2>/dev/null && print_success "ok" || print_error "FAILED"
+    done
+    echo ""
+}
+
+# --- Command: restart ---
+cmd_restart() {
+    local target="${1:-all}"
+    print_header
+
+    local projects
+    projects=$(resolve_targets "$target")
+
+    for name in $projects; do
+        local engine
+        engine=$(detect_engine "$name")
+        echo -ne "  ${BOLD}$name${NC} ${DIM}($engine)${NC} — restarting... "
+        dc "$name" restart 2>/dev/null && print_success "ok" || print_error "FAILED"
+    done
+    echo ""
+}
+
+# --- Command: rebuild ---
+cmd_rebuild() {
+    local target="${1:-all}"
+    local service="${2:-}"
+    print_header
+
+    local projects
+    projects=$(resolve_targets "$target")
+
+    for name in $projects; do
+        local engine
+        engine=$(detect_engine "$name")
+        if [[ -n "$service" ]]; then
+            echo -ne "  ${BOLD}$name${NC} ${DIM}($engine)${NC} — rebuilding $service... "
+            dc "$name" up -d --build "$service" 2>/dev/null && print_success "ok" || print_error "FAILED"
+        else
+            echo -ne "  ${BOLD}$name${NC} ${DIM}($engine)${NC} — rebuilding all... "
+            dc "$name" up -d --build 2>/dev/null && print_success "ok" || print_error "FAILED"
+        fi
+    done
+    echo ""
+}
+
+# --- Command: status ---
+cmd_status() {
+    local target="${1:-all}"
+    print_header
+
+    local projects
+    projects=$(resolve_targets "$target")
+
+    printf "  ${BOLD}%-25s %-12s %-10s %-10s %-10s${NC}\n" "PROJECT" "ENGINE" "SERVER" "BOT" "TUNNEL"
+    echo "  ─────────────────────────────────────────────────────────────────────"
+
+    for name in $projects; do
+        local engine
+        engine=$(detect_engine "$name")
+
+        # Get container statuses
+        local containers
+        containers=$(dc "$name" ps --format json 2>/dev/null || echo "")
+
+        local server_status="down"
+        local bot_status="down"
+        local tunnel_status="down"
+
+        if [[ -n "$containers" ]]; then
+            # Parse each line of JSON output
+            while IFS= read -r line; do
+                if [[ -z "$line" ]]; then continue; fi
+                local svc state
+                svc=$(echo "$line" | python3 -c "import sys,json; print(json.load(sys.stdin).get('Service',''))" 2>/dev/null || echo "")
+                state=$(echo "$line" | python3 -c "import sys,json; print(json.load(sys.stdin).get('State',''))" 2>/dev/null || echo "")
+
+                case "$svc" in
+                    opencode|server) server_status="$state" ;;
+                    line-bot)        bot_status="$state" ;;
+                    cloudflared)     tunnel_status="$state" ;;
+                esac
+            done <<< "$containers"
+        fi
+
+        # Color the statuses
+        local s_color b_color t_color
+        [[ "$server_status" == "running" ]] && s_color="$GREEN" || s_color="$RED"
+        [[ "$bot_status" == "running" ]]    && b_color="$GREEN" || b_color="$RED"
+        [[ "$tunnel_status" == "running" ]] && t_color="$GREEN" || t_color="$RED"
+
+        printf "  %-25s %-12s ${s_color}%-10s${NC} ${b_color}%-10s${NC} ${t_color}%-10s${NC}\n" \
+            "$name" "$engine" "$server_status" "$bot_status" "$tunnel_status"
+    done
+    echo ""
+}
+
+# --- Command: logs ---
+cmd_logs() {
+    local target="${1:-}"
+    local service="${2:-}"
+    local lines="${3:-30}"
+
+    if [[ -z "$target" ]]; then
+        print_error "Usage: botforge-deploy logs <project> [service] [lines]"
+        echo "  Services: server|line-bot|cloudflared (default: all)"
+        exit 1
+    fi
+
+    # Validate project
+    if [[ ! -f "$PROJECTS_DIR/$target/bot-service/docker-compose.yml" ]]; then
+        print_error "Project '$target' not found"
+        exit 1
+    fi
+
+    if [[ -n "$service" ]]; then
+        dc "$target" logs --tail "$lines" "$service"
+    else
+        dc "$target" logs --tail "$lines"
+    fi
+}
+
+# --- Command: ps ---
+cmd_ps() {
+    local target="${1:-all}"
+    print_header
+
+    local projects
+    projects=$(resolve_targets "$target")
+
+    for name in $projects; do
+        echo -e "  ${BOLD}$name${NC}"
+        dc "$name" ps 2>/dev/null | sed 's/^/    /'
+        echo ""
+    done
+}
+
+# --- Command: pull ---
+cmd_pull() {
+    local target="${1:-all}"
+    print_header
+
+    local projects
+    projects=$(resolve_targets "$target")
+
+    for name in $projects; do
+        echo -e "  ${BOLD}$name${NC} — pulling images..."
+        dc "$name" pull 2>/dev/null | sed 's/^/    /'
+        echo ""
+    done
+}
+
+# ==============================================================================
+# Cloudflare Tunnel Management (via API)
+# ==============================================================================
+
+CF_API="https://api.cloudflare.com/client/v4"
+
+# Load Cloudflare credentials from config file
+load_cf_config() {
+    if [[ ! -f "$CONFIG_FILE" ]]; then
+        print_error "Config not found. Run: ./botforge-deploy tunnel init"
+        exit 1
+    fi
+    # shellcheck source=/dev/null
+    source "$CONFIG_FILE"
+
+    if [[ -z "${CF_API_TOKEN:-}" || -z "${CF_ACCOUNT_ID:-}" || -z "${CF_ZONE_ID:-}" ]]; then
+        print_error "Missing CF_API_TOKEN, CF_ACCOUNT_ID, or CF_ZONE_ID in $CONFIG_FILE"
+        exit 1
+    fi
+}
+
+# Cloudflare API call helper
+cf_api() {
+    local method="$1"
+    local endpoint="$2"
+    local data="${3:-}"
+
+    local args=(-s -X "$method" -H "Authorization: Bearer $CF_API_TOKEN" -H "Content-Type: application/json")
+    if [[ -n "$data" ]]; then
+        args+=(-d "$data")
+    fi
+    curl "${args[@]}" "${CF_API}${endpoint}"
+}
+
+# --- tunnel init: configure Cloudflare credentials ---
+cmd_tunnel_init() {
+    print_header
+    echo -e "  ${BOLD}Cloudflare Tunnel — Initial Setup${NC}"
+    echo ""
+    echo "  Create an API Token at: https://dash.cloudflare.com/profile/api-tokens"
+    echo "  Required permissions:"
+    echo "    - Account > Cloudflare Tunnel > Edit"
+    echo "    - Zone > DNS > Edit"
+    echo ""
+
+    read -rp "  Cloudflare API Token: " cf_token
+    if [[ -z "$cf_token" ]]; then
+        print_error "API Token is required"
+        exit 1
+    fi
+
+    # Verify token and get account info
+    echo -n "  Verifying token... "
+    local verify
+    verify=$(curl -s -H "Authorization: Bearer $cf_token" "${CF_API}/user/tokens/verify")
+    local status
+    status=$(echo "$verify" | python3 -c "import sys,json; print(json.load(sys.stdin).get('success',False))" 2>/dev/null)
+
+    if [[ "$status" != "True" ]]; then
+        print_error "FAILED"
+        echo "  Token verification failed. Check your token and try again."
+        exit 1
+    fi
+    print_success "ok"
+
+    # Get account ID
+    echo -n "  Getting account info... "
+    local accounts
+    accounts=$(curl -s -H "Authorization: Bearer $cf_token" "${CF_API}/accounts?per_page=1")
+    local account_id account_name
+    account_id=$(echo "$accounts" | python3 -c "import sys,json; r=json.load(sys.stdin)['result']; print(r[0]['id'])" 2>/dev/null)
+    account_name=$(echo "$accounts" | python3 -c "import sys,json; r=json.load(sys.stdin)['result']; print(r[0]['name'])" 2>/dev/null)
+
+    if [[ -z "$account_id" ]]; then
+        print_error "FAILED"
+        echo "  Could not get account info"
+        exit 1
+    fi
+    print_success "ok ($account_name)"
+
+    # Get zone ID for domain
+    read -rp "  Domain [$DEFAULT_DOMAIN_SUFFIX]: " domain
+    domain="${domain:-$DEFAULT_DOMAIN_SUFFIX}"
+
+    echo -n "  Getting zone info for $domain... "
+    local zones
+    zones=$(curl -s -H "Authorization: Bearer $cf_token" "${CF_API}/zones?name=$domain")
+    local zone_id
+    zone_id=$(echo "$zones" | python3 -c "import sys,json; r=json.load(sys.stdin)['result']; print(r[0]['id'])" 2>/dev/null)
+
+    if [[ -z "$zone_id" ]]; then
+        print_error "FAILED"
+        echo "  Zone '$domain' not found in your Cloudflare account"
+        exit 1
+    fi
+    print_success "ok"
+
+    # Save config
+    cat > "$CONFIG_FILE" <<EOF
+# Botforge Deploy — Cloudflare Config
+# Generated: $(date -Iseconds)
+CF_API_TOKEN=$cf_token
+CF_ACCOUNT_ID=$account_id
+CF_ZONE_ID=$zone_id
+CF_DOMAIN=$domain
+EOF
+
+    echo ""
+    print_success "  Config saved to $CONFIG_FILE"
+    echo ""
+    echo "  Account: $account_name ($account_id)"
+    echo "  Zone:    $domain ($zone_id)"
+    echo ""
+    echo -e "  ${BOLD}Next:${NC} ./botforge-deploy tunnel setup <project>"
+    echo ""
+}
+
+# Get server port for an engine type
+get_server_port() {
+    local engine="$1"
+    case "$engine" in
+        adkcode) echo "8000" ;;
+        *)       echo "4096" ;;
+    esac
+}
+
+# Helper: create or update a DNS CNAME record
+_upsert_dns() {
+    local hostname="$1"
+    local dns_name="$2"
+    local tunnel_id="$3"
+
+    echo -n "    Creating DNS ($hostname)... "
+
+    local dns_check
+    dns_check=$(cf_api GET "/zones/$CF_ZONE_ID/dns_records?name=$hostname&type=CNAME")
+    local dns_count
+    dns_count=$(echo "$dns_check" | python3 -c "import sys,json; print(len(json.load(sys.stdin).get('result',[])))" 2>/dev/null)
+
+    if [[ "$dns_count" -gt "0" ]]; then
+        local dns_id
+        dns_id=$(echo "$dns_check" | python3 -c "import sys,json; print(json.load(sys.stdin)['result'][0]['id'])" 2>/dev/null)
+        local dns_update
+        dns_update=$(cf_api PUT "/zones/$CF_ZONE_ID/dns_records/$dns_id" \
+            "{\"type\":\"CNAME\",\"name\":\"$dns_name\",\"content\":\"$tunnel_id.cfargotunnel.com\",\"proxied\":true}")
+        local dns_ok
+        dns_ok=$(echo "$dns_update" | python3 -c "import sys,json; print(json.load(sys.stdin).get('success',False))" 2>/dev/null)
+        [[ "$dns_ok" == "True" ]] && print_success "ok (updated)" || print_error "FAILED"
+    else
+        local dns_resp
+        dns_resp=$(cf_api POST "/zones/$CF_ZONE_ID/dns_records" \
+            "{\"type\":\"CNAME\",\"name\":\"$dns_name\",\"content\":\"$tunnel_id.cfargotunnel.com\",\"proxied\":true}")
+        local dns_ok
+        dns_ok=$(echo "$dns_resp" | python3 -c "import sys,json; print(json.load(sys.stdin).get('success',False))" 2>/dev/null)
+        [[ "$dns_ok" == "True" ]] && print_success "ok (created)" || print_error "FAILED"
+    fi
+}
+
+# Helper: delete a DNS CNAME record
+_delete_dns() {
+    local hostname="$1"
+
+    echo -n "    Deleting DNS ($hostname)... "
+    local dns_check
+    dns_check=$(cf_api GET "/zones/$CF_ZONE_ID/dns_records?name=$hostname&type=CNAME")
+    local dns_id
+    dns_id=$(echo "$dns_check" | python3 -c "import sys,json; r=json.load(sys.stdin)['result']; print(r[0]['id'] if r else '')" 2>/dev/null)
+
+    if [[ -z "$dns_id" ]]; then
+        print_warn "not found"
+    else
+        local dns_del
+        dns_del=$(cf_api DELETE "/zones/$CF_ZONE_ID/dns_records/$dns_id")
+        local dns_ok
+        dns_ok=$(echo "$dns_del" | python3 -c "import sys,json; print(json.load(sys.stdin).get('success',False))" 2>/dev/null)
+        [[ "$dns_ok" == "True" ]] && print_success "ok" || print_error "FAILED"
+    fi
+}
+
+# --- tunnel setup: create tunnel + DNS for a project ---
+# Each project gets 2 hostnames:
+#   {name}.domain           → http://{name}-line-bot:3000
+#   {name}-server.domain    → http://{name}-server:{port}
+cmd_tunnel_setup() {
+    local target="${1:-}"
+    print_header
+    load_cf_config
+
+    if [[ -z "$target" ]]; then
+        print_error "Usage: ./botforge-deploy tunnel setup <project|all>"
+        exit 1
+    fi
+
+    local projects
+    projects=$(resolve_targets "$target")
+
+    for name in $projects; do
+        local env_file="$PROJECTS_DIR/$name/bot-service/.env"
+        local engine
+        engine=$(detect_engine "$name")
+        local server_port
+        server_port=$(get_server_port "$engine")
+
+        local host_bot="${name}.${CF_DOMAIN}"
+        local host_server="${name}-server.${CF_DOMAIN}"
+
+        echo -e "  ${BOLD}$name${NC} ${DIM}($engine)${NC}"
+        echo "    $host_bot → http://${name}-line-bot:3000"
+        echo "    $host_server → http://${name}-server:${server_port}"
+
+        # Check if tunnel already exists
+        local existing
+        existing=$(cf_api GET "/accounts/$CF_ACCOUNT_ID/cfd_tunnel?name=$name&is_deleted=false")
+        local existing_count
+        existing_count=$(echo "$existing" | python3 -c "import sys,json; print(len(json.load(sys.stdin).get('result',[])))" 2>/dev/null)
+
+        if [[ "$existing_count" -gt "0" ]]; then
+            local existing_id
+            existing_id=$(echo "$existing" | python3 -c "import sys,json; print(json.load(sys.stdin)['result'][0]['id'])" 2>/dev/null)
+            print_warn "    Tunnel already exists (ID: $existing_id)"
+
+            # Update ingress config with 2 hostnames
+            echo -n "    Updating ingress... "
+            local config_resp
+            config_resp=$(cf_api PUT "/accounts/$CF_ACCOUNT_ID/cfd_tunnel/$existing_id/configurations" \
+                "{\"config\":{\"ingress\":[{\"hostname\":\"$host_bot\",\"service\":\"http://${name}-line-bot:3000\"},{\"hostname\":\"$host_server\",\"service\":\"http://${name}-server:${server_port}\"},{\"service\":\"http_status:404\"}]}}")
+            local config_ok
+            config_ok=$(echo "$config_resp" | python3 -c "import sys,json; print(json.load(sys.stdin).get('success',False))" 2>/dev/null)
+            [[ "$config_ok" == "True" ]] && print_success "ok" || print_error "FAILED"
+
+            # Upsert DNS records
+            _upsert_dns "$host_bot" "$name" "$existing_id"
+            _upsert_dns "$host_server" "${name}-server" "$existing_id"
+
+            # Get token and update .env
+            echo -n "    Getting token... "
+            local token_resp
+            token_resp=$(cf_api GET "/accounts/$CF_ACCOUNT_ID/cfd_tunnel/$existing_id/token")
+            local tunnel_token
+            tunnel_token=$(echo "$token_resp" | python3 -c "import sys,json; print(json.load(sys.stdin)['result'])" 2>/dev/null)
+            if [[ -n "$tunnel_token" ]]; then
+                print_success "ok"
+                _update_env_token "$env_file" "$tunnel_token"
+            else
+                print_error "FAILED"
+            fi
+            echo ""
+            continue
+        fi
+
+        # 1. Create tunnel
+        echo -n "    Creating tunnel... "
+        local tunnel_secret
+        tunnel_secret=$(python3 -c "import secrets,base64; print(base64.b64encode(secrets.token_bytes(32)).decode())")
+
+        local create_resp
+        create_resp=$(cf_api POST "/accounts/$CF_ACCOUNT_ID/cfd_tunnel" \
+            "{\"name\":\"$name\",\"tunnel_secret\":\"$tunnel_secret\",\"config_src\":\"cloudflare\"}")
+
+        local tunnel_id
+        tunnel_id=$(echo "$create_resp" | python3 -c "import sys,json; print(json.load(sys.stdin)['result']['id'])" 2>/dev/null)
+
+        if [[ -z "$tunnel_id" ]]; then
+            local err_msg
+            err_msg=$(echo "$create_resp" | python3 -c "import sys,json; errs=json.load(sys.stdin).get('errors',[]); print(errs[0]['message'] if errs else 'unknown error')" 2>/dev/null)
+            print_error "FAILED ($err_msg)"
+            continue
+        fi
+        print_success "ok ($tunnel_id)"
+
+        # 2. Configure tunnel ingress — 2 hostnames per project
+        echo -n "    Configuring ingress (2 routes)... "
+        local config_resp
+        config_resp=$(cf_api PUT "/accounts/$CF_ACCOUNT_ID/cfd_tunnel/$tunnel_id/configurations" \
+            "{\"config\":{\"ingress\":[{\"hostname\":\"$host_bot\",\"service\":\"http://${name}-line-bot:3000\"},{\"hostname\":\"$host_server\",\"service\":\"http://${name}-server:${server_port}\"},{\"service\":\"http_status:404\"}]}}")
+
+        local config_ok
+        config_ok=$(echo "$config_resp" | python3 -c "import sys,json; print(json.load(sys.stdin).get('success',False))" 2>/dev/null)
+        [[ "$config_ok" == "True" ]] && print_success "ok" || print_error "FAILED"
+
+        # 3. Create DNS CNAME records (2 records)
+        _upsert_dns "$host_bot" "$name" "$tunnel_id"
+        _upsert_dns "$host_server" "${name}-server" "$tunnel_id"
+
+        # 4. Get tunnel token and save to .env
+        echo -n "    Getting tunnel token... "
+        local token_resp
+        token_resp=$(cf_api GET "/accounts/$CF_ACCOUNT_ID/cfd_tunnel/$tunnel_id/token")
+        local tunnel_token
+        tunnel_token=$(echo "$token_resp" | python3 -c "import sys,json; print(json.load(sys.stdin)['result'])" 2>/dev/null)
+
+        if [[ -n "$tunnel_token" ]]; then
+            print_success "ok"
+            _update_env_token "$env_file" "$tunnel_token"
+        else
+            print_error "FAILED"
+        fi
+
+        echo ""
+    done
+}
+
+# Helper: update CLOUDFLARE_TUNNEL_TOKEN in .env file
+_update_env_token() {
+    local env_file="$1"
+    local token="$2"
+
+    if [[ ! -f "$env_file" ]]; then
+        # Copy from .env.example if available
+        local example="${env_file}.example"
+        if [[ -f "$example" ]]; then
+            cp "$example" "$env_file"
+        else
+            # Create minimal .env
+            echo "CLOUDFLARE_TUNNEL_TOKEN=" > "$env_file"
+        fi
+    fi
+
+    if grep -q "^CLOUDFLARE_TUNNEL_TOKEN=" "$env_file"; then
+        sed -i "s|^CLOUDFLARE_TUNNEL_TOKEN=.*|CLOUDFLARE_TUNNEL_TOKEN=$token|" "$env_file"
+    else
+        echo "CLOUDFLARE_TUNNEL_TOKEN=$token" >> "$env_file"
+    fi
+    echo -e "    ${DIM}Updated $env_file${NC}"
+}
+
+# --- tunnel list: show all tunnels ---
+cmd_tunnel_list() {
+    print_header
+    load_cf_config
+
+    echo -e "  ${BOLD}Cloudflare Tunnels${NC} (account: $CF_ACCOUNT_ID)"
+    echo ""
+
+    local tunnels
+    tunnels=$(cf_api GET "/accounts/$CF_ACCOUNT_ID/cfd_tunnel?is_deleted=false&per_page=50")
+
+    local count
+    count=$(echo "$tunnels" | python3 -c "import sys,json; print(len(json.load(sys.stdin).get('result',[])))" 2>/dev/null)
+
+    if [[ "$count" == "0" ]]; then
+        echo "  (no tunnels)"
+        echo ""
+        return
+    fi
+
+    printf "  ${BOLD}%-25s %-38s %-12s %-25s${NC}\n" "NAME" "ID" "STATUS" "CONNECTIONS"
+    echo "  ──────────────────────────────────────────────────────────────────────────────────────────"
+
+    echo "$tunnels" | python3 -c "
+import sys, json
+data = json.load(sys.stdin)['result']
+for t in data:
+    name = t.get('name','')
+    tid = t.get('id','')
+    status = t.get('status','unknown')
+    conns = len(t.get('connections',[]))
+    conn_str = f'{conns} active' if conns > 0 else 'none'
+    print(f'  {name:<25s} {tid:<38s} {status:<12s} {conn_str}')
+" 2>/dev/null
+
+    echo ""
+}
+
+# --- tunnel delete: delete tunnel + DNS for a project ---
+cmd_tunnel_delete() {
+    local target="${1:-}"
+    print_header
+    load_cf_config
+
+    if [[ -z "$target" ]]; then
+        print_error "Usage: ./botforge-deploy tunnel delete <project>"
+        exit 1
+    fi
+
+    local hostname="${target}.${CF_DOMAIN}"
+    echo -e "  Deleting tunnel for ${BOLD}$target${NC} ($hostname)"
+    echo ""
+
+    # Find tunnel
+    local tunnels
+    tunnels=$(cf_api GET "/accounts/$CF_ACCOUNT_ID/cfd_tunnel?name=$target&is_deleted=false")
+    local tunnel_id
+    tunnel_id=$(echo "$tunnels" | python3 -c "import sys,json; r=json.load(sys.stdin)['result']; print(r[0]['id'] if r else '')" 2>/dev/null)
+
+    if [[ -z "$tunnel_id" ]]; then
+        print_warn "  No tunnel found for '$target'"
+    else
+        # Check active connections
+        local conns
+        conns=$(echo "$tunnels" | python3 -c "import sys,json; print(len(json.load(sys.stdin)['result'][0].get('connections',[])))" 2>/dev/null)
+
+        if [[ "$conns" -gt "0" ]]; then
+            print_warn "  Tunnel has $conns active connections. Stop the container first?"
+            read -rp "  Continue? [y/N]: " confirm
+            if [[ "${confirm,,}" != "y" ]]; then
+                echo "  Cancelled."
+                return
+            fi
+            # Clean up connections
+            echo -n "  Cleaning up connections... "
+            cf_api DELETE "/accounts/$CF_ACCOUNT_ID/cfd_tunnel/$tunnel_id/connections" >/dev/null
+            print_success "ok"
+        fi
+
+        echo -n "  Deleting tunnel... "
+        local del_resp
+        del_resp=$(cf_api DELETE "/accounts/$CF_ACCOUNT_ID/cfd_tunnel/$tunnel_id")
+        local del_ok
+        del_ok=$(echo "$del_resp" | python3 -c "import sys,json; print(json.load(sys.stdin).get('success',False))" 2>/dev/null)
+        if [[ "$del_ok" == "True" ]]; then
+            print_success "ok"
+        else
+            print_error "FAILED"
+        fi
+    fi
+
+    # Delete DNS records (bot + server)
+    _delete_dns "$hostname"
+    _delete_dns "${target}-server.${CF_DOMAIN}"
+
+    # Clear token from .env
+    local env_file="$PROJECTS_DIR/$target/bot-service/.env"
+    if [[ -f "$env_file" ]] && grep -q "^CLOUDFLARE_TUNNEL_TOKEN=" "$env_file"; then
+        sed -i "s|^CLOUDFLARE_TUNNEL_TOKEN=.*|CLOUDFLARE_TUNNEL_TOKEN=|" "$env_file"
+        echo -e "  ${DIM}Cleared token in $env_file${NC}"
+    fi
+
+    echo ""
+}
+
+# --- tunnel: main dispatcher ---
+cmd_tunnel() {
+    local subcmd="${1:-help}"
+    shift || true
+
+    case "$subcmd" in
+        init)   cmd_tunnel_init "$@" ;;
+        setup)  cmd_tunnel_setup "$@" ;;
+        list|ls) cmd_tunnel_list "$@" ;;
+        delete) cmd_tunnel_delete "$@" ;;
+        help|--help|-h)
+            print_header
+            echo -e "  ${BOLD}Tunnel Commands:${NC}"
+            echo ""
+            echo -e "    ${BOLD}tunnel init${NC}                Setup Cloudflare API credentials"
+            echo -e "    ${BOLD}tunnel setup${NC} <project|all> Create tunnel + DNS + save token to .env"
+            echo -e "    ${BOLD}tunnel list${NC}                List all Cloudflare tunnels"
+            echo -e "    ${BOLD}tunnel delete${NC} <project>    Delete tunnel + DNS record"
+            echo ""
+            echo "  Examples:"
+            echo ""
+            echo "    ./botforge-deploy tunnel init                # First-time setup"
+            echo "    ./botforge-deploy tunnel setup dede-opencode # Create tunnel for one project"
+            echo "    ./botforge-deploy tunnel setup all           # Create tunnels for all projects"
+            echo "    ./botforge-deploy tunnel list                # Show all tunnels"
+            echo "    ./botforge-deploy tunnel delete mtr-opencode # Delete tunnel"
+            echo ""
+            ;;
+        *)
+            print_error "Unknown tunnel command: $subcmd"
+            cmd_tunnel help
+            exit 1
+            ;;
+    esac
+}
+
+# --- Command: help ---
+cmd_help() {
+    print_header
+    echo "  Usage:"
+    echo ""
+    echo "    ./botforge-deploy <command> [project] [options]"
+    echo ""
+    echo "  Commands:"
+    echo ""
+    echo -e "    ${BOLD}up${NC} [project|all] [--build]    Start services (default: all)"
+    echo -e "    ${BOLD}down${NC} [project|all]             Stop services"
+    echo -e "    ${BOLD}restart${NC} [project|all]          Restart services"
+    echo -e "    ${BOLD}rebuild${NC} [project|all] [svc]    Rebuild & restart (optionally specific service)"
+    echo -e "    ${BOLD}status${NC} [project|all]           Show container status"
+    echo -e "    ${BOLD}logs${NC} <project> [svc] [lines]   Show logs (default: all services, 30 lines)"
+    echo -e "    ${BOLD}ps${NC} [project|all]               Show running containers"
+    echo -e "    ${BOLD}pull${NC} [project|all]             Pull latest images"
+    echo -e "    ${BOLD}tunnel${NC} <init|setup|list|delete> Manage Cloudflare tunnels"
+    echo -e "    ${BOLD}help${NC}                           Show this help"
+    echo ""
+    echo "  Examples:"
+    echo ""
+    echo "    ./botforge-deploy status                   # Status of all bots"
+    echo "    ./botforge-deploy up                       # Start all bots"
+    echo "    ./botforge-deploy up all --build           # Build & start all"
+    echo "    ./botforge-deploy up dede-opencode         # Start one bot"
+    echo "    ./botforge-deploy down mtr-opencode        # Stop one bot"
+    echo "    ./botforge-deploy rebuild hct-opencode     # Rebuild & restart"
+    echo "    ./botforge-deploy rebuild dede-opencode line-bot  # Rebuild specific service"
+    echo "    ./botforge-deploy logs cowork-claudecode   # View logs"
+    echo "    ./botforge-deploy logs dede-opencode server 50  # Last 50 lines of server"
+    echo "    ./botforge-deploy tunnel init                 # Setup Cloudflare credentials"
+    echo "    ./botforge-deploy tunnel setup all            # Create tunnels for all bots"
+    echo ""
+    echo "  Projects:"
+    echo ""
+    local projects
+    projects=$(get_projects)
+    if [[ -z "$projects" ]]; then
+        echo "    (none)"
+    else
+        for name in $projects; do
+            local engine
+            engine=$(detect_engine "$name")
+            echo "    $name  ($engine)"
+        done
+    fi
+    echo ""
+}
+
+# --- Main ---
+main() {
+    local command="${1:-help}"
+    shift || true
+
+    case "$command" in
+        up)       cmd_up "$@" ;;
+        down)     cmd_down "$@" ;;
+        restart)  cmd_restart "$@" ;;
+        rebuild)  cmd_rebuild "$@" ;;
+        status|st) cmd_status "$@" ;;
+        logs)     cmd_logs "$@" ;;
+        ps)       cmd_ps "$@" ;;
+        pull)     cmd_pull "$@" ;;
+        tunnel)   cmd_tunnel "$@" ;;
+        help|--help|-h) cmd_help ;;
+        *)
+            print_error "Unknown command: $command"
+            echo ""
+            cmd_help
+            exit 1
+            ;;
+    esac
+}
+
+main "$@"

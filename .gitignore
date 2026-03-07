@@ -1,8 +1,9 @@
 # Generated projects (user data)
 projects/
 
-# Environment
+# Environment / secrets
 .env
+.botforge-deploy.env
 
 # Node
 node_modules/
