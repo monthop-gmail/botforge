@@ -30,7 +30,7 @@ Gemini API (gemini-2.5-flash, gemini-2.0-flash)
 ```
 
 - **`src/index.ts`** — LINE bot: webhook, signature validation, message chunking, commands, session management
-- **`server/api.py`** — FastAPI REST wrapper around ADK runner
+- **`server/api.py`** — FastAPI REST wrapper around ADK runner + ADK web UI (shared session service)
 - **`server/adkcode/agent.py`** — Multi-agent system: orchestrator, coder, reviewer, tester
 - **`server/adkcode/tools.py`** — Coding tools: read/write/edit files, shell, grep, web search/fetch, semantic search
 - **`server/adkcode/guardrails.py`** — Safety checks and audit logging
@@ -51,7 +51,7 @@ Gemini API (gemini-2.5-flash, gemini-2.0-flash)
 
 ## Server API Endpoints
 
-- `GET /health` — Health check
+- `GET /` — ADK web UI (dev UI for testing agent, shared sessions with LINE bot, user_id: `user`)
 - `POST /session` — Create session
 - `GET /session/{id}` — Get session info
 - `DELETE /session/{id}` — Delete session

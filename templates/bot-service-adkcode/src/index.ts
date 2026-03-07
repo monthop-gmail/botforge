@@ -57,8 +57,8 @@ async function adkcodeRequest(method: string, path: string, body?: unknown, sign
   }
 }
 
-async function createSession(): Promise<{ id: string }> {
-  return adkcodeRequest("POST", "/session")
+async function createSession(userId?: string): Promise<{ id: string }> {
+  return adkcodeRequest("POST", "/session", { user_id: userId })
 }
 
 const PROMPT_TIMEOUT_MS = Number(process.env.PROMPT_TIMEOUT_MS ?? 120_000)
@@ -381,7 +381,7 @@ async function handleTextMessage(
   if (!session) {
     console.log("Creating new ADKcode session...")
     try {
-      const result = await createSession()
+      const result = await createSession(userId)
       console.log("Created ADKcode session:", result.id)
       session = { sessionId: result.id, userId, isGroup }
       if (sessionKey) sessions.set(sessionKey, session)
@@ -427,7 +427,7 @@ async function handleTextMessage(
       if (sessionKey) sessions.delete(sessionKey)
       log("🔄 Session expired, auto-retrying with new session...")
       try {
-        const newResult = await createSession()
+        const newResult = await createSession(userId)
         session = { sessionId: newResult.id, userId, isGroup }
         if (sessionKey) sessions.set(sessionKey, session)
         const retryResult = await sendPrompt(session.sessionId, text)

@@ -1,60 +1,102 @@
-"""REST API wrapper for adkcode agent — bridges LINE bot to Google ADK runner."""
+"""REST API wrapper for adkcode agent — bridges LINE bot to Google ADK runner.
 
-import asyncio
+Uses ADK's built-in web UI with shared session service so LINE bot sessions
+are visible in the web UI and vice versa.
+"""
+
 import os
 import time
 import uuid
 import logging
+from pathlib import Path
 
-from fastapi import FastAPI, HTTPException
+from fastapi import HTTPException
 from pydantic import BaseModel
-from google.adk.runners import Runner
-from google.adk.sessions import InMemorySessionService
 from google.genai import types
 
 # Change to workspace dir before importing agent (so AGENTS.md loads correctly)
 os.chdir("/workspace")
 
-from adkcode.agent import root_agent
-
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="adkcode-api", version="1.0.0")
-
-# --- Session Service ---
-session_service = InMemorySessionService()
-
-# --- Runner ---
-runner = Runner(
-    agent=root_agent,
-    app_name="adkcode",
-    session_service=session_service,
+# --- Build ADK app with shared session service ---
+from google.adk.sessions import InMemorySessionService
+from google.adk.runners import Runner
+from google.adk.cli.fast_api import (
+    AdkWebServer,
+    AgentLoader,
+    InMemoryCredentialService,
+    LocalEvalSetsManager,
+    LocalEvalSetResultsManager,
+    create_artifact_service_from_options,
+    create_memory_service_from_options,
 )
 
-# --- Session tracking ---
+AGENTS_DIR = "/app"
+PORT = int(os.environ.get("PORT", 8000))
+
+# Shared session service — used by both ADK web UI and LINE bot endpoints
+session_service = InMemorySessionService()
+
+agent_loader = AgentLoader(agents_dir=AGENTS_DIR)
+artifact_service = create_artifact_service_from_options(
+    base_dir=AGENTS_DIR, artifact_service_uri=None, strict_uri=False, use_local_storage=True,
+)
+memory_service = create_memory_service_from_options(base_dir=AGENTS_DIR, memory_service_uri=None)
+credential_service = InMemoryCredentialService()
+eval_sets_manager = LocalEvalSetsManager(agents_dir=AGENTS_DIR)
+eval_set_results_manager = LocalEvalSetResultsManager(agents_dir=AGENTS_DIR)
+
+adk_web_server = AdkWebServer(
+    agent_loader=agent_loader,
+    session_service=session_service,
+    artifact_service=artifact_service,
+    memory_service=memory_service,
+    credential_service=credential_service,
+    eval_sets_manager=eval_sets_manager,
+    eval_set_results_manager=eval_set_results_manager,
+    agents_dir=AGENTS_DIR,
+)
+
+# Get web assets dir for ADK web UI
+WEB_ASSETS_DIR = Path(os.path.dirname(__file__)) / "../.." / "browser"
+try:
+    import google.adk.cli as adk_cli
+    WEB_ASSETS_DIR = Path(os.path.dirname(adk_cli.__file__)) / "browser"
+except Exception:
+    pass
+
+app = adk_web_server.get_fast_api_app(
+    allow_origins=["*"],
+    web_assets_dir=WEB_ASSETS_DIR if WEB_ASSETS_DIR.exists() else None,
+)
+
+# --- Use the SAME runner as web UI (no separate runner) ---
+async def get_runner():
+    return await adk_web_server.get_runner_async("adkcode")
+
+# --- Session tracking for LINE bot ---
 session_map: dict[str, dict] = {}
 
 
 class CreateSessionRequest(BaseModel):
     title: str = ""
+    user_id: str = ""
 
 
 class MessageRequest(BaseModel):
     content: str
 
 
-@app.get("/health")
-async def health():
-    return {"status": "ok", "timestamp": time.time()}
-
-
 @app.post("/session")
 async def create_session(req: CreateSessionRequest = CreateSessionRequest()):
     session_id = f"s-{int(time.time())}-{uuid.uuid4().hex[:6]}"
-    user_id = f"line-{uuid.uuid4().hex[:8]}"
+    # Always use fixed "user" so sessions are easily visible in ADK web UI
+    # LINE user IDs are stored in session_map for reference but not used for ADK sessions
+    user_id = "user"
 
-    session = await session_service.create_session(
+    await session_service.create_session(
         app_name="adkcode",
         user_id=user_id,
         session_id=session_id,
@@ -106,6 +148,7 @@ async def send_message(session_id: str, req: MessageRequest):
 
         result_text = ""
         is_error = False
+        runner = await get_runner()
 
         async for event in runner.run_async(
             user_id=info["user_id"],
@@ -148,12 +191,10 @@ async def abort_session(session_id: str):
     info = session_map.get(session_id)
     if not info:
         raise HTTPException(status_code=404, detail="Session not found")
-    # ADK doesn't support abort natively — just mark idle
     info["status"] = "idle"
     return {"aborted": True}
 
 
 if __name__ == "__main__":
     import uvicorn
-    port = int(os.environ.get("PORT", 8000))
-    uvicorn.run(app, host="0.0.0.0", port=port)
+    uvicorn.run(app, host="0.0.0.0", port=PORT)
