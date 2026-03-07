@@ -1,0 +1,37 @@
+services:
+  # ADKcode AI server (Google ADK + Gemini)
+  server:
+    build: ./server
+    container_name: {{CONTAINER_PREFIX}}-server
+    environment:
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY}
+      - ADKCODE_MODEL_SMART=${ADKCODE_MODEL_SMART:-gemini-2.5-flash}
+      - ADKCODE_MODEL_FAST=${ADKCODE_MODEL_FAST:-gemini-2.0-flash}
+      - PORT=8000
+    volumes:
+      - ${PROJECT_DIR:-./workspace}:/workspace
+    restart: unless-stopped
+
+  # LINE bot - bridges LINE messages to adkcode server
+  line-bot:
+    build: .
+    container_name: {{CONTAINER_PREFIX}}-line-bot
+    environment:
+      - LINE_CHANNEL_ACCESS_TOKEN=${LINE_CHANNEL_ACCESS_TOKEN}
+      - LINE_CHANNEL_SECRET=${LINE_CHANNEL_SECRET}
+      - PORT=3000
+      - ADKCODE_URL=http://server:8000
+      - LINE_OA_URL=${LINE_OA_URL:-}
+      - PROMPT_TIMEOUT_MS=${PROMPT_TIMEOUT_MS:-120000}
+    depends_on:
+      - server
+    restart: unless-stopped
+
+  # Cloudflare tunnel - exposes LINE webhook to internet
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: {{CONTAINER_PREFIX}}-tunnel
+    command: tunnel --no-autoupdate run --token ${CLOUDFLARE_TUNNEL_TOKEN}
+    depends_on:
+      - line-bot
+    restart: unless-stopped

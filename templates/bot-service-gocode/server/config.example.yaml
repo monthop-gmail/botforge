@@ -1,0 +1,27 @@
+# LLM Provider Configuration
+provider:
+  # OpenAI-compatible API base URL
+  # Examples:
+  #   OpenAI:    https://api.openai.com/v1
+  #   Ollama:    http://localhost:11434/v1
+  #   Groq:      https://api.groq.com/openai/v1
+  #   Together:  https://api.together.xyz/v1
+  base_url: "https://api.openai.com/v1"
+  api_key: "sk-xxx"
+  model: "gpt-4o"
+
+# Server Configuration
+server:
+  host: "127.0.0.1"
+  port: 3000
+
+# Agent Configuration
+agent:
+  # System prompt for the coding agent
+  system_prompt: |
+    You are a helpful coding assistant. You have access to tools for reading files,
+    writing files, listing directories, and executing shell commands.
+    Use these tools to help the user with their coding tasks.
+    Be concise and direct in your responses.
+  # Maximum agent loop iterations (prevent infinite loops)
+  max_iterations: 20

@@ -1,0 +1,8 @@
+{
+  "name": "engineering",
+  "version": "1.0.0",
+  "description": "Software engineering skills and commands — code review, testing, architecture, debugging, incident response, and documentation.",
+  "author": {
+    "name": "Anthropic (adapted for adkcode)"
+  }
+}

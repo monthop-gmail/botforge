@@ -85,15 +85,18 @@ cmd_new() {
     echo "  Engine:"
     echo "    1) opencode    — Multi-model (Claude, GPT, Gemini, DeepSeek, Qwen)"
     echo "    2) claude-code — Claude only (Agent SDK, simpler, cost control)"
+    echo "    3) gocode      — Go + OpenAI-compatible (DeepSeek, GPT, Qwen, Groq, Ollama)"
+    echo "    4) adkcode     — Google ADK + Gemini (multi-agent: coder, reviewer, tester)"
     read -rp "  Select [1]: " engine_choice
     engine_choice="${engine_choice:-1}"
 
     local engine="opencode"
     local bot_template="bot-service"
-    if [[ "$engine_choice" == "2" ]]; then
-        engine="claude-code"
-        bot_template="bot-service-claude-code"
-    fi
+    case "$engine_choice" in
+        2) engine="claude-code"; bot_template="bot-service-claude-code" ;;
+        3) engine="gocode"; bot_template="bot-service-gocode" ;;
+        4) engine="adkcode"; bot_template="bot-service-adkcode" ;;
+    esac
 
     echo ""
 
@@ -215,7 +218,11 @@ cmd_list() {
             local engine_type="unknown"
             [[ -d "$dir/bot-service" ]] && has_bot="yes"
             [[ -d "$dir/workspace" ]] && has_ws="yes"
-            if [[ -d "$dir/bot-service/server" ]]; then
+            if [[ -f "$dir/bot-service/server/api.py" ]]; then
+                engine_type="adkcode"
+            elif [[ -f "$dir/bot-service/server/go.mod" ]]; then
+                engine_type="gocode"
+            elif [[ -d "$dir/bot-service/server" ]]; then
                 engine_type="claude-code"
             elif [[ -f "$dir/bot-service/opencode.json" ]]; then
                 engine_type="opencode"
@@ -247,6 +254,8 @@ cmd_help() {
     echo ""
     echo "    opencode     Multi-model AI (Claude, GPT, Gemini, DeepSeek, Qwen)"
     echo "    claude-code  Claude only (Agent SDK, simpler, built-in cost control)"
+    echo "    gocode       Go + OpenAI-compatible (DeepSeek, GPT, Qwen, Groq, Ollama)"
+    echo "    adkcode      Google ADK + Gemini (multi-agent: coder, reviewer, tester)"
     echo ""
     echo "  Each project generates 2 directories:"
     echo ""

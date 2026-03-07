@@ -1,0 +1,5 @@
+gocode
+workspace/
+*.yaml
+!config.example.yaml
+.git
