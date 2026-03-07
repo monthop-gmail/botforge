@@ -257,7 +257,16 @@ projects/<name>/
 | `/sessions` | View session info + cost |
 | `/cost` | Show total cost |
 
-**Gocode / ADKcode engines:**
+**Gocode engine:**
+
+| Command | Description |
+|---------|-------------|
+| `/new` | Start a new conversation |
+| `/sessions` | View session status |
+| `/about` | About this bot |
+| `/help` | Show all commands |
+
+**ADKcode engine:**
 
 | Command | Description |
 |---------|-------------|
