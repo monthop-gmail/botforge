@@ -28,13 +28,22 @@ CHUNK_LINES = 80  # lines per chunk
 
 
 def _get_client():
-    """Get Google GenAI client."""
+    """Get Google GenAI client. Supports API key or Vertex AI (ADC)."""
     try:
         from google import genai
         api_key = os.environ.get("GOOGLE_API_KEY", "")
-        if not api_key:
-            raise ValueError("GOOGLE_API_KEY not set")
-        return genai.Client(api_key=api_key)
+        use_vertexai = os.environ.get("GOOGLE_GENAI_USE_VERTEXAI", "").lower() == "true"
+
+        if api_key:
+            return genai.Client(api_key=api_key)
+        elif use_vertexai:
+            return genai.Client(vertexai=True)
+        else:
+            raise ValueError(
+                "No Google AI credentials configured. Set either:\n"
+                "  1) GOOGLE_API_KEY — for Gemini API\n"
+                "  2) GOOGLE_GENAI_USE_VERTEXAI=true + gcloud ADC — for Vertex AI"
+            )
     except ImportError:
         raise ImportError("google-genai not installed. Run: pip install google-genai")
 

@@ -4,12 +4,17 @@ services:
     build: ./server
     container_name: {{CONTAINER_PREFIX}}-server
     environment:
-      - GOOGLE_API_KEY=${GOOGLE_API_KEY}
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY:-}
+      - GOOGLE_GENAI_USE_VERTEXAI=${GOOGLE_GENAI_USE_VERTEXAI:-}
+      - GOOGLE_CLOUD_PROJECT=${GOOGLE_CLOUD_PROJECT:-}
+      - GOOGLE_CLOUD_LOCATION=${GOOGLE_CLOUD_LOCATION:-}
       - ADKCODE_MODEL_SMART=${ADKCODE_MODEL_SMART:-gemini-2.5-flash}
       - ADKCODE_MODEL_FAST=${ADKCODE_MODEL_FAST:-gemini-2.0-flash}
       - PORT=8000
     volumes:
       - ${PROJECT_DIR:-./workspace}:/workspace
+      # Mount host gcloud credentials for ADC (Vertex AI mode, no API key needed)
+      - ${GCLOUD_CONFIG:-~/.config/gcloud}:/root/.config/gcloud:ro
     restart: unless-stopped
 
   # LINE bot - bridges LINE messages to adkcode server

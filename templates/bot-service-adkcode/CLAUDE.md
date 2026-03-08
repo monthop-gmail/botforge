@@ -44,8 +44,11 @@ Gemini API (gemini-2.5-flash, gemini-2.0-flash)
 - `ADKCODE_URL` — Server API URL (default: `http://server:8000`)
 - `PROMPT_TIMEOUT_MS` — Timeout per prompt (default: `120000`)
 
-### Server
-- `GOOGLE_API_KEY` — Google AI API key (required)
+### Server (choose one auth method)
+- `GOOGLE_API_KEY` — Google AI API key (Gemini API)
+- `GOOGLE_GENAI_USE_VERTEXAI` — Set `true` to use Vertex AI + ADC (no API key needed, requires `gcloud auth application-default login`)
+- `GOOGLE_CLOUD_PROJECT` — GCP project ID (required for Vertex AI)
+- `GOOGLE_CLOUD_LOCATION` — GCP region (default: `us-central1`)
 - `ADKCODE_MODEL_SMART` — Smart model for orchestrator/reviewer (default: `gemini-2.5-flash`)
 - `ADKCODE_MODEL_FAST` — Fast model for coder/tester (default: `gemini-2.0-flash`)
 

@@ -28,7 +28,7 @@
 - OpenAI-compatible API key (DeepSeek, GPT, Qwen, Groq, Ollama)
 
 **ADKcode engine:**
-- [Google Gemini](https://aistudio.google.com) API key
+- [Google Gemini](https://aistudio.google.com) API key หรือใช้ Vertex AI + ADC (ไม่ต้องมี key)
 
 **Gemini CLI engine:**
 - [Google Gemini](https://aistudio.google.com) API key หรือใช้ OAuth login (ไม่ต้องมี key)
@@ -146,7 +146,7 @@ LLM_MODEL=deepseek-chat
 - ใช้ Google Gemini เป็นหลัก
 - ต้องการ Google ecosystem
 
-ตั้งค่า `.env`:
+ตั้งค่า `.env` (API key):
 ```env
 LINE_CHANNEL_ACCESS_TOKEN=...
 LINE_CHANNEL_SECRET=...
@@ -155,6 +155,21 @@ GOOGLE_API_KEY=AIza...
 ADKCODE_MODEL_SMART=gemini-2.5-flash
 ADKCODE_MODEL_FAST=gemini-2.0-flash
 ```
+
+หรือใช้ Vertex AI + ADC (ไม่ต้องมี API key):
+```env
+LINE_CHANNEL_ACCESS_TOKEN=...
+LINE_CHANNEL_SECRET=...
+CLOUDFLARE_TUNNEL_TOKEN=...
+GOOGLE_API_KEY=
+GOOGLE_GENAI_USE_VERTEXAI=true
+GOOGLE_CLOUD_PROJECT=your-gcp-project-id
+GOOGLE_CLOUD_LOCATION=us-central1
+ADKCODE_MODEL_SMART=gemini-2.5-flash
+ADKCODE_MODEL_FAST=gemini-2.0-flash
+```
+
+ต้อง login ADC บน host ก่อน: `gcloud auth application-default login`
 
 ### Gemini CLI — Google Gemini CLI agentic
 
