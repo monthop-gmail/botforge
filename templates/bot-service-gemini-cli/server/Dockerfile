@@ -10,10 +10,9 @@ RUN curl -fsSL https://bun.sh/install | BUN_INSTALL=/usr/local bash
 # Install Gemini CLI globally
 RUN npm install -g @google/gemini-cli
 
-# Create non-root user
-RUN useradd -m -s /bin/bash gemini && \
-    mkdir -p /home/gemini/.gemini && \
-    chown -R gemini:gemini /home/gemini/.gemini
+# Use node user (UID 1000, matches typical host user for OAuth mount)
+RUN mkdir -p /home/node/.gemini && \
+    chown -R node:node /home/node/.gemini
 
 WORKDIR /app
 
@@ -22,9 +21,11 @@ RUN bun install
 
 COPY src/ src/
 
-RUN chown -R gemini:gemini /app /home/gemini
+RUN chown -R node:node /app
 
-USER gemini
+USER node
+
+ENV HOME=/home/node
 
 EXPOSE 4096
 

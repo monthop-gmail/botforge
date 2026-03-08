@@ -4,8 +4,8 @@ services:
     build: ./server
     container_name: {{CONTAINER_PREFIX}}-server
     environment:
-      - GEMINI_API_KEY=${GEMINI_API_KEY}
-      - GOOGLE_API_KEY=${GEMINI_API_KEY}
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+      - GOOGLE_API_KEY=${GEMINI_API_KEY:-}
       - API_PASSWORD=${API_PASSWORD:-}
       - GEMINI_MODEL=${GEMINI_MODEL:-gemini-2.5-flash}
       - GEMINI_TIMEOUT_MS=${GEMINI_TIMEOUT_MS:-300000}
@@ -14,7 +14,8 @@ services:
       - WORKSPACE_DIR=/workspace
     volumes:
       - ${PROJECT_DIR:-./workspace}:/workspace
-      - {{CONTAINER_PREFIX}}-data:/home/gemini/.gemini
+      # Mount host ~/.gemini to reuse OAuth login (no API key needed)
+      - ${GEMINI_HOME:-~/.gemini}:/home/node/.gemini
     restart: unless-stopped
 
   # LINE bot - bridges LINE messages to Gemini CLI server
@@ -41,5 +42,3 @@ services:
       - line-bot
     restart: unless-stopped
 
-volumes:
-  {{CONTAINER_PREFIX}}-data:

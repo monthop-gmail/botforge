@@ -161,15 +161,21 @@ ADKCODE_MODEL_FAST=gemini-2.0-flash
 เหมาะสำหรับ:
 - ต้องการ agentic AI จาก Google (อ่าน/เขียนไฟล์, shell, Google Search)
 - ต้องการ session support (คุยต่อเนื่อง)
-- ต้องการ setup ง่ายๆ แค่ `GEMINI_API_KEY`
+- ใช้ OAuth login ได้เลย ไม่ต้องมี API key
 
-ตั้งค่า `.env`:
+ตั้งค่า `.env` (OAuth — แนะนำ):
 ```env
 LINE_CHANNEL_ACCESS_TOKEN=...
 LINE_CHANNEL_SECRET=...
 CLOUDFLARE_TUNNEL_TOKEN=...
-GEMINI_API_KEY=AIza...
+GEMINI_HOME=~/.gemini
 GEMINI_MODEL=gemini-2.5-flash
+```
+
+หรือใช้ API key:
+```env
+GEMINI_API_KEY=AIza...
+GEMINI_HOME=
 ```
 
 ---

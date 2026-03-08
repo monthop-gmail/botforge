@@ -43,15 +43,12 @@ Gemini (gemini-2.5-flash, gemini-2.5-pro, gemini-2.0-flash)
 - `SERVER_PASSWORD` — Server auth (optional)
 - `PROMPT_TIMEOUT_MS` — Timeout per prompt (default: `300000`)
 
-### Server
-- `GEMINI_API_KEY` — Google AI API key (required)
+### Server (choose one auth method)
+- `GEMINI_HOME` — Path to host `~/.gemini` dir for OAuth login (default: `~/.gemini`, no API key needed)
+- `GEMINI_API_KEY` — Google AI API key (alternative to OAuth)
 - `API_PASSWORD` — API auth password (optional)
 - `GEMINI_MODEL` — Model (default: `gemini-2.5-flash`)
 - `GEMINI_TIMEOUT_MS` — Max time per prompt (default: `300000`)
-
-## Docker Volumes
-
-- **`{{CONTAINER_PREFIX}}-data`** → `/home/gemini/.gemini` — Gemini CLI state + sessions
 
 ## Webhook URL
 
