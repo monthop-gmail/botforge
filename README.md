@@ -1,6 +1,6 @@
 # Botforge
 
-**Create AI-powered LINE Bots in seconds.** One command to generate a fully working LINE Bot with multi-model AI support, ready to deploy with Docker. Choose your engine: **OpenCode** (40+ models), **Claude Code** (Anthropic Agent SDK), **Gocode** (Go + OpenAI-compatible), or **ADKcode** (Google ADK + Gemini).
+**Create AI-powered LINE Bots in seconds.** One command to generate a fully working LINE Bot with multi-model AI support, ready to deploy with Docker. Choose your engine: **OpenCode** (40+ models), **Claude Code** (Anthropic Agent SDK), **Gocode** (Go + OpenAI-compatible), **ADKcode** (Google ADK + Gemini), or **Gemini CLI** (Google Gemini CLI).
 
 ```bash
 ./botforge new my-bot
@@ -11,7 +11,7 @@
 ## Features
 
 - **One-command setup** — Generate a complete LINE Bot project with a single command
-- **4 AI engines** — OpenCode (40+ models), Claude Code (Agent SDK), Gocode (Go + OpenAI-compatible), ADKcode (Google ADK + Gemini)
+- **5 AI engines** — OpenCode (40+ models), Claude Code (Agent SDK), Gocode (Go + OpenAI-compatible), ADKcode (Google ADK + Gemini), Gemini CLI (Google Gemini CLI)
 - **Docker-ready** — 3-container architecture: Bot + AI Server + Tunnel
 - **Self-hosted** — Run on your own server, full control, no vendor lock-in
 - **Customizable** — Edit bot behavior via `AGENTS.md`, swap AI providers, add MCP tools
@@ -21,13 +21,14 @@
 
 Choose your AI engine when creating a project:
 
-| | **OpenCode** | **Claude Code** | **Gocode** | **ADKcode** |
-|---|---|---|---|---|
-| **AI Models** | 40+ (Claude, GPT, Gemini, DeepSeek, Qwen) | Claude only (Sonnet, Opus, Haiku) | OpenAI-compatible (DeepSeek, GPT, Qwen, Groq, Ollama) | Gemini (2.5-flash, 2.0-flash) |
-| **Middleware** | OpenCode Server | Claude Agent SDK (direct) | Go server (chi + WebSocket) | Google ADK + FastAPI |
-| **Language** | TypeScript | TypeScript | Go | Python |
-| **Architecture** | Single agent | Single agent | Single agent + tools | Multi-agent (orchestrator → coder, reviewer, tester) |
-| **Best for** | Multi-model flexibility | Claude-focused, simple setup | Self-hosted, any OpenAI-compatible LLM | Google ecosystem, multi-agent workflows |
+| | **OpenCode** | **Claude Code** | **Gocode** | **ADKcode** | **Gemini CLI** |
+|---|---|---|---|---|---|
+| **AI Models** | 40+ (Claude, GPT, Gemini, DeepSeek, Qwen) | Claude only (Sonnet, Opus, Haiku) | OpenAI-compatible (DeepSeek, GPT, Qwen, Groq, Ollama) | Gemini (2.5-flash, 2.0-flash) | Gemini (2.5-flash, 2.5-pro, 2.0-flash) |
+| **Auth** | API keys | API key or OAuth | API key | API key or Vertex AI ADC | API key or OAuth |
+| **Middleware** | OpenCode Server | Claude Agent SDK (direct) | Go server (chi + WebSocket) | Google ADK + FastAPI | Hono + Gemini CLI |
+| **Language** | TypeScript | TypeScript | Go | Python | TypeScript |
+| **Architecture** | Single agent | Single agent | Single agent + tools | Multi-agent (orchestrator → coder, reviewer, tester) | Single agent (agentic CLI) |
+| **Best for** | Multi-model flexibility | Claude-focused, simple setup | Self-hosted, any OpenAI-compatible LLM | Google ecosystem, multi-agent workflows | Google Gemini, session support, OAuth login |
 
 ## How It Works
 
@@ -68,6 +69,12 @@ LINE App → Tunnel → LINE Bot (Bun) → ADKcode Server (FastAPI, port 8000)
                                         '--- reviewer (Gemini 2.5 Flash)
 ```
 
+**Gemini CLI engine:**
+```
+LINE App → Tunnel → LINE Bot (Bun) → Gemini CLI Server (Hono, port 4096)
+                                        '--- gemini -p "..." --output-format json --resume <id>
+```
+
 ---
 
 ## Quick Start
@@ -78,11 +85,12 @@ LINE App → Tunnel → LINE Bot (Bun) → ADKcode Server (FastAPI, port 8000)
 - Bash shell
 - [LINE Developers Account](https://developers.line.biz)
 - [Cloudflare Account](https://cloudflare.com) with a domain
-- At least 1 AI API key:
+- At least 1 AI API key (or OAuth/ADC login):
   - **OpenCode engine:** [Qwen](https://dashscope.console.aliyun.com) or [DeepSeek](https://platform.deepseek.com) (free/cheap tiers)
-  - **Claude Code engine:** [Anthropic](https://console.anthropic.com) API key
+  - **Claude Code engine:** [Anthropic](https://console.anthropic.com) API key or Claude Pro/Max OAuth
   - **Gocode engine:** Any OpenAI-compatible API key (DeepSeek, OpenAI, Qwen, Groq, etc.)
-  - **ADKcode engine:** [Google AI](https://aistudio.google.com) API key (Gemini)
+  - **ADKcode engine:** [Google AI](https://aistudio.google.com) API key or Vertex AI + ADC (`gcloud auth application-default login`)
+  - **Gemini CLI engine:** [Google AI](https://aistudio.google.com) API key or OAuth login (no key needed)
 
 ### 1. Clone & Create
 
@@ -128,6 +136,7 @@ $ ./botforge new customer-support
     2) claude-code — Claude only (Agent SDK, simpler, cost control)
     3) gocode      — Go + OpenAI-compatible (DeepSeek, GPT, Qwen, Groq, Ollama)
     4) adkcode     — Google ADK + Gemini (multi-agent: coder, reviewer, tester)
+    5) gemini-cli  — Google Gemini CLI (agentic, session support)
   Select [1]: 3
 
   GitHub org/user [monthop-gmail]:
@@ -233,6 +242,27 @@ projects/<name>/
     └── docs/
 ```
 
+**Gemini CLI engine:**
+```
+projects/<name>/
+├── bot-service/
+│   ├── src/index.ts              # Bot logic (TypeScript/Bun)
+│   ├── docker-compose.yml        # 3 services: server, line-bot, cloudflared
+│   ├── Dockerfile                # LINE bot container
+│   ├── server/                   # Gemini CLI API server
+│   │   ├── Dockerfile            # Node 22 + Bun + Gemini CLI
+│   │   └── src/
+│   │       ├── index.ts          # Hono REST API
+│   │       ├── gemini.ts         # Gemini CLI child process wrapper
+│   │       ├── session.ts        # Session manager
+│   │       └── events.ts         # SSE event bus
+│   ├── .env.example
+│   └── workspace/GEMINI.md
+└── workspace/
+    ├── AGENTS.md
+    └── docs/
+```
+
 ---
 
 ## LINE Bot Commands
@@ -276,6 +306,14 @@ projects/<name>/
 | `/about` | About this bot |
 | `/help` | Show all commands |
 
+**Gemini CLI engine:**
+
+| Command | Description |
+|---------|-------------|
+| `/new` | Start a new conversation |
+| `/abort` | Cancel current prompt |
+| `/sessions` | View session status |
+
 ---
 
 ## Customization
@@ -308,13 +346,17 @@ Set `GOCODE_BASE_URL` and `GOCODE_MODEL` in `.env` (supports DeepSeek, OpenAI, Q
 
 Set `ADKCODE_MODEL_SMART` and `ADKCODE_MODEL_FAST` in `.env`
 
+### Change Gemini model (Gemini CLI engine)
+
+Set `GEMINI_MODEL` in `.env` to `gemini-2.5-flash`, `gemini-2.5-pro`, or `gemini-2.0-flash`
+
 ### Add MCP tools
 
 Create `workspace/opencode.jsonc` with your MCP server configuration.
 
 ### Modify templates
 
-Edit files in `templates/bot-service-opencode/`, `templates/bot-service-claude-code/`, `templates/bot-service-gocode/`, `templates/bot-service-adkcode/`, or `templates/workspace/`. Use these placeholders:
+Edit files in `templates/bot-service-opencode/`, `templates/bot-service-claude-code/`, `templates/bot-service-gocode/`, `templates/bot-service-adkcode/`, `templates/bot-service-gemini-cli/`, or `templates/workspace/`. Use these placeholders:
 
 | Placeholder | Replaced with |
 |-------------|--------------|
@@ -346,6 +388,8 @@ Botforge is and will always be **100% open source**. The Cloud option is for tea
 - [x] Claude Code engine via Agent SDK (Sonnet/Opus/Haiku)
 - [x] Gocode engine (Go + OpenAI-compatible LLM)
 - [x] ADKcode engine (Google ADK + Gemini, multi-agent)
+- [x] Gemini CLI engine (Google Gemini CLI, agentic, session support)
+- [x] OAuth/ADC support (Gemini CLI OAuth, ADKcode Vertex AI ADC)
 - [x] Engine selection during project creation
 - [x] Docker Compose deployment
 - [x] Cloudflare Tunnel integration
@@ -397,4 +441,4 @@ cd botforge
 
 ---
 
-**Built with [OpenCode](https://opencode.ai) + [Claude Agent SDK](https://docs.anthropic.com/en/docs/agents-and-tools/claude-code/sdk) + [Gocode](https://github.com/monthop-gmail/gocode) + [Google ADK](https://google.github.io/adk-docs/) + [LINE Messaging API](https://developers.line.biz) + [Cloudflare Tunnel](https://cloudflare.com)**
+**Built with [OpenCode](https://opencode.ai) + [Claude Agent SDK](https://docs.anthropic.com/en/docs/agents-and-tools/claude-code/sdk) + [Gocode](https://github.com/monthop-gmail/gocode) + [Google ADK](https://google.github.io/adk-docs/) + [Gemini CLI](https://github.com/google-gemini/gemini-cli) + [LINE Messaging API](https://developers.line.biz) + [Cloudflare Tunnel](https://cloudflare.com)**
