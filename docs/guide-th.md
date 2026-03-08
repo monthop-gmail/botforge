@@ -108,10 +108,10 @@ OPENCODE_PASSWORD=changeme
 
 เหมาะสำหรับ:
 - ต้องการใช้แค่ Claude (Sonnet/Opus/Haiku)
-- ต้องการ setup ง่ายๆ แค่ ANTHROPIC_API_KEY
+- ต้องการ setup ง่ายๆ แค่ ANTHROPIC_API_KEY หรือ OAuth
 - ต้องการคุม cost ด้วย `CLAUDE_MAX_BUDGET_USD`
 
-ตั้งค่า `.env`:
+ตั้งค่า `.env` (API key):
 ```env
 LINE_CHANNEL_ACCESS_TOKEN=...
 LINE_CHANNEL_SECRET=...
@@ -121,6 +121,20 @@ CLAUDE_MODEL=sonnet
 CLAUDE_MAX_TURNS=10
 CLAUDE_MAX_BUDGET_USD=1.00
 ```
+
+หรือใช้ OAuth (ไม่ต้องมี API key):
+```env
+LINE_CHANNEL_ACCESS_TOKEN=...
+LINE_CHANNEL_SECRET=...
+CLOUDFLARE_TUNNEL_TOKEN=...
+ANTHROPIC_API_KEY=
+CLAUDE_MODEL=sonnet
+CLAUDE_MAX_TURNS=10
+CLAUDE_MAX_BUDGET_USD=1.00
+```
+
+ถ้า host มี `~/.claude` อยู่แล้ว → ใช้ได้เลย
+ถ้าไม่มี → login ใน container: `docker exec -it <container>-server claude login`
 
 ### Gocode — Go + OpenAI-compatible LLM
 
@@ -270,6 +284,7 @@ API Token ต้องมีสิทธิ์:
 | คำสั่ง | หน้าที่ |
 |--------|---------|
 | `/new` | เริ่ม session ใหม่ |
+| `/abort` | ยกเลิก prompt |
 | `/sessions` | ดู session status |
 | `/about` | แนะนำตัว bot |
 | `/help` | คำสั่งทั้งหมด |
