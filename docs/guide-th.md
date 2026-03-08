@@ -385,6 +385,14 @@ docker compose up -d --build line-bot
 
 แก้ `CLAUDE_MODEL` ใน `.env` → `sonnet`, `opus`, หรือ `haiku`
 
+### เปลี่ยน LLM provider (Gocode)
+
+แก้ `GOCODE_BASE_URL` และ `GOCODE_MODEL` ใน `.env` (รองรับ DeepSeek, OpenAI, Qwen, Groq, Together, Ollama)
+
+### เปลี่ยน Gemini model (ADKcode)
+
+แก้ `ADKCODE_MODEL_SMART` และ `ADKCODE_MODEL_FAST` ใน `.env`
+
 ### เปลี่ยน Gemini model (Gemini CLI)
 
 แก้ `GEMINI_MODEL` ใน `.env` → `gemini-2.5-flash`, `gemini-2.5-pro`, หรือ `gemini-2.0-flash`
