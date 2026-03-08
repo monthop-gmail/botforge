@@ -14,41 +14,9 @@ const lineOAUrl = process.env.LINE_OA_URL ?? "https://line.me/ti/p/~your-oa"
 const MODELS: Record<string, { providerID: string; modelID: string; label: string }> = {
   // opencode (Free via Zen)
   "opencode/big-pickle":              { providerID: "opencode",  modelID: "big-pickle",                label: "Big Pickle (Free)" },
-  "opencode/claude-opus-4-6":         { providerID: "opencode",  modelID: "claude-opus-4-6",           label: "Claude Opus 4.6 (Free)" },
-  "opencode/gpt-5.3-codex":           { providerID: "opencode",  modelID: "gpt-5.3-codex",             label: "GPT-5.3 Codex (Free)" },
-  "opencode/gemini-3.1-pro":          { providerID: "opencode",  modelID: "gemini-3.1-pro",            label: "Gemini 3.1 Pro (Free)" },
-  "opencode/kimi-k2.5":               { providerID: "opencode",  modelID: "kimi-k2.5",                 label: "Kimi K2.5 (Free)" },
-  "opencode/glm-5":                   { providerID: "opencode",  modelID: "glm-5",                     label: "GLM-5 (Free)" },
-  "opencode/minimax-m2.5-free":       { providerID: "opencode",  modelID: "minimax-m2.5-free",         label: "MiniMax M2.5 (Free)" },
-  "opencode/trinity-large-preview-free": { providerID: "opencode", modelID: "trinity-large-preview-free", label: "Trinity Large (Free)" },
-  "opencode/claude-sonnet-4-6":        { providerID: "opencode",  modelID: "claude-sonnet-4-6",         label: "Claude Sonnet 4.6 (Free)" },
-  "opencode/gpt-5.2-codex":            { providerID: "opencode",  modelID: "gpt-5.2-codex",             label: "GPT-5.2 Codex (Free)" },
-  "opencode/kimi-k2-thinking":         { providerID: "opencode",  modelID: "kimi-k2-thinking",          label: "Kimi K2 Thinking (Free)" },
-  "opencode/minimax-m2.5":             { providerID: "opencode",  modelID: "minimax-m2.5",              label: "MiniMax M2.5 (Free)" },
-  // anthropic (OAuth)
-  "anthropic/claude-opus-4-6":        { providerID: "anthropic", modelID: "claude-opus-4-6",           label: "Claude Opus 4.6" },
-  "anthropic/claude-sonnet-4-6":      { providerID: "anthropic", modelID: "claude-sonnet-4-6",         label: "Claude Sonnet 4.6" },
-  "anthropic/claude-haiku-4-5":       { providerID: "anthropic", modelID: "claude-haiku-4-5-20251001", label: "Claude Haiku 4.5" },
-  // deepseek (API key)
-  "deepseek/deepseek-chat":           { providerID: "deepseek",  modelID: "deepseek-chat",             label: "DeepSeek Chat" },
-  "deepseek/deepseek-reasoner":       { providerID: "deepseek",  modelID: "deepseek-reasoner",         label: "DeepSeek Reasoner" },
-  // google (API key)
-  "google/gemini-3.1-pro-preview":    { providerID: "google",    modelID: "gemini-3.1-pro-preview",    label: "Gemini 3.1 Pro" },
-  "google/gemini-3-pro-preview":      { providerID: "google",    modelID: "gemini-3-pro-preview",      label: "Gemini 3 Pro" },
-  "google/gemini-3-flash-preview":    { providerID: "google",    modelID: "gemini-3-flash-preview",    label: "Gemini 3 Flash" },
-  // openai (OAuth)
-  "openai/gpt-5.3-codex":             { providerID: "openai",    modelID: "gpt-5.3-codex",             label: "GPT-5.3 Codex" },
-  "openai/gpt-5.2":                   { providerID: "openai",    modelID: "gpt-5.2",                   label: "GPT-5.2" },
-  "openai/gpt-5.2-codex":             { providerID: "openai",    modelID: "gpt-5.2-codex",             label: "GPT-5.2 Codex" },
-  "openai/gpt-5.3-codex-spark":       { providerID: "openai",    modelID: "gpt-5.3-codex-spark",       label: "GPT-5.3 Codex Spark" },
-  // google (API key) - custom tools variant
-  "google/gemini-3.1-pro-preview-customtools": { providerID: "google", modelID: "gemini-3.1-pro-preview-customtools", label: "Gemini 3.1 Pro CustomTools" },
   // qwen (API key)
   "qwen/qwen3.5-plus":                { providerID: "qwen",      modelID: "qwen3.5-plus",              label: "Qwen3.5 Plus (1M)" },
   "qwen/qwen3.5-397b-a17b":           { providerID: "qwen",      modelID: "qwen3.5-397b-a17b",         label: "Qwen3.5 397B" },
-  "qwen/qwen-plus":                   { providerID: "qwen",      modelID: "qwen-plus",                 label: "Qwen Plus" },
-  "qwen/qwen3-coder-plus":            { providerID: "qwen",      modelID: "qwen3-coder-plus",          label: "Qwen3 Coder" },
-  "qwen/qwen-turbo":                  { providerID: "qwen",      modelID: "qwen-turbo",                label: "Qwen Turbo" },
 }
 const DEFAULT_MODEL = "qwen/qwen3.5-plus"
 
