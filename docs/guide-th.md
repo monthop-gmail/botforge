@@ -30,6 +30,9 @@
 **ADKcode engine:**
 - [Google Gemini](https://aistudio.google.com) API key
 
+**Gemini CLI engine:**
+- [Google Gemini](https://aistudio.google.com) API key
+
 ---
 
 ## เริ่มต้นใช้งาน
@@ -55,6 +58,7 @@ cd botforge
     2) claude-code — Claude only (Agent SDK, simpler, cost control)
     3) gocode      — Go + OpenAI-compatible LLM
     4) adkcode     — Google ADK + Gemini multi-agent
+    5) gemini-cli  — Google Gemini CLI (agentic, session support)
   Select [1]: 1
 
   GitHub org/user [monthop-gmail]: ↵
@@ -152,6 +156,22 @@ ADKCODE_MODEL_SMART=gemini-2.5-flash
 ADKCODE_MODEL_FAST=gemini-2.0-flash
 ```
 
+### Gemini CLI — Google Gemini CLI agentic
+
+เหมาะสำหรับ:
+- ต้องการ agentic AI จาก Google (อ่าน/เขียนไฟล์, shell, Google Search)
+- ต้องการ session support (คุยต่อเนื่อง)
+- ต้องการ setup ง่ายๆ แค่ `GEMINI_API_KEY`
+
+ตั้งค่า `.env`:
+```env
+LINE_CHANNEL_ACCESS_TOKEN=...
+LINE_CHANNEL_SECRET=...
+CLOUDFLARE_TUNNEL_TOKEN=...
+GEMINI_API_KEY=AIza...
+GEMINI_MODEL=gemini-2.5-flash
+```
+
 ---
 
 ## ตั้งค่า LINE Bot
@@ -242,6 +262,14 @@ API Token ต้องมีสิทธิ์:
 | `/sessions` | ดู session status |
 | `/about` | แนะนำตัว bot |
 | `/help` | คำสั่งทั้งหมด |
+
+### Gemini CLI engine
+
+| คำสั่ง | หน้าที่ |
+|--------|---------|
+| `/new` | เริ่ม session ใหม่ |
+| `/abort` | ยกเลิก prompt |
+| `/sessions` | ดู session status |
 
 ---
 
@@ -335,6 +363,10 @@ docker compose up -d --build line-bot
 ### เปลี่ยน Claude model (Claude Code)
 
 แก้ `CLAUDE_MODEL` ใน `.env` → `sonnet`, `opus`, หรือ `haiku`
+
+### เปลี่ยน Gemini model (Gemini CLI)
+
+แก้ `GEMINI_MODEL` ใน `.env` → `gemini-2.5-flash`, `gemini-2.5-pro`, หรือ `gemini-2.0-flash`
 
 ---
 

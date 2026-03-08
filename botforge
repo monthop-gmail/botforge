@@ -87,6 +87,7 @@ cmd_new() {
     echo "    2) claude-code — Claude only (Agent SDK, simpler, cost control)"
     echo "    3) gocode      — Go + OpenAI-compatible (DeepSeek, GPT, Qwen, Groq, Ollama)"
     echo "    4) adkcode     — Google ADK + Gemini (multi-agent: coder, reviewer, tester)"
+    echo "    5) gemini-cli  — Google Gemini CLI (agentic, session support, Google Search)"
     read -rp "  Select [1]: " engine_choice
     engine_choice="${engine_choice:-1}"
 
@@ -96,6 +97,7 @@ cmd_new() {
         2) engine="claude-code"; bot_template="bot-service-claude-code" ;;
         3) engine="gocode"; bot_template="bot-service-gocode" ;;
         4) engine="adkcode"; bot_template="bot-service-adkcode" ;;
+        5) engine="gemini-cli"; bot_template="bot-service-gemini-cli" ;;
     esac
 
     echo ""
@@ -222,6 +224,8 @@ cmd_list() {
                 engine_type="adkcode"
             elif [[ -f "$dir/bot-service/server/go.mod" ]]; then
                 engine_type="gocode"
+            elif grep -q "GEMINI" "$dir/bot-service/docker-compose.yml" 2>/dev/null; then
+                engine_type="gemini-cli"
             elif [[ -d "$dir/bot-service/server" ]]; then
                 engine_type="claude-code"
             elif [[ -f "$dir/bot-service/opencode.json" ]]; then
@@ -256,6 +260,7 @@ cmd_help() {
     echo "    claude-code  Claude only (Agent SDK, simpler, built-in cost control)"
     echo "    gocode       Go + OpenAI-compatible (DeepSeek, GPT, Qwen, Groq, Ollama)"
     echo "    adkcode      Google ADK + Gemini (multi-agent: coder, reviewer, tester)"
+    echo "    gemini-cli   Google Gemini CLI (agentic, session support, Google Search)"
     echo ""
     echo "  Each project generates 2 directories:"
     echo ""
