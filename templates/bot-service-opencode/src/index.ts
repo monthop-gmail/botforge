@@ -614,7 +614,7 @@ async function handleTextMessage(
 
 💬 คุยส่วนตัวกับ AI: ${lineOAUrl}
 
-📦 GitHub: https://github.com/monthop-gmail/oc-line-claude`
+📦 GitHub: https://github.com/{{GITHUB_ORG}}/{{PROJECT_NAME}}`
 
     await lineClient.replyMessage({
       replyToken,
@@ -635,7 +635,7 @@ async function handleTextMessage(
 🧪 Playground — พิมพ์ /playground
 🧘 Meditation — พิมพ์ /meditation
 
-📦 GitHub: https://github.com/monthop-gmail/oc-line-claude
+📦 GitHub: https://github.com/{{GITHUB_ORG}}/{{PROJECT_NAME}}
 💬 คุยส่วนตัว: ${lineOAUrl}
 📖 พิมพ์ /help ดูคำสั่งทั้งหมด`
     

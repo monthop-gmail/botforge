@@ -67,6 +67,8 @@ detect_engine() {
         echo "adkcode"
     elif [[ -f "$dir/server/go.mod" ]]; then
         echo "gocode"
+    elif grep -q "GEMINI" "$dir/docker-compose.yml" 2>/dev/null; then
+        echo "gemini-cli"
     elif [[ -d "$dir/server" ]]; then
         echo "claude-code"
     elif [[ -f "$dir/opencode.json" ]]; then
