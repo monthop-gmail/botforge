@@ -10,7 +10,7 @@
 - Bash shell (Linux/macOS/WSL)
 - [LINE Developers Account](https://developers.line.biz)
 - [Cloudflare Account](https://cloudflare.com) + domain
-- AI API Key อย่างน้อย 1 ตัว
+- AI API Key อย่างน้อย 1 ตัว (หรือ OAuth login สำหรับ Gemini CLI)
 
 ### API Keys ตาม engine ที่เลือก
 
@@ -31,7 +31,7 @@
 - [Google Gemini](https://aistudio.google.com) API key
 
 **Gemini CLI engine:**
-- [Google Gemini](https://aistudio.google.com) API key
+- [Google Gemini](https://aistudio.google.com) API key หรือใช้ OAuth login (ไม่ต้องมี key)
 
 ---
 
