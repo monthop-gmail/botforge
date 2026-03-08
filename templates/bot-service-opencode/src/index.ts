@@ -360,7 +360,7 @@ async function handleJoinEvent(event: any): Promise<void> {
   if (chatId) {
     console.log(`Bot joined group/room: ${chatId}`)
     // Send welcome message with CNY greeting
-    const welcomeMsg = `🧑‍💻 สวัสดีครับ! ผม OC Claude Bot
+    const welcomeMsg = `🧑‍💻 สวัสดีครับ! ผม OpenCode Bot
 
 💬 พิมพ์อะไรก็ได้ ผมช่วยได้ครับ
 📖 พิมพ์ /help ดูคำสั่งทั้งหมด
@@ -771,7 +771,7 @@ Bun.serve({
 
     // Health check
     if (req.method === "GET" && url.pathname === "/") {
-      return new Response("OC Claude LINE Bot is running")
+      return new Response("OpenCode LINE Bot is running")
     }
 
     // About page
@@ -781,7 +781,7 @@ Bun.serve({
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>OC Claude LINE Bot — About</title>
+<title>OpenCode LINE Bot — About</title>
 <style>
   *{margin:0;padding:0;box-sizing:border-box}
   body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#0a0a1a;color:#e0e0e0;min-height:100vh;padding:2rem 1rem}
@@ -804,45 +804,8 @@ Bun.serve({
 </head>
 <body>
 <div class="container">
-  <h1>OC Claude LINE Bot</h1>
-  <p>AI assistant powered by Claude — ถามคำถาม ให้ AI ช่วยตอบได้เลยผ่าน LINE</p>
-
-  <h2>JIBJIB Meditation DApp</h2>
-  <div class="card">
-    <h3>ทำสมาธิ 5 นาที รับ Reward บน Blockchain</h3>
-    <p>DApp สำหรับฝึกสมาธิ ทำครบ 5 นาทีรับ token reward อัตโนมัติ รองรับหลาย chain</p>
-    <ul>
-      <li><span class="badge badge-green">JB Chain</span> JIBJIB 100K / JIBJIB C 50K / JBC 0.01 ต่อรอบ</li>
-      <li><span class="badge badge-green">KUB Testnet</span> tKUB 0.001 ต่อรอบ</li>
-      <li>ทำได้ 3 ครั้ง/วัน เว้น 3 ชม. ระหว่างรอบ — Bonus 2x หลัง 22:00 UTC</li>
-    </ul>
-    <div class="links">
-      <a href="https://jibjib-meditation.pages.dev" target="_blank">เปิดแอป</a>
-      <a href="https://github.com/monthop-gmail/jibjib-meditation-dapp" target="_blank">GitHub Repo</a>
-    </div>
-  </div>
-
-  <h2>Tech Stack</h2>
-  <div class="card">
-    <p>
-      <span class="badge">Solidity 0.8.19</span>
-      <span class="badge">React</span>
-      <span class="badge">Wagmi V2</span>
-      <span class="badge">Viem</span>
-      <span class="badge">RainbowKit</span>
-      <span class="badge">Cloudflare Pages</span>
-    </p>
-  </div>
-
-  <h2>ร่วม Dev</h2>
-  <div class="card">
-    <h3>Open Source — ยินดีต้อนรับทุกคน</h3>
-    <ul>
-      <li>Fork repo แล้ว PR มาได้เลย</li>
-      <li>ดู <a href="https://github.com/monthop-gmail/jibjib-meditation-dapp/issues" target="_blank">Issues</a> สำหรับงานที่รอคนช่วย</li>
-      <li>Smart Contract (Solidity) / Frontend (React) / UX Design</li>
-    </ul>
-  </div>
+  <h1>OpenCode LINE Bot</h1>
+  <p>AI assistant powered by OpenCode — ถามคำถาม ให้ AI ช่วยตอบได้เลยผ่าน LINE</p>
 
   <h2>LINE Bot Commands</h2>
   <div class="card">
