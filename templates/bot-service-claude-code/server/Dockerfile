@@ -7,10 +7,12 @@ RUN apt-get update && apt-get install -y curl unzip git && \
 # Install bun globally
 RUN curl -fsSL https://bun.sh/install | BUN_INSTALL=/usr/local bash
 
-# SDK bundles Claude Code CLI — no need: npm install -g @anthropic-ai/claude-code
+# Install Claude Code CLI (for OAuth login inside container)
+RUN npm install -g @anthropic-ai/claude-code
 
-# Create non-root user (required for bypassPermissions mode)
-RUN useradd -m -s /bin/bash claude
+# Create non-root user with UID 1000 to match host user (for OAuth mount)
+# node:22-slim already has 'node' user at UID 1000, so remove it first
+RUN userdel -r node 2>/dev/null; useradd -m -s /bin/bash -u 1000 claude
 
 WORKDIR /app
 

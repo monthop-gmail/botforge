@@ -43,16 +43,20 @@ Claude (sonnet, opus, haiku)
 - `SERVER_PASSWORD` — Server auth (optional)
 - `PROMPT_TIMEOUT_MS` — Timeout per prompt (default: `300000`)
 
-### Server
-- `ANTHROPIC_API_KEY` — Anthropic API key (required)
+### Server (choose one auth method)
+- `ANTHROPIC_API_KEY` — Anthropic API key (or leave empty for OAuth)
+- `CLAUDE_HOME` — Path to host ~/.claude dir for OAuth login (default: `~/.claude`, no API key needed)
 - `API_PASSWORD` — API auth password (optional)
 - `CLAUDE_MODEL` — Model: sonnet/opus/haiku (default: `sonnet`)
 - `CLAUDE_MAX_TURNS` — Max agentic turns (default: `10`)
 - `CLAUDE_MAX_BUDGET_USD` — Max spend per prompt (default: `1.00`)
 
-## Docker Volumes
+## OAuth Login (no API key)
 
-- **`{{CONTAINER_PREFIX}}-data`** → `/home/claude/.claude` — Claude SDK state
+If no `~/.claude` credentials on host, login inside container:
+```bash
+docker exec -it {{CONTAINER_PREFIX}}-server claude login
+```
 
 ## Webhook URL
 

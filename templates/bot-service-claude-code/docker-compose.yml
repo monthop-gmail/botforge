@@ -4,7 +4,7 @@ services:
     build: ./server
     container_name: {{CONTAINER_PREFIX}}-server
     environment:
-      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
       - API_PASSWORD=${API_PASSWORD:-}
       - CLAUDE_MODEL=${CLAUDE_MODEL:-sonnet}
       - CLAUDE_MAX_TURNS=${CLAUDE_MAX_TURNS:-10}
@@ -13,7 +13,8 @@ services:
       - WORKSPACE_DIR=/workspace
     volumes:
       - ${PROJECT_DIR:-./workspace}:/workspace
-      - {{CONTAINER_PREFIX}}-data:/home/claude/.claude
+      # Mount host ~/.claude for OAuth credentials (no API key needed)
+      - ${CLAUDE_HOME:-~/.claude}:/home/claude/.claude
     restart: unless-stopped
 
   # LINE bot - bridges LINE messages to server
@@ -39,6 +40,3 @@ services:
     depends_on:
       - line-bot
     restart: unless-stopped
-
-volumes:
-  {{CONTAINER_PREFIX}}-data:
