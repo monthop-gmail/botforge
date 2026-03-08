@@ -257,7 +257,7 @@ projects/<name>/
 │   │       ├── session.ts        # Session manager
 │   │       └── events.ts         # SSE event bus
 │   ├── .env.example
-│   └── workspace/GEMINI.md
+│   └── workspace/AGENTS.md
 └── workspace/
     ├── AGENTS.md
     └── docs/

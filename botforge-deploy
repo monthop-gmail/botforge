@@ -375,6 +375,7 @@ CF_ACCOUNT_ID=$account_id
 CF_ZONE_ID=$zone_id
 CF_DOMAIN=$domain
 EOF
+    chmod 600 "$CONFIG_FILE"
 
     echo ""
     print_success "  Config saved to $CONFIG_FILE"

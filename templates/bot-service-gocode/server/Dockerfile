@@ -13,6 +13,6 @@ RUN apk add --no-cache bash git curl
 WORKDIR /workspace
 COPY --from=builder /app/gocode /usr/local/bin/gocode
 
-EXPOSE 3000
+EXPOSE 4096
 ENTRYPOINT ["gocode"]
 CMD ["serve"]

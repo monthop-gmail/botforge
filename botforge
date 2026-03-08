@@ -105,9 +105,17 @@ cmd_new() {
     # Get config
     read -rp "  GitHub org/user [$DEFAULT_GITHUB_ORG]: " github_org
     github_org="${github_org:-$DEFAULT_GITHUB_ORG}"
+    if [[ ! "$github_org" =~ ^[a-zA-Z0-9._-]+$ ]]; then
+        print_error "Invalid GitHub org/user: '$github_org' (alphanumeric, dots, hyphens, underscores only)"
+        exit 1
+    fi
 
     read -rp "  Domain suffix [$DEFAULT_DOMAIN_SUFFIX]: " domain_suffix
     domain_suffix="${domain_suffix:-$DEFAULT_DOMAIN_SUFFIX}"
+    if [[ ! "$domain_suffix" =~ ^[a-zA-Z0-9.-]+$ ]]; then
+        print_error "Invalid domain suffix: '$domain_suffix' (alphanumeric, dots, hyphens only)"
+        exit 1
+    fi
 
     local domain="${project_name}.${domain_suffix}"
     local container_prefix="$project_name"

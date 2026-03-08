@@ -307,6 +307,24 @@ async function handleTextMessage(
     return
   }
 
+  if (text.toLowerCase() === "/abort") {
+    const session = sessionKey ? sessions.get(sessionKey) : null
+    if (session) {
+      await gocodeRequest("DELETE", `/api/sessions/${session.sessionId}`).catch(() => {})
+      sessions.delete(sessionKey!)
+      await lineClient.replyMessage({
+        replyToken,
+        messages: [{ type: "text", text: "ยกเลิกคำสั่งแล้วครับ" }],
+      })
+    } else {
+      await lineClient.replyMessage({
+        replyToken,
+        messages: [{ type: "text", text: "ไม่มี session ที่ใช้งานอยู่ครับ" }],
+      })
+    }
+    return
+  }
+
   if (text.toLowerCase() === "/sessions") {
     const session = sessionKey ? sessions.get(sessionKey) : null
     const msg = session
@@ -344,6 +362,7 @@ async function handleTextMessage(
 
 💻 Session
   /new — เริ่มบทสนทนาใหม่
+  /abort — ยกเลิก prompt ที่กำลังทำ
   /sessions — ดูสถานะ session
 
 💬 วิธีใช้งาน:
