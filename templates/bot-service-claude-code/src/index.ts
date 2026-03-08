@@ -264,6 +264,44 @@ async function handleTextMessage(
     return
   }
 
+  if (text.toLowerCase() === "/about" || text.toLowerCase() === "/who") {
+    const aboutMsg = `🧑‍💻 สวัสดีครับ! ผมคือ Claude Code Bot
+
+🤖 AI Coding Agent (Claude Agent SDK)
+📱 ทำงานผ่าน LINE — ถามอะไรก็ได้ ช่วยเขียน code ให้
+
+📦 GitHub: https://github.com/{{GITHUB_ORG}}/{{PROJECT_NAME}}
+📖 พิมพ์ /help ดูคำสั่งทั้งหมด`
+    await lineClient.replyMessage({
+      replyToken,
+      messages: [{ type: "text", text: aboutMsg }],
+    })
+    return
+  }
+
+  if (text.toLowerCase() === "/help" || text.toLowerCase() === "/คำสั่ง") {
+    const helpMsg = `📖 คำสั่งทั้งหมด:
+
+🤖 ทั่วไป
+  /about — แนะนำตัว bot
+  /help — คำสั่งทั้งหมด
+
+💻 Session
+  /new — เริ่มบทสนทนาใหม่
+  /abort — ยกเลิก prompt ที่กำลังทำ
+  /sessions — ดูสถานะ session + cost
+  /cost — ดูค่าใช้จ่าย
+
+💬 วิธีใช้งาน:
+  แชทส่วนตัว — พิมพ์ได้เลย!
+  ในกลุ่ม — พิมพ์ได้เลย bot จะตอบทุกข้อความ`
+    await lineClient.replyMessage({
+      replyToken,
+      messages: [{ type: "text", text: helpMsg }],
+    })
+    return
+  }
+
   if (text.toLowerCase() === "/cost") {
     const session = sessions.get(userId)
     const msg = session

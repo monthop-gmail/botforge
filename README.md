@@ -286,6 +286,8 @@ projects/<name>/
 | `/abort` | Cancel current prompt |
 | `/sessions` | View session info + cost |
 | `/cost` | Show total cost |
+| `/about` | About this bot |
+| `/help` | Show all commands |
 
 **Gocode engine:**
 

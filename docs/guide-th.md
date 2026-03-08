@@ -278,6 +278,8 @@ API Token ต้องมีสิทธิ์:
 | `/abort` | ยกเลิก prompt |
 | `/sessions` | ดู session + cost |
 | `/cost` | ดูค่าใช้จ่าย |
+| `/about` | แนะนำตัว bot |
+| `/help` | คำสั่งทั้งหมด |
 
 ### Gocode engine
 
