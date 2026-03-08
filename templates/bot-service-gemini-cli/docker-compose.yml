@@ -9,7 +9,7 @@ services:
       - API_PASSWORD=${API_PASSWORD:-}
       - GEMINI_MODEL=${GEMINI_MODEL:-gemini-2.5-flash}
       - GEMINI_TIMEOUT_MS=${GEMINI_TIMEOUT_MS:-300000}
-      - GEMINI_SANDBOX=none
+      - GEMINI_SANDBOX=false
       - PORT=4096
       - WORKSPACE_DIR=/workspace
     volumes:

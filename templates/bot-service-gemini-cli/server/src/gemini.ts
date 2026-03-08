@@ -52,10 +52,7 @@ export async function runGemini(
 
     const child = spawn("gemini", args, {
       cwd,
-      env: {
-        ...process.env,
-        GEMINI_SANDBOX: "none",
-      },
+      env: process.env as NodeJS.ProcessEnv,
       stdio: ["pipe", "pipe", "pipe"],
     })
 
@@ -90,7 +87,7 @@ export async function runGemini(
       try {
         const parsed = JSON.parse(stdout)
         resultText = parsed.response ?? parsed.result ?? ""
-        sessionId = parsed.sessionId ?? ""
+        sessionId = parsed.session_id ?? parsed.sessionId ?? ""
 
         if (parsed.error) {
           isError = true
