@@ -604,36 +604,14 @@ async function handleTextMessage(
     return
   }
 
-  // CNY Greeting command
-  if (text.toLowerCase() === "/cny") {
-    const cnyMsg = `🧧 สวัสดีปีมะเส็ง 2569 🧧
-
-🎊 ขอให้มีความสุข มีโชค มีลาภ
-💰 ร่ำรวย อายุยืน สุขภาพดี
-🐍 ปีงูให้ทุกอย่างราบรื่น
-
-💬 คุยส่วนตัวกับ AI: ${lineOAUrl}
-
-📦 GitHub: https://github.com/{{GITHUB_ORG}}/{{PROJECT_NAME}}`
-
-    await lineClient.replyMessage({
-      replyToken,
-      messages: [{ type: "text", text: cnyMsg }],
-    })
-    return
-  }
-
   // About command
   if (text.toLowerCase() === "/about" || text.toLowerCase() === "/who") {
     const currentModelKey = sessionKey ? (modelPrefs.get(sessionKey) ?? DEFAULT_MODEL) : DEFAULT_MODEL
     const currentModelLabel = MODELS[currentModelKey]?.label ?? currentModelKey
-    const aboutMsg = `🧑‍💻 สวัสดีครับ! ผมคือ OC Claude Bot
+    const aboutMsg = `🧑‍💻 สวัสดีครับ! ผมคือ OpenCode Bot
 
 🤖 Model: ${currentModelLabel} (พิมพ์ /model เพื่อเปลี่ยน)
 📱 ทำงานผ่าน LINE — ถามอะไรก็ได้ ช่วยตอบให้
-
-🧪 Playground — พิมพ์ /playground
-🧘 Meditation — พิมพ์ /meditation
 
 📦 GitHub: https://github.com/{{GITHUB_ORG}}/{{PROJECT_NAME}}
 💬 คุยส่วนตัว: ${lineOAUrl}
@@ -646,61 +624,6 @@ async function handleTextMessage(
     return
   }
 
-  // Playground command
-  if (text.toLowerCase() === "/playground" || text.toLowerCase() === "/pg") {
-    const playgroundMsg = `🧪 Playground — ทดลองเขียน code ผ่าน LINE Bot
-
-📋 วิธีเริ่มต้น:
-1. สร้าง LINE Group + เชิญ bot เข้ากลุ่ม
-2. ส่งข้อความให้ bot สร้าง repo ใหม่จาก template
-3. เขียน code ผ่าน LINE → bot push → auto deploy!
-
-📦 Template:
-https://github.com/monthop-gmail/opencode-line-playground-template-000
-
-🔄 CI/CD:
-  PR ต้อง link issue (เช่น closes #123)
-  Push to main → auto deploy ไป Cloudflare Pages
-
-📖 ดู prompt สำหรับสร้าง repo ใหม่ได้ที่ README ของ template`
-
-    await lineClient.replyMessage({
-      replyToken,
-      messages: [{ type: "text", text: playgroundMsg }],
-    })
-    return
-  }
-
-  // Meditation command
-  if (text.toLowerCase() === "/meditation" || text.toLowerCase() === "/meditate" || text.toLowerCase() === "/jibjib" || text.toLowerCase() === "/สมาธิ") {
-    const meditationMsg = `🧘 JIBJIB Meditation DApp
-
-ทำสมาธิ 5 นาที รับ Reward บน Blockchain
-
-💰 รางวัลต่อรอบ:
-  JB Chain — JIBJIB 100K / JIBJIB C 50K / JBC 0.01
-  KUB Testnet — tKUB 0.001
-
-📌 กติกา:
-  ทำได้ 3 ครั้ง/วัน เว้น 3 ชม. ระหว่างรอบ
-  Bonus 2x หลัง 22:00 UTC
-  ออกจากหน้าจอ = เริ่มใหม่ (anti-cheat)
-
-🔗 เปิดแอป:
-https://jibjib-meditation.pages.dev
-
-👨‍💻 ร่วม Dev:
-  GitHub: https://github.com/monthop-gmail/jibjib-meditation-dapp
-  Issues: https://github.com/monthop-gmail/jibjib-meditation-dapp/issues
-  Tech: Solidity / React / Wagmi V2 / RainbowKit`
-
-    await lineClient.replyMessage({
-      replyToken,
-      messages: [{ type: "text", text: meditationMsg }],
-    })
-    return
-  }
-
   // Help command
   if (text.toLowerCase() === "/help" || text.toLowerCase() === "/คำสั่ง") {
     const helpMsg = `📖 คำสั่งทั้งหมด:
@@ -708,19 +631,12 @@ https://jibjib-meditation.pages.dev
 🤖 ทั่วไป
   /about — แนะนำตัว bot
   /help — คำสั่งทั้งหมด
-  /cny — อวยพรตรุษจีน
 
 💻 Session
   /new — เริ่มบทสนทนาใหม่
   /abort — ยกเลิกคำสั่งที่กำลังทำ
   /sessions — ดูสถานะ session
   /model — ดู/เปลี่ยน AI model
-
-🧪 Playground
-  /playground — เริ่มต้นสร้าง playground
-
-🧘 Meditation
-  /meditation — ทำสมาธิรับ Reward
 
 💬 วิธีใช้งาน:
   แชทส่วนตัว — พิมพ์ได้เลย!
