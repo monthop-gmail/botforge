@@ -10,7 +10,7 @@
 - Bash shell (Linux/macOS/WSL)
 - [LINE Developers Account](https://developers.line.biz)
 - [Cloudflare Account](https://cloudflare.com) + domain
-- AI API Key อย่างน้อย 1 ตัว (หรือ OAuth/ADC login สำหรับ Gemini CLI, ADKcode)
+- AI API Key อย่างน้อย 1 ตัว (หรือ OAuth/ADC login สำหรับ Gemini CLI, Qwen Code, ADKcode)
 
 ### API Keys ตาม engine ที่เลือก
 
@@ -32,6 +32,9 @@
 
 **Gemini CLI engine:**
 - [Google Gemini](https://aistudio.google.com) API key หรือใช้ OAuth login (ไม่ต้องมี key)
+
+**Qwen Code engine:**
+- [DashScope](https://dashscope.console.aliyun.com) API key หรือใช้ Qwen OAuth (ฟรี 1,000 req/วัน)
 
 ---
 
@@ -59,6 +62,7 @@ cd botforge
     3) gocode      — Go + OpenAI-compatible LLM
     4) adkcode     — Google ADK + Gemini multi-agent
     5) gemini-cli  — Google Gemini CLI (agentic, session support)
+    6) qwen-code  — Alibaba Qwen Code CLI (agentic, free 1K req/day)
   Select [1]: 1
 
   GitHub org/user [monthop-gmail]: ↵
@@ -207,6 +211,28 @@ GEMINI_API_KEY=AIza...
 GEMINI_HOME=
 ```
 
+### Qwen Code — Alibaba Qwen Code CLI agentic
+
+เหมาะสำหรับ:
+- ต้องการ agentic AI จาก Alibaba (อ่าน/เขียนไฟล์, shell)
+- ต้องการ session support (คุยต่อเนื่อง)
+- ใช้ OAuth login ฟรี 1,000 req/วัน ไม่ต้องมี API key
+
+ตั้งค่า `.env` (OAuth — แนะนำ):
+```env
+LINE_CHANNEL_ACCESS_TOKEN=...
+LINE_CHANNEL_SECRET=...
+CLOUDFLARE_TUNNEL_TOKEN=...
+QWEN_HOME=~/.qwen
+QWEN_MODEL=qwen3-coder-plus
+```
+
+หรือใช้ API key:
+```env
+DASHSCOPE_API_KEY=sk-...
+QWEN_HOME=
+```
+
 ---
 
 ## ตั้งค่า LINE Bot
@@ -308,6 +334,16 @@ API Token ต้องมีสิทธิ์:
 | `/new` | เริ่ม session ใหม่ |
 | `/abort` | ยกเลิก prompt |
 | `/sessions` | ดู session status |
+
+### Qwen Code engine
+
+| คำสั่ง | หน้าที่ |
+|--------|---------|
+| `/new` | เริ่ม session ใหม่ |
+| `/abort` | ยกเลิก prompt |
+| `/sessions` | ดู session status |
+| `/about` | แนะนำตัว bot |
+| `/help` | คำสั่งทั้งหมด |
 
 ---
 
@@ -413,6 +449,10 @@ docker compose up -d --build line-bot
 ### เปลี่ยน Gemini model (Gemini CLI)
 
 แก้ `GEMINI_MODEL` ใน `.env` → `gemini-2.5-flash`, `gemini-2.5-pro`, หรือ `gemini-2.0-flash`
+
+### เปลี่ยน Qwen model (Qwen Code)
+
+แก้ `QWEN_MODEL` ใน `.env` → `qwen3-coder-plus`, `qwen3.5-plus`, หรือ `qwen3-coder-next`
 
 ---
 
