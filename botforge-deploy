@@ -71,6 +71,8 @@ detect_engine() {
         echo "gemini-cli"
     elif grep -q "QWEN" "$dir/docker-compose.yml" 2>/dev/null; then
         echo "qwen-code"
+    elif grep -q "CODEX" "$dir/docker-compose.yml" 2>/dev/null; then
+        echo "codex"
     elif [[ -d "$dir/server" ]]; then
         echo "claude-code"
     elif [[ -f "$dir/opencode.json" ]]; then

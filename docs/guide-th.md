@@ -10,7 +10,7 @@
 - Bash shell (Linux/macOS/WSL)
 - [LINE Developers Account](https://developers.line.biz)
 - [Cloudflare Account](https://cloudflare.com) + domain
-- AI API Key อย่างน้อย 1 ตัว (หรือ OAuth/ADC login สำหรับ Gemini CLI, Qwen Code, ADKcode)
+- AI API Key อย่างน้อย 1 ตัว (หรือ OAuth/ADC login สำหรับ Gemini CLI, Qwen Code, Codex, ADKcode)
 
 ### API Keys ตาม engine ที่เลือก
 
@@ -35,6 +35,9 @@
 
 **Qwen Code engine:**
 - [DashScope](https://dashscope.console.aliyun.com) API key หรือใช้ Qwen OAuth (ฟรี 1,000 req/วัน)
+
+**Codex engine:**
+- [OpenAI](https://platform.openai.com) API key หรือใช้ ChatGPT Plus/Pro login (ไม่ต้องมี API key)
 
 ---
 
@@ -63,6 +66,7 @@ cd botforge
     4) adkcode     — Google ADK + Gemini multi-agent
     5) gemini-cli  — Google Gemini CLI (agentic, session support)
     6) qwen-code  — Alibaba Qwen Code CLI (agentic, free 1K req/day)
+    7) codex      — OpenAI Codex CLI (agentic, ChatGPT login or API key)
   Select [1]: 1
 
   GitHub org/user [monthop-gmail]: ↵
@@ -233,6 +237,28 @@ DASHSCOPE_API_KEY=sk-...
 QWEN_HOME=
 ```
 
+### Codex — OpenAI Codex CLI agentic
+
+เหมาะสำหรับ:
+- ต้องการ agentic AI จาก OpenAI (อ่าน/เขียนไฟล์, shell)
+- ต้องการ session support (คุยต่อเนื่อง)
+- ใช้ ChatGPT login ได้เลย ไม่ต้องมี API key (ใช้ plan ChatGPT Plus/Pro)
+
+ตั้งค่า `.env` (ChatGPT login — แนะนำ):
+```env
+LINE_CHANNEL_ACCESS_TOKEN=...
+LINE_CHANNEL_SECRET=...
+CLOUDFLARE_TUNNEL_TOKEN=...
+CODEX_HOME=~/.codex
+CODEX_MODEL=o4-mini
+```
+
+หรือใช้ API key:
+```env
+CODEX_API_KEY=sk-...
+CODEX_HOME=
+```
+
 ---
 
 ## ตั้งค่า LINE Bot
@@ -336,6 +362,16 @@ API Token ต้องมีสิทธิ์:
 | `/sessions` | ดู session status |
 
 ### Qwen Code engine
+
+| คำสั่ง | หน้าที่ |
+|--------|---------|
+| `/new` | เริ่ม session ใหม่ |
+| `/abort` | ยกเลิก prompt |
+| `/sessions` | ดู session status |
+| `/about` | แนะนำตัว bot |
+| `/help` | คำสั่งทั้งหมด |
+
+### Codex engine
 
 | คำสั่ง | หน้าที่ |
 |--------|---------|
@@ -453,6 +489,10 @@ docker compose up -d --build line-bot
 ### เปลี่ยน Qwen model (Qwen Code)
 
 แก้ `QWEN_MODEL` ใน `.env` → `qwen3-coder-plus`, `qwen3.5-plus`, หรือ `qwen3-coder-next`
+
+### เปลี่ยน Codex model (Codex)
+
+แก้ `CODEX_MODEL` ใน `.env` → `o4-mini`, `o3`, หรือ `gpt-4.1`
 
 ---
 

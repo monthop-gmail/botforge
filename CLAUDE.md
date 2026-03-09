@@ -29,7 +29,7 @@ Botforge — CLI tool that generates LINE Bot + AI projects from templates. Each
 
 ## Architecture
 
-### 6 Engine Templates (`templates/bot-service-*/`)
+### 7 Engine Templates (`templates/bot-service-*/`)
 
 | Engine | Server | Port | Language | AI Provider |
 |--------|--------|------|----------|-------------|
@@ -39,13 +39,14 @@ Botforge — CLI tool that generates LINE Bot + AI projects from templates. Each
 | `adkcode` | FastAPI + Google ADK | 8000 | Python | Gemini (multi-agent: orchestrator → coder, reviewer, tester) |
 | `gemini-cli` | Hono + Gemini CLI spawn | 4096 | TS | Gemini (2.5-flash, 2.5-pro, 2.0-flash) |
 | `qwen-code` | Hono + Qwen Code CLI spawn | 4096 | TS | Qwen (qwen3-coder-plus, qwen3.5-plus) |
+| `codex` | Hono + Codex CLI spawn | 4096 | TS | OpenAI (o4-mini, o3, gpt-4.1) |
 
 ### Generated Project Structure
 ```
 projects/<name>/
 ├── bot-service/          # Separate git repo
 │   ├── src/index.ts      # LINE bot (webhook, commands, session mgmt)
-│   ├── server/           # AI server (claude-code, gocode, adkcode, gemini-cli, qwen-code)
+│   ├── server/           # AI server (claude-code, gocode, adkcode, gemini-cli, qwen-code, codex)
 │   ├── docker-compose.yml
 │   ├── .env              # Credentials (gitignored)
 │   └── CLAUDE.md         # Per-project guide
@@ -73,6 +74,7 @@ server/api.py exists        → adkcode
 server/go.mod exists        → gocode
 GEMINI in docker-compose    → gemini-cli
 QWEN in docker-compose      → qwen-code
+CODEX in docker-compose     → codex
 server/ dir exists          → claude-code
 opencode.json exists        → opencode
 ```

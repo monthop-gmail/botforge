@@ -1,6 +1,6 @@
 # Botforge
 
-**Create AI-powered LINE Bots in seconds.** One command to generate a fully working LINE Bot with multi-model AI support, ready to deploy with Docker. Choose your engine: **OpenCode** (40+ models), **Claude Code** (Anthropic Agent SDK), **Gocode** (Go + OpenAI-compatible), **ADKcode** (Google ADK + Gemini), **Gemini CLI** (Google Gemini CLI), or **Qwen Code** (Alibaba Qwen Code CLI).
+**Create AI-powered LINE Bots in seconds.** One command to generate a fully working LINE Bot with multi-model AI support, ready to deploy with Docker. Choose your engine: **OpenCode** (40+ models), **Claude Code** (Anthropic Agent SDK), **Gocode** (Go + OpenAI-compatible), **ADKcode** (Google ADK + Gemini), **Gemini CLI** (Google Gemini CLI), **Qwen Code** (Alibaba Qwen Code CLI), or **Codex** (OpenAI Codex CLI).
 
 ```bash
 ./botforge new my-bot
@@ -11,7 +11,7 @@
 ## Features
 
 - **One-command setup** — Generate a complete LINE Bot project with a single command
-- **6 AI engines** — OpenCode (40+ models), Claude Code (Agent SDK), Gocode (Go + OpenAI-compatible), ADKcode (Google ADK + Gemini), Gemini CLI (Google Gemini CLI), Qwen Code (Alibaba Qwen Code CLI)
+- **7 AI engines** — OpenCode (40+ models), Claude Code (Agent SDK), Gocode (Go + OpenAI-compatible), ADKcode (Google ADK + Gemini), Gemini CLI (Google Gemini CLI), Qwen Code (Alibaba Qwen Code CLI), Codex (OpenAI Codex CLI)
 - **Docker-ready** — 3-container architecture: Bot + AI Server + Tunnel
 - **Self-hosted** — Run on your own server, full control, no vendor lock-in
 - **Customizable** — Edit bot behavior via `AGENTS.md`, swap AI providers, add MCP tools
@@ -21,14 +21,14 @@
 
 Choose your AI engine when creating a project:
 
-| | **OpenCode** | **Claude Code** | **Gocode** | **ADKcode** | **Gemini CLI** | **Qwen Code** |
-|---|---|---|---|---|---|---|
-| **AI Models** | 40+ (Claude, GPT, Gemini, DeepSeek, Qwen) | Claude only (Sonnet, Opus, Haiku) | OpenAI-compatible (DeepSeek, GPT, Qwen, Groq, Ollama) | Gemini (2.5-flash, 2.0-flash) | Gemini (2.5-flash, 2.5-pro, 2.0-flash) | Qwen (qwen3-coder-plus, qwen3.5-plus) |
-| **Auth** | API keys | API key or OAuth | API key | API key or Vertex AI ADC | API key or OAuth | API key or OAuth (1K free/day) |
-| **Middleware** | OpenCode Server | Claude Agent SDK (direct) | Go server (chi + WebSocket) | Google ADK + FastAPI | Hono + Gemini CLI | Hono + Qwen Code CLI |
-| **Language** | TypeScript | TypeScript | Go | Python | TypeScript | TypeScript |
-| **Architecture** | Single agent | Single agent | Single agent + tools | Multi-agent (orchestrator → coder, reviewer, tester) | Single agent (agentic CLI) | Single agent (agentic CLI) |
-| **Best for** | Multi-model flexibility | Claude-focused, simple setup | Self-hosted, any OpenAI-compatible LLM | Google ecosystem, multi-agent workflows | Google Gemini, session support, OAuth login | Qwen ecosystem, free tier, OAuth login |
+| | **OpenCode** | **Claude Code** | **Gocode** | **ADKcode** | **Gemini CLI** | **Qwen Code** | **Codex** |
+|---|---|---|---|---|---|---|---|
+| **AI Models** | 40+ (Claude, GPT, Gemini, DeepSeek, Qwen) | Claude only (Sonnet, Opus, Haiku) | OpenAI-compatible (DeepSeek, GPT, Qwen, Groq, Ollama) | Gemini (2.5-flash, 2.0-flash) | Gemini (2.5-flash, 2.5-pro, 2.0-flash) | Qwen (qwen3-coder-plus, qwen3.5-plus) | OpenAI (o4-mini, o3, gpt-4.1) |
+| **Auth** | API keys | API key or OAuth | API key | API key or Vertex AI ADC | API key or OAuth | API key or OAuth (1K free/day) | ChatGPT login or API key |
+| **Middleware** | OpenCode Server | Claude Agent SDK (direct) | Go server (chi + WebSocket) | Google ADK + FastAPI | Hono + Gemini CLI | Hono + Qwen Code CLI | Hono + Codex CLI |
+| **Language** | TypeScript | TypeScript | Go | Python | TypeScript | TypeScript | TypeScript |
+| **Architecture** | Single agent | Single agent | Single agent + tools | Multi-agent (orchestrator → coder, reviewer, tester) | Single agent (agentic CLI) | Single agent (agentic CLI) | Single agent (agentic CLI) |
+| **Best for** | Multi-model flexibility | Claude-focused, simple setup | Self-hosted, any OpenAI-compatible LLM | Google ecosystem, multi-agent workflows | Google Gemini, session support, OAuth login | Qwen ecosystem, free tier, OAuth login | OpenAI ecosystem, ChatGPT plan, reasoning models |
 
 ## How It Works
 
@@ -81,6 +81,12 @@ LINE App → Tunnel → LINE Bot (Bun) → Qwen Code Server (Hono, port 4096)
                                         '--- qwen -p "..." --output-format json --resume <id>
 ```
 
+**Codex engine:**
+```
+LINE App → Tunnel → LINE Bot (Bun) → Codex Server (Hono, port 4096)
+                                        '--- codex exec "..." --json --full-auto
+```
+
 ---
 
 ## Quick Start
@@ -98,6 +104,7 @@ LINE App → Tunnel → LINE Bot (Bun) → Qwen Code Server (Hono, port 4096)
   - **ADKcode engine:** [Google AI](https://aistudio.google.com) API key or Vertex AI + ADC (`gcloud auth application-default login`)
   - **Gemini CLI engine:** [Google AI](https://aistudio.google.com) API key or OAuth login (no key needed)
   - **Qwen Code engine:** [DashScope](https://dashscope.console.aliyun.com) API key or Qwen OAuth (free 1K req/day)
+  - **Codex engine:** [OpenAI](https://platform.openai.com) API key or ChatGPT Plus/Pro login
 
 ### 1. Clone & Create
 
@@ -145,6 +152,7 @@ $ ./botforge new customer-support
     4) adkcode     — Google ADK + Gemini (multi-agent: coder, reviewer, tester)
     5) gemini-cli  — Google Gemini CLI (agentic, session support)
     6) qwen-code  — Alibaba Qwen Code CLI (agentic, free 1K req/day)
+    7) codex      — OpenAI Codex CLI (agentic, ChatGPT login or API key)
   Select [1]: 3
 
   GitHub org/user [monthop-gmail]:
@@ -292,6 +300,27 @@ projects/<name>/
     └── docs/
 ```
 
+**Codex engine:**
+```
+projects/<name>/
+├── bot-service/
+│   ├── src/index.ts              # Bot logic (TypeScript/Bun)
+│   ├── docker-compose.yml        # 3 services: server, line-bot, cloudflared
+│   ├── Dockerfile                # LINE bot container
+│   ├── server/                   # Codex CLI API server
+│   │   ├── Dockerfile            # Node 22 + Bun + Codex CLI
+│   │   └── src/
+│   │       ├── index.ts          # Hono REST API
+│   │       ├── codex.ts          # Codex CLI child process wrapper
+│   │       ├── session.ts        # Session manager
+│   │       └── events.ts         # SSE event bus
+│   ├── .env.example
+│   └── workspace/AGENTS.md
+└── workspace/
+    ├── AGENTS.md
+    └── docs/
+```
+
 ---
 
 ## LINE Bot Commands
@@ -356,6 +385,16 @@ projects/<name>/
 | `/about` | About this bot |
 | `/help` | Show all commands |
 
+**Codex engine:**
+
+| Command | Description |
+|---------|-------------|
+| `/new` | Start a new conversation |
+| `/abort` | Cancel current prompt |
+| `/sessions` | View session status |
+| `/about` | About this bot |
+| `/help` | Show all commands |
+
 ---
 
 ## Customization
@@ -396,13 +435,17 @@ Set `GEMINI_MODEL` in `.env` to `gemini-2.5-flash`, `gemini-2.5-pro`, or `gemini
 
 Set `QWEN_MODEL` in `.env` to `qwen3-coder-plus`, `qwen3.5-plus`, or `qwen3-coder-next`
 
+### Change Codex model (Codex engine)
+
+Set `CODEX_MODEL` in `.env` to `o4-mini`, `o3`, or `gpt-4.1`
+
 ### Add MCP tools
 
 Create `workspace/opencode.jsonc` with your MCP server configuration.
 
 ### Modify templates
 
-Edit files in `templates/bot-service-opencode/`, `templates/bot-service-claude-code/`, `templates/bot-service-gocode/`, `templates/bot-service-adkcode/`, `templates/bot-service-gemini-cli/`, `templates/bot-service-qwen-code/`, or `templates/workspace/`. Use these placeholders:
+Edit files in `templates/bot-service-opencode/`, `templates/bot-service-claude-code/`, `templates/bot-service-gocode/`, `templates/bot-service-adkcode/`, `templates/bot-service-gemini-cli/`, `templates/bot-service-qwen-code/`, `templates/bot-service-codex/`, or `templates/workspace/`. Use these placeholders:
 
 | Placeholder | Replaced with |
 |-------------|--------------|
@@ -436,7 +479,8 @@ Botforge is and will always be **100% open source**. The Cloud option is for tea
 - [x] ADKcode engine (Google ADK + Gemini, multi-agent)
 - [x] Gemini CLI engine (Google Gemini CLI, agentic, session support)
 - [x] Qwen Code engine (Alibaba Qwen Code CLI, agentic, free OAuth)
-- [x] OAuth/ADC support (Gemini CLI, Qwen Code, Claude Code OAuth, ADKcode Vertex AI ADC)
+- [x] Codex engine (OpenAI Codex CLI, agentic, ChatGPT login)
+- [x] OAuth/ADC support (Gemini CLI, Qwen Code, Claude Code OAuth, ADKcode Vertex AI ADC, Codex ChatGPT login)
 - [x] Engine selection during project creation
 - [x] Docker Compose deployment
 - [x] Cloudflare Tunnel integration
@@ -488,4 +532,4 @@ cd botforge
 
 ---
 
-**Built with [OpenCode](https://opencode.ai) + [Claude Agent SDK](https://docs.anthropic.com/en/docs/agents-and-tools/claude-code/sdk) + [Gocode](https://github.com/monthop-gmail/gocode) + [Google ADK](https://google.github.io/adk-docs/) + [Gemini CLI](https://github.com/google-gemini/gemini-cli) + [Qwen Code](https://github.com/QwenLM/qwen-code) + [LINE Messaging API](https://developers.line.biz) + [Cloudflare Tunnel](https://cloudflare.com)**
+**Built with [OpenCode](https://opencode.ai) + [Claude Agent SDK](https://docs.anthropic.com/en/docs/agents-and-tools/claude-code/sdk) + [Gocode](https://github.com/monthop-gmail/gocode) + [Google ADK](https://google.github.io/adk-docs/) + [Gemini CLI](https://github.com/google-gemini/gemini-cli) + [Qwen Code](https://github.com/QwenLM/qwen-code) + [Codex](https://github.com/openai/codex) + [LINE Messaging API](https://developers.line.biz) + [Cloudflare Tunnel](https://cloudflare.com)**
