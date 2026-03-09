@@ -85,13 +85,31 @@ export async function runQwen(
       const messages: MessageInfo[] = []
 
       try {
+        // Qwen Code outputs a JSON array: [{type:"system",...},{type:"assistant",...},{type:"result",...}]
         const parsed = JSON.parse(stdout)
-        resultText = parsed.response ?? parsed.result ?? ""
-        sessionId = parsed.session_id ?? parsed.sessionId ?? ""
+        const items = Array.isArray(parsed) ? parsed : [parsed]
 
-        if (parsed.error) {
-          isError = true
-          resultText = parsed.error?.message ?? String(parsed.error)
+        for (const obj of items) {
+          if (obj.type === "result") {
+            resultText = obj.result ?? ""
+            sessionId = obj.session_id ?? ""
+            isError = obj.is_error ?? false
+            if (isError && !resultText) {
+              resultText = obj.error ?? "Unknown error"
+            }
+          } else if (obj.type === "assistant" && obj.message?.content) {
+            // Extract text from assistant messages (fallback)
+            for (const part of obj.message.content) {
+              if (part.type === "text" && part.text && !resultText) {
+                resultText = part.text
+              }
+            }
+            if (obj.session_id && !sessionId) {
+              sessionId = obj.session_id
+            }
+          } else if (obj.type === "system" && obj.session_id && !sessionId) {
+            sessionId = obj.session_id
+          }
         }
       } catch {
         // JSON parse failed — use raw output
