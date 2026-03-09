@@ -25,7 +25,7 @@ curl http://localhost:4096/health
 LINE app → Cloudflare Tunnel → line-bot (Bun, port 3000)
   ↕ HTTP fetch
 server (Hono + Codex CLI, port 4096)
-  ↕ spawn: codex exec "..." --json --full-auto --sandbox danger-full-access
+  ↕ spawn: codex exec "..." --json --dangerously-bypass-approvals-and-sandbox
 OpenAI (o4-mini, o3, gpt-4.1)
 ```
 

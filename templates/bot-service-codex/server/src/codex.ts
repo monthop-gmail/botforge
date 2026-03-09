@@ -44,7 +44,7 @@ export async function runCodex(
       args.push("resume", options.resumeSessionId)
     }
 
-    args.push(prompt, "--json", "--full-auto", "--sandbox", "danger-full-access")
+    args.push(prompt, "--json", "--dangerously-bypass-approvals-and-sandbox", "--skip-git-repo-check")
 
     if (options.model) {
       args.push("--model", options.model)
@@ -89,7 +89,7 @@ export async function runCodex(
         // Codex outputs JSONL: one JSON object per line
         // Key event types:
         //   {"type":"thread.started","thread_id":"..."}
-        //   {"type":"item.completed","item":{"type":"agent_message","content":[{"type":"output_text","text":"..."}]}}
+        //   {"type":"item.completed","item":{"type":"agent_message","text":"..."}}
         //   {"type":"turn.completed","usage":{"input_tokens":...,"output_tokens":...}}
         const lines = stdout.trim().split("\n").filter(Boolean)
 
@@ -104,10 +104,17 @@ export async function runCodex(
             if (event.type === "item.completed" && event.item) {
               const item = event.item
 
-              if (item.type === "agent_message" && Array.isArray(item.content)) {
-                for (const part of item.content) {
-                  if (part.type === "output_text" && part.text) {
-                    resultText = part.text
+              if (item.type === "agent_message") {
+                // Primary: item.text (observed in codex 0.112+)
+                if (item.text) {
+                  resultText = item.text
+                }
+                // Fallback: item.content[].output_text (documented format)
+                else if (Array.isArray(item.content)) {
+                  for (const part of item.content) {
+                    if (part.type === "output_text" && part.text) {
+                      resultText = part.text
+                    }
                   }
                 }
               }
