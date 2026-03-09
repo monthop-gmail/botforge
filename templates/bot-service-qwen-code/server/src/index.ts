@@ -17,7 +17,7 @@ import {
 
 const port = Number(process.env.PORT ?? 4096)
 const apiPassword = process.env.API_PASSWORD
-const defaultModel = process.env.QWEN_MODEL ?? "qwen3-coder-plus"
+const defaultModel = process.env.QWEN_MODEL ?? "qwen3.5-plus"
 
 type Env = { Variables: { directory: string } }
 const app = new Hono<Env>()
@@ -97,8 +97,8 @@ app.get("/models", (c) => {
   return c.json({
     default: defaultModel,
     models: [
-      { id: "qwen3-coder-plus", name: "Qwen3 Coder Plus", description: "Best coding — optimized for Qwen Code" },
       { id: "qwen3.5-plus", name: "Qwen3.5 Plus", description: "Balanced — good for most tasks (1M context)" },
+      { id: "qwen3-coder-plus", name: "Qwen3 Coder Plus", description: "Best coding — optimized for Qwen Code" },
       { id: "qwen3-coder-next", name: "Qwen3 Coder Next", description: "Experimental — latest coder model" },
     ],
   })

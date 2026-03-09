@@ -26,7 +26,7 @@ LINE app → Cloudflare Tunnel → line-bot (Bun, port 3000)
   ↕ HTTP fetch
 server (Hono + Qwen Code CLI, port 4096)
   ↕ spawn: qwen -p "..." --output-format json --resume <id>
-Qwen (qwen3-coder-plus, qwen3.5-plus, qwen3-coder-next)
+Qwen (qwen3.5-plus, qwen3-coder-plus, qwen3-coder-next)
 ```
 
 - **`src/index.ts`** — LINE bot: webhook, signature validation, message chunking, commands
@@ -47,7 +47,7 @@ Qwen (qwen3-coder-plus, qwen3.5-plus, qwen3-coder-next)
 - `QWEN_HOME` — Path to host `~/.qwen` dir for OAuth login (default: `~/.qwen`, no API key needed)
 - `DASHSCOPE_API_KEY` — DashScope API key (alternative to OAuth)
 - `API_PASSWORD` — API auth password (optional)
-- `QWEN_MODEL` — Model (default: `qwen3-coder-plus`)
+- `QWEN_MODEL` — Model (default: `qwen3.5-plus`)
 - `QWEN_TIMEOUT_MS` — Max time per prompt (default: `300000`)
 
 ## Webhook URL

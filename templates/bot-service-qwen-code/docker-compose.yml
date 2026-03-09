@@ -6,7 +6,7 @@ services:
     environment:
       - DASHSCOPE_API_KEY=${DASHSCOPE_API_KEY:-}
       - API_PASSWORD=${API_PASSWORD:-}
-      - QWEN_MODEL=${QWEN_MODEL:-qwen3-coder-plus}
+      - QWEN_MODEL=${QWEN_MODEL:-qwen3.5-plus}
       - QWEN_TIMEOUT_MS=${QWEN_TIMEOUT_MS:-300000}
       - QWEN_SANDBOX=false
       - PORT=4096

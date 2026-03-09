@@ -22,7 +22,7 @@ export interface QwenResult {
   messages: MessageInfo[]
 }
 
-const defaultModel = process.env.QWEN_MODEL ?? "qwen3-coder-plus"
+const defaultModel = process.env.QWEN_MODEL ?? "qwen3.5-plus"
 const defaultWorkspaceDir = process.env.WORKSPACE_DIR ?? "/workspace"
 const qwenTimeout = Number(process.env.QWEN_TIMEOUT_MS ?? 300_000)
 
