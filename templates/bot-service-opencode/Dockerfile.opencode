@@ -6,6 +6,6 @@ RUN apk add --no-cache git curl jq github-cli nodejs npm python3 py3-pip && \
     git config --global credential.helper '!f() { echo "username=x-access-token"; echo "password=${GITHUB_TOKEN}"; }; f' && \
     pip install --break-system-packages "mcp>=1.0,<1.10" "git+https://github.com/monthop-gmail/odoo-mcp-claude.git"
 
-# Pre-configure default model to Claude Sonnet
+# Pre-configure default model to Qwen 3.5 Plus
 RUN mkdir -p /root/.local/state/opencode && \
-    echo '{"recent":[{"providerID":"anthropic","modelID":"claude-sonnet-4-6"}]}' > /root/.local/state/opencode/model.json
+    echo '{"recent":[{"providerID":"qwen","modelID":"qwen3.5-plus"}]}' > /root/.local/state/opencode/model.json
