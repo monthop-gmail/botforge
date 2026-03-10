@@ -46,6 +46,20 @@
           "name": "DeepSeek Reasoner"
         }
       }
+    },
+    "groq": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "Groq",
+      "options": {
+        "baseURL": "https://api.groq.com/openai/v1",
+        "apiKey": "{env:GROQ_API_KEY}"
+      },
+      "models": {
+        "llama-3.3-70b-versatile": { "name": "Llama 3.3 70B" },
+        "llama-3.1-8b-instant": { "name": "Llama 3.1 8B Instant" },
+        "mixtral-8x7b-32768": { "name": "Mixtral 8x7B" },
+        "gemma2-9b-it": { "name": "Gemma 2 9B" }
+      }
     }
   }
 }

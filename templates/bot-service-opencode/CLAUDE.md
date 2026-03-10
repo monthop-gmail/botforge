@@ -62,6 +62,7 @@ Required in `.env` (not committed):
 - `LINE_CHANNEL_ACCESS_TOKEN`, `LINE_CHANNEL_SECRET` — LINE Messaging API credentials
 - `ANTHROPIC_API_KEY` — Anthropic API key
 - `DEEPSEEK_API_KEY` — DeepSeek API key (optional)
+- `GROQ_API_KEY` — Groq API key (optional, for Llama/Mixtral/Gemma models)
 - `GOOGLE_API_KEY` — Google AI API key (optional)
 - `QWEN_API_KEY` — Qwen/DashScope API key (optional)
 - `ODOO_URL`, `ODOO_DB`, `ODOO_USERNAME`, `ODOO_PASSWORD` — Odoo ERP credentials for odoo-mcp
