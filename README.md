@@ -23,7 +23,7 @@ Choose your AI engine when creating a project:
 
 | | **OpenCode** | **Claude Code** | **Gocode** | **ADKcode** | **Gemini CLI** | **Qwen Code** | **Codex** |
 |---|---|---|---|---|---|---|---|
-| **AI Models** | 40+ (Claude, GPT, Gemini, DeepSeek, Qwen) | Claude only (Sonnet, Opus, Haiku) | OpenAI-compatible (DeepSeek, GPT, Qwen, Groq, Ollama) | Gemini (2.5-flash, 2.0-flash) | Gemini (2.5-flash, 2.5-pro, 2.0-flash) | Qwen (qwen3-coder-plus, qwen3.5-plus) | OpenAI (o4-mini, o3, gpt-4.1) |
+| **AI Models** | 40+ (Claude, GPT, Gemini, DeepSeek, Qwen, Groq) | Claude only (Sonnet, Opus, Haiku) | OpenAI-compatible (DeepSeek, GPT, Qwen, Groq, Ollama) | Gemini (2.5-flash, 2.0-flash) | Gemini (2.5-flash, 2.5-pro, 2.0-flash) | Qwen (qwen3-coder-plus, qwen3.5-plus) | OpenAI (o4-mini, o3, gpt-4.1) |
 | **Auth** | API keys | API key or OAuth | API key | API key or Vertex AI ADC | API key or OAuth | API key or OAuth (1K free/day) | ChatGPT login or API key |
 | **Middleware** | OpenCode Server | Claude Agent SDK (direct) | Go server (chi + WebSocket) | Google ADK + FastAPI | Hono + Gemini CLI | Hono + Qwen Code CLI | Hono + Codex CLI |
 | **Language** | TypeScript | TypeScript | Go | Python | TypeScript | TypeScript | TypeScript |
@@ -45,7 +45,7 @@ Each project generates two components:
 ```
 LINE App → Tunnel → LINE Bot (Bun) → OpenCode Server (port 4096)
                                         |--- Claude, GPT, Gemini
-                                        |--- DeepSeek, Qwen
+                                        |--- DeepSeek, Qwen, Groq
                                         '--- 40+ models
 ```
 
@@ -146,7 +146,7 @@ Your bot is live at `https://my-bot.yourdomain.com/webhook`
 $ ./botforge new customer-support
 
   Engine:
-    1) opencode    — Multi-model (Claude, GPT, Gemini, DeepSeek, Qwen)
+    1) opencode    — Multi-model (Claude, GPT, Gemini, DeepSeek, Qwen, Groq)
     2) claude-code — Claude only (Agent SDK, simpler, cost control)
     3) gocode      — Go + OpenAI-compatible (DeepSeek, GPT, Qwen, Groq, Ollama)
     4) adkcode     — Google ADK + Gemini (multi-agent: coder, reviewer, tester)

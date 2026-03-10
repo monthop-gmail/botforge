@@ -60,7 +60,7 @@ cd botforge
 
 ```
   Engine:
-    1) opencode    — Multi-model (Claude, GPT, Gemini, DeepSeek, Qwen)
+    1) opencode    — Multi-model (Claude, GPT, Gemini, DeepSeek, Qwen, Groq)
     2) claude-code — Claude only (Agent SDK, simpler, cost control)
     3) gocode      — Go + OpenAI-compatible LLM
     4) adkcode     — Google ADK + Gemini multi-agent
@@ -97,7 +97,7 @@ docker compose up -d --build
 ### OpenCode — หลาย model หลาย provider
 
 เหมาะสำหรับ:
-- ต้องการใช้ได้หลาย model (Claude, GPT, Gemini, DeepSeek, Qwen)
+- ต้องการใช้ได้หลาย model (Claude, GPT, Gemini, DeepSeek, Qwen, Groq)
 - ต้องการสลับ model ได้จากใน LINE (`/model`)
 - ต้องการ MCP tools (เช่น Odoo ERP)
 

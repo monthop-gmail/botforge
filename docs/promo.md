@@ -73,7 +73,7 @@ The solution: One command.
 
 What you get:
 - A complete LINE Bot with webhook handling
-- AI server with 40+ models (Claude, GPT, Gemini, DeepSeek, Qwen)
+- AI server with 40+ models (Claude, GPT, Gemini, DeepSeek, Qwen, Groq)
 - Cloudflare Tunnel for instant public URL
 - Docker Compose — deploy in minutes
 
@@ -103,7 +103,7 @@ Contributions welcome!
 
 สิ่งที่ได้:
 - LINE Bot พร้อม webhook + session management
-- AI server รองรับ 40+ models (Claude, GPT, Gemini, DeepSeek, Qwen)
+- AI server รองรับ 40+ models (Claude, GPT, Gemini, DeepSeek, Qwen, Groq)
 - Cloudflare Tunnel เปิด URL สาธารณะทันที
 - Docker Compose — deploy ภายในไม่กี่นาที
 
@@ -209,7 +209,7 @@ Botforge is an open-source CLI that generates production-ready LINE Bot projects
 
 One command gives you:
 - LINE Bot with webhook handling and session management
-- AI server supporting 40+ models (Claude, GPT, Gemini, DeepSeek, Qwen)
+- AI server supporting 40+ models (Claude, GPT, Gemini, DeepSeek, Qwen, Groq)
 - Cloudflare Tunnel for instant public URL
 - Docker Compose for easy deployment
 

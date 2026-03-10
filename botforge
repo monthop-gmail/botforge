@@ -83,7 +83,7 @@ cmd_new() {
 
     # Select engine
     echo "  Engine:"
-    echo "    1) opencode    — Multi-model (Claude, GPT, Gemini, DeepSeek, Qwen)"
+    echo "    1) opencode    — Multi-model (Claude, GPT, Gemini, DeepSeek, Qwen, Groq)"
     echo "    2) claude-code — Claude only (Agent SDK, simpler, cost control)"
     echo "    3) gocode      — Go + OpenAI-compatible (DeepSeek, GPT, Qwen, Groq, Ollama)"
     echo "    4) adkcode     — Google ADK + Gemini (multi-agent: coder, reviewer, tester)"
@@ -272,7 +272,7 @@ cmd_help() {
     echo ""
     echo "  Engines:"
     echo ""
-    echo "    opencode     Multi-model AI (Claude, GPT, Gemini, DeepSeek, Qwen)"
+    echo "    opencode     Multi-model AI (Claude, GPT, Gemini, DeepSeek, Qwen, Groq)"
     echo "    claude-code  Claude only (Agent SDK, simpler, built-in cost control)"
     echo "    gocode       Go + OpenAI-compatible (DeepSeek, GPT, Qwen, Groq, Ollama)"
     echo "    adkcode      Google ADK + Gemini (multi-agent: coder, reviewer, tester)"

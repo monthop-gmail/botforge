@@ -33,7 +33,7 @@ Botforge — CLI tool that generates LINE Bot + AI projects from templates. Each
 
 | Engine | Server | Port | Language | AI Provider |
 |--------|--------|------|----------|-------------|
-| `opencode` | OpenCode serve | 4096 | TS | 40+ models (Claude, GPT, Gemini, DeepSeek, Qwen) |
+| `opencode` | OpenCode serve | 4096 | TS | 40+ models (Claude, GPT, Gemini, DeepSeek, Qwen, Groq) |
 | `claude-code` | Hono + Agent SDK | 4096 | TS | Anthropic (Sonnet, Opus, Haiku) |
 | `gocode` | Go + chi | 4096 | Go | OpenAI-compatible (DeepSeek, GPT, Qwen, Groq) |
 | `adkcode` | FastAPI + Google ADK | 8000 | Python | Gemini (multi-agent: orchestrator → coder, reviewer, tester) |
