@@ -55,12 +55,7 @@
         "apiKey": "{env:GROQ_API_KEY}"
       },
       "models": {
-        "moonshotai/kimi-k2-instruct-0905": { "name": "Kimi K2 0905 (256K)" },
-        "moonshotai/kimi-k2-instruct": { "name": "Kimi K2 (128K)" },
-        "llama-3.3-70b-versatile": { "name": "Llama 3.3 70B" },
-        "llama-3.1-8b-instant": { "name": "Llama 3.1 8B Instant" },
-        "mixtral-8x7b-32768": { "name": "Mixtral 8x7B" },
-        "gemma2-9b-it": { "name": "Gemma 2 9B" }
+        "moonshotai/kimi-k2-instruct": { "name": "Kimi K2 (128K)" }
       }
     }
   }
