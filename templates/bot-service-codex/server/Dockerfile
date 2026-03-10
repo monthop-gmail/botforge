@@ -10,6 +10,11 @@ RUN curl -fsSL https://bun.sh/install | BUN_INSTALL=/usr/local bash
 # Install Codex CLI globally
 RUN npm install -g @openai/codex
 
+# Git config for Codex
+RUN git config --global user.name "Codex" && \
+    git config --global user.email "codex@openai.com" && \
+    git config --global credential.helper '!f() { echo "username=x-access-token"; echo "password=${GITHUB_TOKEN}"; }; f'
+
 # Use node user (UID 1000, matches typical host user for OAuth mount)
 RUN mkdir -p /home/node/.codex && \
     chown -R node:node /home/node/.codex

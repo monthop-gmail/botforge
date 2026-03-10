@@ -10,6 +10,11 @@ RUN curl -fsSL https://bun.sh/install | BUN_INSTALL=/usr/local bash
 # Install Gemini CLI globally
 RUN npm install -g @google/gemini-cli
 
+# Git config for Gemini
+RUN git config --global user.name "Gemini" && \
+    git config --global user.email "gemini@google.com" && \
+    git config --global credential.helper '!f() { echo "username=x-access-token"; echo "password=${GITHUB_TOKEN}"; }; f'
+
 # Use node user (UID 1000, matches typical host user for OAuth mount)
 RUN mkdir -p /home/node/.gemini && \
     chown -R node:node /home/node/.gemini

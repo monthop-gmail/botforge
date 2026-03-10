@@ -10,6 +10,11 @@ RUN curl -fsSL https://bun.sh/install | BUN_INSTALL=/usr/local bash
 # Install Qwen Code CLI globally
 RUN npm install -g @qwen-code/qwen-code@latest
 
+# Git config for Qwen
+RUN git config --global user.name "Qwen" && \
+    git config --global user.email "qwen@alibaba.com" && \
+    git config --global credential.helper '!f() { echo "username=x-access-token"; echo "password=${GITHUB_TOKEN}"; }; f'
+
 # Use node user (UID 1000, matches typical host user for OAuth mount)
 RUN mkdir -p /home/node/.qwen && \
     chown -R node:node /home/node/.qwen

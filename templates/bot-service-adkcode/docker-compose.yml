@@ -10,6 +10,7 @@ services:
       - GOOGLE_CLOUD_LOCATION=${GOOGLE_CLOUD_LOCATION:-}
       - ADKCODE_MODEL_SMART=${ADKCODE_MODEL_SMART:-gemini-2.5-flash}
       - ADKCODE_MODEL_FAST=${ADKCODE_MODEL_FAST:-gemini-2.0-flash}
+      - GITHUB_TOKEN=${GITHUB_TOKEN:-}
       - PORT=8000
     volumes:
       - ${PROJECT_DIR:-./workspace}:/workspace

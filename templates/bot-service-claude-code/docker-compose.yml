@@ -9,6 +9,7 @@ services:
       - CLAUDE_MODEL=${CLAUDE_MODEL:-sonnet}
       - CLAUDE_MAX_TURNS=${CLAUDE_MAX_TURNS:-10}
       - CLAUDE_MAX_BUDGET_USD=${CLAUDE_MAX_BUDGET_USD:-1.00}
+      - GITHUB_TOKEN=${GITHUB_TOKEN:-}
       - PORT=4096
       - WORKSPACE_DIR=/workspace
     volumes:

@@ -9,6 +9,7 @@ services:
       - QWEN_MODEL=${QWEN_MODEL:-qwen3.5-plus}
       - QWEN_TIMEOUT_MS=${QWEN_TIMEOUT_MS:-300000}
       - QWEN_SANDBOX=false
+      - GITHUB_TOKEN=${GITHUB_TOKEN:-}
       - PORT=4096
       - WORKSPACE_DIR=/workspace
     volumes:

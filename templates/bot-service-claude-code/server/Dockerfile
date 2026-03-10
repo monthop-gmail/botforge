@@ -10,6 +10,11 @@ RUN curl -fsSL https://bun.sh/install | BUN_INSTALL=/usr/local bash
 # Install Claude Code CLI (for OAuth login inside container)
 RUN npm install -g @anthropic-ai/claude-code
 
+# Git config for Claude
+RUN git config --global user.name "Claude" && \
+    git config --global user.email "claude@anthropic.com" && \
+    git config --global credential.helper '!f() { echo "username=x-access-token"; echo "password=${GITHUB_TOKEN}"; }; f'
+
 # Create non-root user with UID 1000 to match host user (for OAuth mount)
 # node:22-slim already has 'node' user at UID 1000, so remove it first
 RUN userdel -r node 2>/dev/null; useradd -m -s /bin/bash -u 1000 claude

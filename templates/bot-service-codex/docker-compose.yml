@@ -9,6 +9,7 @@ services:
       - API_PASSWORD=${API_PASSWORD:-}
       - CODEX_MODEL=${CODEX_MODEL:-o4-mini}
       - CODEX_TIMEOUT_MS=${CODEX_TIMEOUT_MS:-300000}
+      - GITHUB_TOKEN=${GITHUB_TOKEN:-}
       - PORT=4096
       - WORKSPACE_DIR=/workspace
     volumes:
