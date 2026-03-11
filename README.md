@@ -137,7 +137,9 @@ Your bot is live at `https://my-bot.yourdomain.com/webhook`
 | Command | Description |
 |---------|-------------|
 | `./botforge new <name>` | Create a new project |
+| `./botforge sync <name\|all>` | Sync project infra files with latest template |
 | `./botforge list` | List all projects |
+| `./botforge deploy <command>` | Deploy & manage (shortcut for botforge-deploy) |
 | `./botforge help` | Show help |
 
 ### Example

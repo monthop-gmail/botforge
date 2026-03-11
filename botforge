@@ -40,6 +40,8 @@ print_warn() {
     echo -e "${YELLOW}$1${NC}"
 }
 
+DIM='\033[2m'
+
 validate_name() {
     local name="$1"
     if [[ ! "$name" =~ ^[a-z][a-z0-9-]*$ ]]; then
@@ -236,16 +238,16 @@ cmd_list() {
                 engine_type="adkcode"
             elif [[ -f "$dir/bot-service/server/go.mod" ]]; then
                 engine_type="gocode"
-            elif grep -q "GEMINI" "$dir/bot-service/docker-compose.yml" 2>/dev/null; then
+            elif [[ -f "$dir/bot-service/opencode.json" ]]; then
+                engine_type="opencode"
+            elif grep -q "GEMINI_MODEL" "$dir/bot-service/docker-compose.yml" 2>/dev/null; then
                 engine_type="gemini-cli"
-            elif grep -q "QWEN" "$dir/bot-service/docker-compose.yml" 2>/dev/null; then
+            elif grep -q "QWEN_MODEL" "$dir/bot-service/docker-compose.yml" 2>/dev/null; then
                 engine_type="qwen-code"
-            elif grep -q "CODEX" "$dir/bot-service/docker-compose.yml" 2>/dev/null; then
+            elif grep -q "CODEX_MODEL" "$dir/bot-service/docker-compose.yml" 2>/dev/null; then
                 engine_type="codex"
             elif [[ -d "$dir/bot-service/server" ]]; then
                 engine_type="claude-code"
-            elif [[ -f "$dir/bot-service/opencode.json" ]]; then
-                engine_type="opencode"
             fi
             echo -e "    ${BOLD}$name${NC}  ($engine_type)"
             echo "      bot-service: $has_bot | workspace: $has_ws"
@@ -255,14 +257,268 @@ cmd_list() {
     done
 }
 
+# --- Engine detection (shared with botforge-deploy) ---
+detect_engine() {
+    local name="$1"
+    local dir="$PROJECTS_DIR/$name/bot-service"
+    if [[ -f "$dir/server/api.py" ]]; then
+        echo "adkcode"
+    elif [[ -f "$dir/server/go.mod" ]]; then
+        echo "gocode"
+    elif [[ -f "$dir/opencode.json" ]]; then
+        echo "opencode"
+    elif grep -q "GEMINI_MODEL" "$dir/docker-compose.yml" 2>/dev/null; then
+        echo "gemini-cli"
+    elif grep -q "QWEN_MODEL" "$dir/docker-compose.yml" 2>/dev/null; then
+        echo "qwen-code"
+    elif grep -q "CODEX_MODEL" "$dir/docker-compose.yml" 2>/dev/null; then
+        echo "codex"
+    elif [[ -d "$dir/server" ]]; then
+        echo "claude-code"
+    else
+        echo "unknown"
+    fi
+}
+
+# Map engine to template directory name
+engine_to_template() {
+    local engine="$1"
+    case "$engine" in
+        opencode)    echo "bot-service-opencode" ;;
+        claude-code) echo "bot-service-claude-code" ;;
+        gocode)      echo "bot-service-gocode" ;;
+        adkcode)     echo "bot-service-adkcode" ;;
+        gemini-cli)  echo "bot-service-gemini-cli" ;;
+        qwen-code)   echo "bot-service-qwen-code" ;;
+        codex)       echo "bot-service-codex" ;;
+        *)           echo "" ;;
+    esac
+}
+
+# Syncable files per engine (infrastructure only, not user code like src/index.ts)
+get_sync_files() {
+    local engine="$1"
+    case "$engine" in
+        opencode)
+            echo "Dockerfile.opencode docker-compose.yml opencode.json .env.example"
+            ;;
+        claude-code)
+            echo "server/Dockerfile docker-compose.yml .env.example"
+            ;;
+        gocode)
+            echo "server/Dockerfile docker-compose.yml .env.example"
+            ;;
+        adkcode)
+            echo "server/Dockerfile docker-compose.yml .env.example"
+            ;;
+        gemini-cli)
+            echo "server/Dockerfile docker-compose.yml .env.example"
+            ;;
+        qwen-code)
+            echo "server/Dockerfile docker-compose.yml .env.example"
+            ;;
+        codex)
+            echo "server/Dockerfile docker-compose.yml .env.example"
+            ;;
+    esac
+}
+
+# Generate reference file from template with placeholders replaced
+generate_reference() {
+    local template_file="$1"
+    local output_file="$2"
+    local project_name="$3"
+    local container_prefix="$project_name"
+    local domain="${project_name}.${DEFAULT_DOMAIN_SUFFIX}"
+    local github_org="$DEFAULT_GITHUB_ORG"
+
+    cp "$template_file" "$output_file"
+    sed -i \
+        -e "s|{{PROJECT_NAME}}|${project_name}|g" \
+        -e "s|{{CONTAINER_PREFIX}}|${container_prefix}|g" \
+        -e "s|{{TUNNEL_NAME}}|${project_name}|g" \
+        -e "s|{{DOMAIN}}|${domain}|g" \
+        -e "s|{{GITHUB_ORG}}|${github_org}|g" \
+        "$output_file"
+}
+
+# Sync a single project
+sync_project() {
+    local name="$1"
+    local apply="$2"
+    local bot_dir="$PROJECTS_DIR/$name/bot-service"
+
+    if [[ ! -d "$bot_dir" ]]; then
+        print_error "  Project '$name' not found"
+        return 1
+    fi
+
+    local engine
+    engine=$(detect_engine "$name")
+
+    if [[ "$engine" == "unknown" ]]; then
+        print_error "  Cannot detect engine for '$name'"
+        return 1
+    fi
+
+    local template
+    template=$(engine_to_template "$engine")
+
+    if [[ -z "$template" ]]; then
+        print_error "  No template mapping for engine '$engine'"
+        return 1
+    fi
+
+    local template_dir="$TEMPLATES_DIR/$template"
+    local sync_files
+    sync_files=$(get_sync_files "$engine")
+
+    echo -e "  ${BOLD}$name${NC} ${DIM}($engine)${NC}"
+
+    local tmpdir
+    tmpdir=$(mktemp -d)
+    trap "rm -rf $tmpdir" RETURN
+
+    local has_diff=false
+    local file_count=0
+    local diff_count=0
+    local applied_count=0
+
+    for file in $sync_files; do
+        file_count=$((file_count + 1))
+        local template_file="$template_dir/$file"
+        local project_file="$bot_dir/$file"
+
+        # Skip if template file doesn't exist
+        if [[ ! -f "$template_file" ]]; then
+            continue
+        fi
+
+        # Generate reference with placeholders replaced
+        mkdir -p "$tmpdir/$(dirname "$file")"
+        local ref_file="$tmpdir/$file"
+        generate_reference "$template_file" "$ref_file" "$name"
+
+        if [[ ! -f "$project_file" ]]; then
+            # File exists in template but not in project
+            echo -e "    ${YELLOW}+ $file${NC} (new file from template)"
+            diff_count=$((diff_count + 1))
+            has_diff=true
+            if [[ "$apply" == "true" ]]; then
+                mkdir -p "$(dirname "$project_file")"
+                cp "$ref_file" "$project_file"
+                echo -e "      ${GREEN}applied${NC}"
+                applied_count=$((applied_count + 1))
+            fi
+        elif ! diff -q "$project_file" "$ref_file" >/dev/null 2>&1; then
+            # Files differ
+            echo -e "    ${YELLOW}~ $file${NC}"
+            diff_count=$((diff_count + 1))
+            has_diff=true
+
+            # Show compact diff (unified, 3 lines context)
+            diff -u "$project_file" "$ref_file" \
+                --label "project/$name/$file" \
+                --label "template/$file" \
+                2>/dev/null | head -40 || true
+
+            if [[ "$apply" == "true" ]]; then
+                # Backup original
+                cp "$project_file" "${project_file}.bak"
+                cp "$ref_file" "$project_file"
+                echo -e "      ${GREEN}applied${NC} (backup: ${file}.bak)"
+                applied_count=$((applied_count + 1))
+            fi
+            echo ""
+        else
+            echo -e "    ${GREEN}= $file${NC} ${DIM}(up to date)${NC}"
+        fi
+    done
+
+    if [[ "$has_diff" == "false" ]]; then
+        echo -e "    ${GREEN}All $file_count files up to date${NC}"
+    elif [[ "$apply" != "true" ]]; then
+        echo -e "    ${DIM}$diff_count file(s) differ. Use --apply to update.${NC}"
+    else
+        echo -e "    ${GREEN}$applied_count file(s) applied${NC}"
+    fi
+    echo ""
+}
+
+# --- Command: sync ---
+cmd_sync() {
+    local target="${1:-}"
+    local flag="${2:-}"
+    local apply=false
+
+    # Parse flags from any position
+    for arg in "$@"; do
+        case "$arg" in
+            --apply) apply=true ;;
+            --*) ;;
+            *) target="$arg" ;;
+        esac
+    done
+
+    print_header
+
+    if [[ -z "$target" ]]; then
+        echo "  Usage:"
+        echo ""
+        echo "    ./botforge sync <name|all>           Show diffs (dry-run)"
+        echo "    ./botforge sync <name|all> --apply   Apply template updates"
+        echo ""
+        echo "  Syncs infrastructure files from templates to existing projects."
+        echo "  Files synced: Dockerfile, docker-compose.yml, opencode.json, .env.example"
+        echo "  Files NOT synced: src/index.ts, AGENTS.md, .env (user code/data)"
+        echo ""
+        return
+    fi
+
+    if [[ "$apply" == "true" ]]; then
+        echo -e "  ${BOLD}Mode: APPLY${NC} (will update files + create .bak backups)"
+    else
+        echo -e "  ${BOLD}Mode: DRY RUN${NC} (showing diffs only)"
+    fi
+    echo ""
+
+    local projects=()
+    if [[ "$target" == "all" ]]; then
+        for dir in "$PROJECTS_DIR"/*/; do
+            if [[ -d "$dir/bot-service" ]]; then
+                projects+=("$(basename "$dir")")
+            fi
+        done
+    else
+        projects=("$target")
+    fi
+
+    if [[ ${#projects[@]} -eq 0 ]]; then
+        echo "  No projects found."
+        echo ""
+        return
+    fi
+
+    for name in "${projects[@]}"; do
+        sync_project "$name" "$apply"
+    done
+
+    if [[ "$apply" != "true" ]]; then
+        echo -e "  ${DIM}Run with --apply to update files.${NC}"
+        echo ""
+    fi
+}
+
 # --- Command: help ---
 cmd_help() {
     print_header
     echo "  Usage:"
     echo ""
-    echo "    ./botforge new <project-name>    Create a new project"
-    echo "    ./botforge list                  List all projects"
-    echo "    ./botforge help                  Show this help"
+    echo "    ./botforge new <project-name>       Create a new project"
+    echo "    ./botforge sync <name|all>          Sync project with latest template"
+    echo "    ./botforge list                     List all projects"
+    echo "    ./botforge deploy <command> [args]  Deploy & manage (shortcut for botforge-deploy)"
+    echo "    ./botforge help                     Show this help"
     echo ""
     echo "  Examples:"
     echo ""
@@ -296,8 +552,14 @@ main() {
         new)
             cmd_new "$@"
             ;;
+        sync)
+            cmd_sync "$@"
+            ;;
         list|ls)
             cmd_list
+            ;;
+        deploy)
+            exec "$SCRIPT_DIR/botforge-deploy" "$@"
             ;;
         help|--help|-h)
             cmd_help

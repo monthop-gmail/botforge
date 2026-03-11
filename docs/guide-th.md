@@ -386,9 +386,11 @@ API Token ต้องมีสิทธิ์:
 ## คำสั่ง Botforge CLI
 
 ```bash
-./botforge new <ชื่อ>    # สร้าง project ใหม่
-./botforge list          # ดู projects ทั้งหมด
-./botforge help          # วิธีใช้
+./botforge new <ชื่อ>           # สร้าง project ใหม่
+./botforge sync <ชื่อ|all>      # sync infra files กับ template ล่าสุด
+./botforge list                 # ดู projects ทั้งหมด
+./botforge deploy <command>     # deploy & manage (ทางลัดของ botforge-deploy)
+./botforge help                 # วิธีใช้
 ```
 
 ### กฎตั้งชื่อ

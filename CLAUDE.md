@@ -11,6 +11,7 @@ Botforge — CLI tool that generates LINE Bot + AI projects from templates. Each
 ```bash
 # Generate a new project
 ./botforge new <name>         # Interactive: select engine, GitHub org, domain
+./botforge sync <name|all>    # Sync project infra files with latest template
 ./botforge list               # List all projects with detected engines
 
 # Deploy and manage multiple bots
@@ -68,15 +69,15 @@ Templates use `{{PLACEHOLDER}}` syntax, replaced by `botforge new`:
 
 ## Engine Detection
 
-Used by both `botforge list` and `botforge-deploy`:
+Used by `botforge list`, `botforge sync`, and `botforge-deploy`:
 ```
-server/api.py exists        → adkcode
-server/go.mod exists        → gocode
-GEMINI in docker-compose    → gemini-cli
-QWEN in docker-compose      → qwen-code
-CODEX in docker-compose     → codex
-server/ dir exists          → claude-code
-opencode.json exists        → opencode
+server/api.py exists            → adkcode
+server/go.mod exists            → gocode
+opencode.json exists            → opencode
+GEMINI_MODEL in docker-compose  → gemini-cli
+QWEN_MODEL in docker-compose    → qwen-code
+CODEX_MODEL in docker-compose   → codex
+server/ dir exists              → claude-code
 ```
 
 ## Port Convention
