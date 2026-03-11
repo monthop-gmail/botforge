@@ -210,7 +210,7 @@ projects/<name>/
 │   │   ├── package.json          # hono, @anthropic-ai/claude-agent-sdk
 │   │   └── src/
 │   │       ├── index.ts          # Hono REST API
-│   │       ├── claude.ts         # Agent SDK wrapper
+│   │       ├── claude.ts         # Agent SDK wrapper (auto-loads AGENTS.md + .mcp.json)
 │   │       ├── session.ts        # Session manager
 │   │       └── events.ts         # SSE event bus
 │   ├── .env.example
@@ -443,7 +443,8 @@ Set `CODEX_MODEL` in `.env` to `o4-mini`, `o3`, or `gpt-4.1`
 
 ### Add MCP tools
 
-Create `workspace/opencode.jsonc` with your MCP server configuration.
+- **OpenCode engine:** Create `workspace/opencode.jsonc` with your MCP server configuration.
+- **Claude Code engine:** Create `workspace/.mcp.json` — auto-loaded at startup. System prompt also auto-loaded from `workspace/CLAUDE.md` + `workspace/AGENTS.md`.
 
 ### Modify templates
 

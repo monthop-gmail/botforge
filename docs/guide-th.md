@@ -118,6 +118,8 @@ OPENCODE_PASSWORD=changeme
 - ต้องการใช้แค่ Claude (Sonnet/Opus/Haiku)
 - ต้องการ setup ง่ายๆ แค่ ANTHROPIC_API_KEY หรือ OAuth
 - ต้องการคุม cost ด้วย `CLAUDE_MAX_BUDGET_USD`
+- รองรับ system prompt จาก `workspace/CLAUDE.md` + `workspace/AGENTS.md` (auto-load)
+- รองรับ MCP tools จาก `workspace/.mcp.json` (auto-load)
 
 ตั้งค่า `.env` (API key):
 ```env
@@ -141,7 +143,7 @@ CLAUDE_MAX_TURNS=10
 CLAUDE_MAX_BUDGET_USD=1.00
 ```
 
-ถ้า host มี `~/.claude` อยู่แล้ว → ใช้ได้เลย
+ถ้า host มี `~/.claude` อยู่แล้ว → ใช้ได้เลย (mount เฉพาะ `.credentials.json` + `settings.json`)
 ถ้าไม่มี → login ใน container: `docker exec -it <container>-server claude login`
 
 ### Gocode — Go + OpenAI-compatible LLM
