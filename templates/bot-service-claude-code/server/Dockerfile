@@ -28,8 +28,9 @@ COPY src/ src/
 
 RUN chown -R claude:claude /app /home/claude
 
-USER claude
+# Ensure mounted volumes have correct ownership at startup
+RUN printf '#!/bin/sh\nchown -R claude:claude /home/claude/.claude 2>/dev/null\nexec su claude -c "bun run src/index.ts"\n' > /entrypoint.sh && chmod +x /entrypoint.sh
 
 EXPOSE 4096
 
-CMD ["bun", "run", "src/index.ts"]
+CMD ["/entrypoint.sh"]

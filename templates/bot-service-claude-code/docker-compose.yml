@@ -14,8 +14,11 @@ services:
       - WORKSPACE_DIR=/workspace
     volumes:
       - ${PROJECT_DIR:-./workspace}:/workspace
-      # Mount host ~/.claude for OAuth credentials (no API key needed)
-      - ${CLAUDE_HOME:-~/.claude}:/home/claude/.claude
+      # Mount only OAuth credentials + settings (not entire ~/.claude to avoid project history leaking)
+      - ${CLAUDE_HOME:-~/.claude}/.credentials.json:/home/claude/.claude/.credentials.json
+      - ${CLAUDE_HOME:-~/.claude}/settings.json:/home/claude/.claude/settings.json:ro
+      # Persistent volume for SDK session history (needed for resume)
+      - claude-projects:/home/claude/.claude/projects
     restart: unless-stopped
 
   # LINE bot - bridges LINE messages to server
@@ -41,3 +44,6 @@ services:
     depends_on:
       - line-bot
     restart: unless-stopped
+
+volumes:
+  claude-projects:

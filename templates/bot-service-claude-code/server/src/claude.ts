@@ -1,8 +1,42 @@
 // --- Claude Agent SDK integration ---
 
 import { query } from "@anthropic-ai/claude-agent-sdk"
+import { readFileSync } from "node:fs"
+import { join } from "node:path"
 import { publish } from "./events"
 import type { MessageInfo, MessagePart } from "./session"
+
+// Load system prompt from workspace CLAUDE.md + AGENTS.md at startup
+function loadSystemPrompt(workspaceDir: string): string {
+  const files = ["CLAUDE.md", "AGENTS.md"]
+  const parts: string[] = []
+  for (const file of files) {
+    try {
+      parts.push(readFileSync(join(workspaceDir, file), "utf-8"))
+    } catch {}
+  }
+  return parts.join("\n\n---\n\n")
+}
+
+// Load MCP server config from workspace .mcp.json
+function loadMcpServers(workspaceDir: string): Record<string, any> | undefined {
+  try {
+    const raw = readFileSync(join(workspaceDir, ".mcp.json"), "utf-8")
+    const config = JSON.parse(raw)
+    if (config.mcpServers && Object.keys(config.mcpServers).length > 0) {
+      console.log(`[claude] Loaded MCP servers: ${Object.keys(config.mcpServers).join(", ")}`)
+      return config.mcpServers
+    }
+  } catch {}
+  return undefined
+}
+
+const defaultWorkspaceDir = process.env.WORKSPACE_DIR ?? "/workspace"
+const cachedSystemPrompt = loadSystemPrompt(defaultWorkspaceDir)
+if (cachedSystemPrompt) {
+  console.log(`[claude] Loaded system prompt from workspace (${cachedSystemPrompt.length} chars)`)
+}
+const cachedMcpServers = loadMcpServers(defaultWorkspaceDir)
 
 export interface ClaudeOptions {
   model?: string
@@ -28,7 +62,6 @@ export interface ClaudeResult {
 const defaultModel = process.env.CLAUDE_MODEL ?? "sonnet"
 const defaultMaxTurns = Number(process.env.CLAUDE_MAX_TURNS ?? 10)
 const defaultMaxBudget = Number(process.env.CLAUDE_MAX_BUDGET_USD ?? 1.00)
-const defaultWorkspaceDir = process.env.WORKSPACE_DIR ?? "/workspace"
 
 export async function runClaude(
   prompt: string,
@@ -54,8 +87,9 @@ export async function runClaude(
         model: options.model ?? defaultModel,
         maxTurns: options.maxTurns ?? defaultMaxTurns,
         maxBudgetUsd: options.maxBudget ?? defaultMaxBudget,
-        systemPrompt: options.systemPrompt,
+        systemPrompt: options.systemPrompt ?? (cachedSystemPrompt || undefined),
         resume: options.resumeSessionId,
+        mcpServers: cachedMcpServers,
         permissionMode: "bypassPermissions",
         allowDangerouslySkipPermissions: true,
         includePartialMessages: true,
