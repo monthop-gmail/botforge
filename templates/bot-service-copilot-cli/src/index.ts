@@ -8,6 +8,7 @@ const port = Number(process.env.PORT ?? 3000)
 const serverUrl = process.env.SERVER_URL ?? "http://server:4096"
 const serverPassword = process.env.SERVER_PASSWORD
 const timeoutMs = Number(process.env.PROMPT_TIMEOUT_MS ?? 300_000)
+const lineOAUrl = process.env.LINE_OA_URL ?? "https://line.me/ti/p/~your-oa"
 
 // --- Model config ---
 const MODELS: Record<string, string> = {
@@ -408,10 +409,11 @@ async function handleJoinEvent(event: any): Promise<void> {
 
   if (chatId) {
     log(`Bot joined group/room: ${chatId}`)
-    const welcomeMsg = `🧑‍💻 สวัสดีครับ! ผมคือ Copilot CLI Bot
+    const welcomeMsg = `สวัสดีครับ! ผมคือ Copilot CLI Bot
 
-💬 พิมพ์อะไรก็ได้ ผมช่วยได้ครับ
-📖 พิมพ์ /help ดูคำสั่งทั้งหมด`
+พิมพ์อะไรก็ได้ ผมช่วยได้ครับ
+พิมพ์ /help ดูคำสั่งทั้งหมด
+คุยส่วนตัว: ${lineOAUrl}`
 
     if (groupId) {
       await lineClient.pushMessage({
@@ -521,14 +523,15 @@ async function handleTextMessage(
 
   if (text.toLowerCase() === "/about" || text.toLowerCase() === "/who") {
     const currentModel = modelPrefs.get(key) ?? DEFAULT_MODEL
-    const aboutMsg = `🧑‍💻 สวัสดีครับ! ผมคือ Copilot CLI Bot
+    const aboutMsg = `สวัสดีครับ! ผมคือ Copilot CLI Bot
 
-🤖 AI Coding Agent (GitHub Copilot SDK)
-📱 ทำงานผ่าน LINE — ถามอะไรก็ได้ ช่วยเขียน code ให้
-🧠 Model: ${currentModel}
+AI Coding Agent (GitHub Copilot SDK)
+ทำงานผ่าน LINE — ถามอะไรก็ได้ ช่วยเขียน code ให้
+Model: ${currentModel}
 
-📦 GitHub: https://github.com/{{GITHUB_ORG}}/{{PROJECT_NAME}}
-📖 พิมพ์ /help ดูคำสั่งทั้งหมด`
+GitHub: https://github.com/{{GITHUB_ORG}}/{{PROJECT_NAME}}
+คุยส่วนตัว: ${lineOAUrl}
+พิมพ์ /help ดูคำสั่งทั้งหมด`
     await lineClient.replyMessage({
       replyToken,
       messages: [{ type: "text", text: aboutMsg }],

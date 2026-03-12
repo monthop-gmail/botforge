@@ -8,6 +8,7 @@ const port = Number(process.env.PORT ?? 3000)
 const serverUrl = process.env.SERVER_URL ?? "http://server:4096"
 const serverPassword = process.env.SERVER_PASSWORD
 const timeoutMs = Number(process.env.PROMPT_TIMEOUT_MS ?? 300_000)
+const lineOAUrl = process.env.LINE_OA_URL ?? "https://line.me/ti/p/~your-oa"
 
 if (!channelAccessToken || !channelSecret) {
   console.error("Missing LINE_CHANNEL_ACCESS_TOKEN or LINE_CHANNEL_SECRET")
@@ -372,7 +373,7 @@ async function handleJoinEvent(event: any): Promise<void> {
     log(`Bot joined group/room: ${chatId}`)
     await lineClient.pushMessage({
       to: chatId,
-      messages: [{ type: "text", text: `สวัสดีครับ! ผมคือ Gemini CLI Bot\n\nพิมพ์อะไรก็ได้ ผมช่วยได้ครับ\nพิมพ์ /help ดูคำสั่งทั้งหมด` }],
+      messages: [{ type: "text", text: `สวัสดีครับ! ผมคือ Gemini CLI Bot\n\nพิมพ์อะไรก็ได้ ผมช่วยได้ครับ\nพิมพ์ /help ดูคำสั่งทั้งหมด\nคุยส่วนตัว: ${lineOAUrl}` }],
     }).catch((err: any) => console.error("Welcome error:", err?.message))
   }
 }
@@ -466,6 +467,7 @@ AI Coding Agent (Gemini CLI)
 ทำงานผ่าน LINE — ถามอะไรก็ได้ ช่วยเขียน code ให้
 
 GitHub: https://github.com/{{GITHUB_ORG}}/{{PROJECT_NAME}}
+คุยส่วนตัว: ${lineOAUrl}
 พิมพ์ /help ดูคำสั่งทั้งหมด`
     await lineClient.replyMessage({
       replyToken,
