@@ -96,7 +96,8 @@ interface UserProfile {
 }
 const userProfiles = new Map<string, UserProfile>()
 
-async function getUserProfile(userId: string): Promise<UserProfile | null> {
+// --- Group profile: use getGroupMemberProfile in group context ---
+async function getUserProfileInContext(userId: string, groupId?: string): Promise<UserProfile | null> {
   const cached = userProfiles.get(userId)
   if (cached && Date.now() - cached.lastSeen < 3600000) {
     cached.lastSeen = Date.now()
@@ -105,10 +106,22 @@ async function getUserProfile(userId: string): Promise<UserProfile | null> {
   }
 
   try {
-    const profile = await lineClient.getProfile(userId)
+    let displayName = "Unknown"
+    if (groupId) {
+      try {
+        const member = await lineClient.getGroupMemberProfile(groupId, userId)
+        displayName = member.displayName || "Unknown"
+      } catch {
+        const profile = await lineClient.getProfile(userId)
+        displayName = profile.displayName || "Unknown"
+      }
+    } else {
+      const profile = await lineClient.getProfile(userId)
+      displayName = profile.displayName || "Unknown"
+    }
     const userProfile: UserProfile = {
       userId,
-      displayName: profile.displayName || "Unknown",
+      displayName,
       lastSeen: Date.now(),
       messageCount: (cached?.messageCount || 0) + 1,
     }
@@ -123,6 +136,37 @@ function getUserContext(userId: string): string {
   const profile = userProfiles.get(userId)
   if (!profile) return ""
   return `[User: ${profile.displayName}]`
+}
+
+// --- Group name cache ---
+const groupNames = new Map<string, { name: string; ts: number }>()
+
+async function getGroupName(groupId: string): Promise<string | null> {
+  const cached = groupNames.get(groupId)
+  if (cached && Date.now() - cached.ts < 3600000) return cached.name
+  try {
+    const summary = await lineClient.getGroupSummary(groupId)
+    const name = summary.groupName || null
+    if (name) groupNames.set(groupId, { name, ts: Date.now() })
+    return name
+  } catch {
+    return cached?.name || null
+  }
+}
+
+// --- Group memory from workspace ---
+async function getGroupMemory(groupId: string): Promise<string | null> {
+  try {
+    const resp = await fetch(`${serverUrl}/file/memory-${groupId}.md`, {
+      headers: serverAuth ? { Authorization: serverAuth } : {},
+      signal: AbortSignal.timeout(5000),
+    })
+    if (resp.ok) {
+      const text = await resp.text()
+      return text.trim() || null
+    }
+  } catch {}
+  return null
 }
 
 function getTimeContext(): string {
@@ -250,6 +294,7 @@ async function sendPrompt(
   prompt: string,
   isGroup: boolean = false,
   userId?: string,
+  options?: { groupName?: string; groupMemory?: string; quotedMessageId?: string },
 ): Promise<{ result: string; cost: number; isError: boolean }> {
   const session = sessions.get(sessionKey)
 
@@ -262,8 +307,23 @@ async function sendPrompt(
     if (ctx) fullPrompt += `${ctx} `
   }
 
+  // Group info context
+  if (options?.groupName) {
+    fullPrompt += `[Group: ${options.groupName}] `
+  }
+
   // Time context
   fullPrompt += `${getTimeContext()}\n\n`
+
+  // Reply/quote context
+  if (options?.quotedMessageId) {
+    fullPrompt += `[Reply to message ID: ${options.quotedMessageId}]\n\n`
+  }
+
+  // Group memory (inject only on new session)
+  if (!session && options?.groupMemory) {
+    fullPrompt += `[Group Memory]\n${options.groupMemory}\n[/Group Memory]\n\n`
+  }
 
   // Group chat: instruct AI to skip irrelevant messages
   if (isGroup) {
@@ -308,7 +368,7 @@ async function sendPrompt(
     ) {
       log(`[${sessionKey.slice(-8)}] Session expired, creating fresh`)
       sessions.delete(sessionKey)
-      return sendPrompt(sessionKey, prompt, isGroup, userId)
+      return sendPrompt(sessionKey, prompt, isGroup, userId, options)
     }
     throw err
   }
@@ -367,6 +427,8 @@ async function handleTextMessage(
   replyToken: string,
   sessionKey: string | null = userId,
   isGroup: boolean = false,
+  quotedMessageId?: string,
+  groupId?: string,
 ): Promise<void> {
   const userName = userProfiles.get(userId)?.displayName || userId.slice(-8)
   const key = sessionKey || userId
@@ -496,15 +558,27 @@ async function handleTextMessage(
   // --- Enqueue prompt ---
   enqueueForSession(key, async () => {
     try {
-      // Get user profile for context
-      await getUserProfile(userId)
+      // Get user profile (use group member profile when in group)
+      await getUserProfileInContext(userId, groupId)
 
       // Show loading animation (free, doesn't consume replyToken)
       if (!isGroup) {
         lineClient.showLoadingAnimation({ chatId: userId, loadingSeconds: 60 }).catch(() => {})
       }
 
-      const { result, cost, isError } = await sendPrompt(key, text, isGroup, userId)
+      // Gather group context
+      let groupName: string | undefined
+      let groupMemory: string | undefined
+      if (isGroup && groupId) {
+        groupName = (await getGroupName(groupId)) ?? undefined
+        groupMemory = (await getGroupMemory(groupId)) ?? undefined
+      }
+
+      const { result, cost, isError } = await sendPrompt(key, text, isGroup, userId, {
+        groupName,
+        groupMemory,
+        quotedMessageId,
+      })
 
       // In group: skip if AI decides message isn't for it
       const trimmed = result.trim()
@@ -677,6 +751,7 @@ Bun.serve({
         ) {
           const isGroup = !!event.source?.groupId || !!event.source?.roomId
           const sessionKey = getSessionKey(event)
+          const quotedMessageId = event.message?.quotedMessageId
 
           handleTextMessage(
             event.source.userId,
@@ -684,6 +759,8 @@ Bun.serve({
             event.replyToken,
             sessionKey,
             isGroup,
+            quotedMessageId,
+            event.source?.groupId,
           ).catch((err) => {
             console.error("Error handling message:", err)
           })
