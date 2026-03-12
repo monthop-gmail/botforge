@@ -25,7 +25,7 @@ function log(...args: any[]) {
   console.log(`[${ts}]`, ...args)
 }
 
-console.log("Claude Code LINE bot configuration:")
+console.log("Copilot CLI LINE bot configuration:")
 console.log("- Server URL:", serverUrl)
 console.log("- Server auth:", serverPassword ? "enabled" : "disabled")
 console.log("- Timeout:", `${timeoutMs}ms`)
@@ -312,7 +312,7 @@ async function handleJoinEvent(event: any): Promise<void> {
 
   if (chatId) {
     log(`Bot joined group/room: ${chatId}`)
-    const welcomeMsg = `🧑‍💻 สวัสดีครับ! ผมคือ Claude Code Bot
+    const welcomeMsg = `🧑‍💻 สวัสดีครับ! ผมคือ Copilot CLI Bot
 
 💬 พิมพ์อะไรก็ได้ ผมช่วยได้ครับ
 📖 พิมพ์ /help ดูคำสั่งทั้งหมด`
@@ -422,9 +422,9 @@ async function handleTextMessage(
   }
 
   if (text.toLowerCase() === "/about" || text.toLowerCase() === "/who") {
-    const aboutMsg = `🧑‍💻 สวัสดีครับ! ผมคือ Claude Code Bot
+    const aboutMsg = `🧑‍💻 สวัสดีครับ! ผมคือ Copilot CLI Bot
 
-🤖 AI Coding Agent (Claude Agent SDK)
+🤖 AI Coding Agent (GitHub Copilot SDK)
 📱 ทำงานผ่าน LINE — ถามอะไรก็ได้ ช่วยเขียน code ให้
 
 📦 GitHub: https://github.com/{{GITHUB_ORG}}/{{PROJECT_NAME}}
@@ -531,7 +531,7 @@ Bun.serve({
     const url = new URL(req.url)
 
     if (req.method === "GET" && url.pathname === "/") {
-      return new Response("Claude Code LINE Bot is running")
+      return new Response("Copilot CLI LINE Bot is running")
     }
 
     if (req.method === "POST" && url.pathname === "/webhook") {
@@ -596,5 +596,5 @@ Bun.serve({
 })
 
 log(
-  `Claude Code LINE bot listening on http://localhost:${port}/webhook`,
+  `Copilot CLI LINE bot listening on http://localhost:${port}/webhook`,
 )

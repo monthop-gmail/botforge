@@ -10,7 +10,7 @@
 - Bash shell (Linux/macOS/WSL)
 - [LINE Developers Account](https://developers.line.biz)
 - [Cloudflare Account](https://cloudflare.com) + domain
-- AI API Key อย่างน้อย 1 ตัว (หรือ OAuth/ADC login สำหรับ Gemini CLI, Qwen Code, Codex, ADKcode)
+- AI API Key อย่างน้อย 1 ตัว (หรือ OAuth/ADC login สำหรับ Gemini CLI, Qwen Code, Codex, ADKcode, Copilot CLI)
 
 ### API Keys ตาม engine ที่เลือก
 
@@ -39,6 +39,9 @@
 **Codex engine:**
 - [OpenAI](https://platform.openai.com) API key หรือใช้ ChatGPT Plus/Pro login (ไม่ต้องมี API key)
 
+**Copilot CLI engine:**
+- [GitHub Copilot](https://github.com/settings/copilot) subscription + `gh auth login` หรือ PAT with Copilot Requests permission
+
 ---
 
 ## เริ่มต้นใช้งาน
@@ -66,7 +69,8 @@ cd botforge
     4) adkcode     — Google ADK + Gemini multi-agent
     5) gemini-cli  — Google Gemini CLI (agentic, session support)
     6) qwen-code  — Alibaba Qwen Code CLI (agentic, free 1K req/day)
-    7) codex      — OpenAI Codex CLI (agentic, ChatGPT login or API key)
+    7) codex       — OpenAI Codex CLI (agentic, ChatGPT login or API key)
+    8) copilot-cli — GitHub Copilot SDK (Claude/GPT-5/o4-mini, GitHub OAuth)
   Select [1]: 1
 
   GitHub org/user [monthop-gmail]: ↵
@@ -261,6 +265,33 @@ CODEX_API_KEY=sk-...
 CODEX_HOME=
 ```
 
+### Copilot CLI — GitHub Copilot SDK multi-model
+
+เหมาะสำหรับ:
+- ต้องการใช้ GitHub Copilot (Claude 4.5, GPT-5, o4-mini)
+- มี GitHub Copilot subscription อยู่แล้ว
+- ใช้ `gh auth login` ได้เลย mount จาก host
+- รองรับ system prompt จาก `workspace/CLAUDE.md` + `workspace/AGENTS.md` (auto-load)
+- รองรับ MCP tools จาก `workspace/.mcp.json` (auto-load)
+
+ตั้งค่า `.env` (gh CLI OAuth — แนะนำ):
+```env
+LINE_CHANNEL_ACCESS_TOKEN=...
+LINE_CHANNEL_SECRET=...
+CLOUDFLARE_TUNNEL_TOKEN=...
+GH_CONFIG_DIR=~/.config/gh
+COPILOT_MODEL=claude-sonnet-4.5
+```
+
+หรือใช้ GitHub Token:
+```env
+GITHUB_TOKEN=ghp_...
+GH_CONFIG_DIR=
+```
+
+ถ้า host มี `~/.config/gh` อยู่แล้ว (จาก `gh auth login`) → ใช้ได้เลย
+ถ้าไม่มี → login ใน container: `docker exec -it <container>-server copilot /login`
+
 ---
 
 ## ตั้งค่า LINE Bot
@@ -383,6 +414,17 @@ API Token ต้องมีสิทธิ์:
 | `/about` | แนะนำตัว bot |
 | `/help` | คำสั่งทั้งหมด |
 
+### Copilot CLI engine
+
+| คำสั่ง | หน้าที่ |
+|--------|---------|
+| `/new` | เริ่ม session ใหม่ |
+| `/abort` | ยกเลิก prompt |
+| `/sessions` | ดู session + cost |
+| `/cost` | ดูค่าใช้จ่าย |
+| `/about` | แนะนำตัว bot |
+| `/help` | คำสั่งทั้งหมด |
+
 ---
 
 ## คำสั่ง Botforge CLI
@@ -497,6 +539,10 @@ docker compose up -d --build line-bot
 ### เปลี่ยน Codex model (Codex)
 
 แก้ `CODEX_MODEL` ใน `.env` → `o4-mini`, `o3`, หรือ `gpt-4.1`
+
+### เปลี่ยน Copilot model (Copilot CLI)
+
+แก้ `COPILOT_MODEL` ใน `.env` → `claude-sonnet-4.5`, `gpt-5`, หรือ `o4-mini`
 
 ---
 

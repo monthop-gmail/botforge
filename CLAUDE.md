@@ -30,7 +30,7 @@ Botforge — CLI tool that generates LINE Bot + AI projects from templates. Each
 
 ## Architecture
 
-### 7 Engine Templates (`templates/bot-service-*/`)
+### 8 Engine Templates (`templates/bot-service-*/`)
 
 | Engine | Server | Port | Language | AI Provider |
 |--------|--------|------|----------|-------------|
@@ -41,6 +41,7 @@ Botforge — CLI tool that generates LINE Bot + AI projects from templates. Each
 | `gemini-cli` | Hono + Gemini CLI spawn | 4096 | TS | Gemini (2.5-flash, 2.5-pro, 2.0-flash) |
 | `qwen-code` | Hono + Qwen Code CLI spawn | 4096 | TS | Qwen (qwen3-coder-plus, qwen3.5-plus) |
 | `codex` | Hono + Codex CLI spawn | 4096 | TS | OpenAI (o4-mini, o3, gpt-4.1) |
+| `copilot-cli` | Hono + Copilot SDK | 4096 | TS | GitHub Copilot (Claude 4.5, GPT-5, o4-mini) |
 
 ### Generated Project Structure
 ```
@@ -77,6 +78,7 @@ opencode.json exists            → opencode
 GEMINI_MODEL in docker-compose  → gemini-cli
 QWEN_MODEL in docker-compose    → qwen-code
 CODEX_MODEL in docker-compose   → codex
+COPILOT_MODEL in docker-compose → copilot-cli
 server/ dir exists              → claude-code
 ```
 

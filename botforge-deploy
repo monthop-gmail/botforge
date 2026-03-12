@@ -75,6 +75,8 @@ detect_engine() {
         echo "qwen-code"
     elif grep -q "CODEX_MODEL" "$dir/docker-compose.yml" 2>/dev/null; then
         echo "codex"
+    elif grep -q "COPILOT_MODEL" "$dir/docker-compose.yml" 2>/dev/null; then
+        echo "copilot-cli"
     elif [[ -d "$dir/server" ]]; then
         echo "claude-code"
     else

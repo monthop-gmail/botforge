@@ -1,0 +1,48 @@
+services:
+  # Copilot CLI API server (Copilot SDK → GitHub Copilot API)
+  server:
+    build: ./server
+    container_name: {{CONTAINER_PREFIX}}-server
+    environment:
+      - GITHUB_TOKEN=${GITHUB_TOKEN:-}
+      - COPILOT_GITHUB_TOKEN=${COPILOT_GITHUB_TOKEN:-}
+      - API_PASSWORD=${API_PASSWORD:-}
+      - COPILOT_MODEL=${COPILOT_MODEL:-claude-sonnet-4.5}
+      - COPILOT_MAX_TURNS=${COPILOT_MAX_TURNS:-10}
+      - COPILOT_TIMEOUT_MS=${COPILOT_TIMEOUT_MS:-300000}
+      - PORT=4096
+      - WORKSPACE_DIR=/workspace
+    volumes:
+      - ${PROJECT_DIR:-./workspace}:/workspace
+      # Mount GitHub CLI config for OAuth (copilot uses gh auth)
+      - ${GH_CONFIG_DIR:-~/.config/gh}:/home/copilot/.config/gh:ro
+      # Persistent volume for Copilot session data
+      - copilot-data:/home/copilot/.local/share/github-copilot
+    restart: unless-stopped
+
+  # LINE bot - bridges LINE messages to server
+  line-bot:
+    build: .
+    container_name: {{CONTAINER_PREFIX}}-line-bot
+    environment:
+      - LINE_CHANNEL_ACCESS_TOKEN=${LINE_CHANNEL_ACCESS_TOKEN}
+      - LINE_CHANNEL_SECRET=${LINE_CHANNEL_SECRET}
+      - SERVER_URL=http://server:4096
+      - SERVER_PASSWORD=${API_PASSWORD:-}
+      - PROMPT_TIMEOUT_MS=${PROMPT_TIMEOUT_MS:-300000}
+      - PORT=3000
+    depends_on:
+      - server
+    restart: unless-stopped
+
+  # Cloudflare tunnel - exposes LINE webhook to internet
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: {{CONTAINER_PREFIX}}-tunnel
+    command: tunnel --no-autoupdate run --token ${CLOUDFLARE_TUNNEL_TOKEN}
+    depends_on:
+      - line-bot
+    restart: unless-stopped
+
+volumes:
+  copilot-data:
