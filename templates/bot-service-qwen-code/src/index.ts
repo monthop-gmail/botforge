@@ -134,6 +134,22 @@ function getUserContext(userId: string): string {
   return `[User: ${profile.displayName}]`
 }
 
+// --- Group name cache ---
+const groupNames = new Map<string, { name: string; ts: number }>()
+
+async function getGroupName(groupId: string): Promise<string | null> {
+  const cached = groupNames.get(groupId)
+  if (cached && Date.now() - cached.ts < 3600000) return cached.name
+  try {
+    const summary = await lineClient.getGroupSummary(groupId)
+    const name = summary.groupName || null
+    if (name) groupNames.set(groupId, { name, ts: Date.now() })
+    return name
+  } catch {
+    return cached?.name || null
+  }
+}
+
 function getTimeContext(): string {
   const bangkokTime = new Intl.DateTimeFormat("sv-SE", {
     timeZone: "Asia/Bangkok",
@@ -256,6 +272,7 @@ async function sendPrompt(
   prompt: string,
   isGroup: boolean = false,
   userId?: string,
+  options?: { groupName?: string; quotedMessageId?: string },
 ): Promise<{ result: string; isError: boolean }> {
   const session = sessions.get(sessionKey)
 
@@ -266,7 +283,15 @@ async function sendPrompt(
     if (ctx) fullPrompt += `${ctx} `
   }
 
+  if (options?.groupName) {
+    fullPrompt += `[Group: ${options.groupName}] `
+  }
+
   fullPrompt += `${getTimeContext()}\n\n`
+
+  if (options?.quotedMessageId) {
+    fullPrompt += `[Reply to message ID: ${options.quotedMessageId}]\n\n`
+  }
 
   if (isGroup) {
     fullPrompt += `[GROUP CHAT: You are in a group chat. If this message is clearly NOT directed at you (just people chatting with each other, unrelated conversations), respond with exactly [SKIP] and nothing else. If the message mentions you, asks a question, or could be directed at you, respond normally.]\n\n`
@@ -302,7 +327,7 @@ async function sendPrompt(
     ) {
       log(`[${sessionKey.slice(-8)}] Session expired, creating fresh`)
       sessions.delete(sessionKey)
-      return sendPrompt(sessionKey, prompt, isGroup, userId)
+      return sendPrompt(sessionKey, prompt, isGroup, userId, options)
     }
     throw err
   }
@@ -364,6 +389,7 @@ async function handleTextMessage(
   sessionKey: string | null = userId,
   isGroup: boolean = false,
   groupId?: string,
+  quotedMessageId?: string,
 ): Promise<void> {
   const userName = userProfiles.get(userId)?.displayName || userId.slice(-8)
   const key = sessionKey || userId
@@ -467,12 +493,14 @@ Session
   enqueueForSession(key, async () => {
     try {
       await getUserProfile(userId, groupId)
+      const groupName = groupId ? await getGroupName(groupId) : null
 
       if (!isGroup) {
         lineClient.showLoadingAnimation({ chatId: userId, loadingSeconds: 60 }).catch(() => {})
       }
 
-      const { result, isError } = await sendPrompt(key, text, isGroup, userId)
+      const opts = { groupName: groupName ?? undefined, quotedMessageId }
+      const { result, isError } = await sendPrompt(key, text, isGroup, userId, opts)
 
       const trimmed = result.trim()
       if (isGroup && (trimmed === "[SKIP]" || trimmed.startsWith("[SKIP]\n") || trimmed.startsWith("[SKIP] "))) {
@@ -483,6 +511,11 @@ Session
       let responseText = result
       if (isError) {
         responseText = getErrorHint(result)
+      }
+
+      // Truncated response indicator
+      if (responseText.length >= LINE_MAX_TEXT * 2) {
+        responseText += "\n\n--- ข้อความถูกตัดเนื่องจากยาวเกินไป ---"
       }
 
       log(`[${key.slice(-8)}] Response: ${responseText.length} chars`)
@@ -600,6 +633,7 @@ Bun.serve({
           const isGroup = !!event.source?.groupId || !!event.source?.roomId
           const sessionKey = getSessionKey(event)
 
+          const quotedMsgId = event.message?.quotedMessageId
           handleTextMessage(
             event.source.userId,
             event.message.text.trim(),
@@ -607,6 +641,7 @@ Bun.serve({
             sessionKey,
             isGroup,
             event.source?.groupId,
+            quotedMsgId,
           ).catch((err) => {
             console.error("Error handling message:", err)
           })

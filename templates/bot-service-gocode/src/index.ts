@@ -63,8 +63,27 @@ async function createSession(): Promise<{ id: string }> {
 
 const PROMPT_TIMEOUT_MS = Number(process.env.PROMPT_TIMEOUT_MS ?? 120_000)
 
-async function sendPrompt(sessionId: string, content: string): Promise<any> {
-  const prefixed = `[IMPORTANT: Always respond directly with text. Do NOT ask clarifying questions. If unsure, make your best guess and explain your assumptions.]\n\n${getTimeContext()}\n\n${content}`
+async function sendPrompt(sessionId: string, content: string, options?: { userId?: string; groupName?: string; quotedMessageId?: string; isGroup?: boolean }): Promise<any> {
+  let prefix = `[IMPORTANT: Always respond directly with text. Do NOT ask clarifying questions. If unsure, make your best guess and explain your assumptions.]\n\n${getTimeContext()}`
+
+  if (options?.userId) {
+    const ctx = getUserContext(options.userId)
+    if (ctx) prefix += `\n${ctx}`
+  }
+
+  if (options?.groupName) {
+    prefix += `\n[Group: ${options.groupName}]`
+  }
+
+  if (options?.quotedMessageId) {
+    prefix += `\n[Replying to message ID: ${options.quotedMessageId}]`
+  }
+
+  if (options?.isGroup) {
+    prefix += `\n[GROUP CHAT] If the message is not directed at you (casual chat between humans), respond with exactly "[SKIP]". Only respond to messages that mention you, ask questions, or request help.`
+  }
+
+  const prefixed = `${prefix}\n\n${content}`
 
   const controller = new AbortController()
   const timeout = setTimeout(() => controller.abort(), PROMPT_TIMEOUT_MS)
@@ -114,19 +133,33 @@ async function waitForServer(maxRetries = 30, delayMs = 2000): Promise<boolean> 
 // --- Session Management ---
 const sessions = new Map<string, { sessionId: string; userId: string; isGroup: boolean }>()
 
+// --- Group Name Cache ---
+const groupNames = new Map<string, { name: string; ts: number }>()
+
+async function getGroupName(groupId: string): Promise<string | null> {
+  const cached = groupNames.get(groupId)
+  if (cached && Date.now() - cached.ts < 3600000) return cached.name
+  try {
+    const summary = await lineClient.getGroupSummary(groupId)
+    const name = summary.groupName || null
+    if (name) groupNames.set(groupId, { name, ts: Date.now() })
+    return name
+  } catch {
+    return cached?.name || null
+  }
+}
+
 // --- User Memory ---
 interface UserProfile {
   userId: string
   displayName: string
-  pictureUrl?: string
-  statusMessage?: string
   firstSeen: number
   lastSeen: number
   messageCount: number
 }
 const userProfiles = new Map<string, UserProfile>()
 
-async function getUserProfile(userId: string): Promise<UserProfile | null> {
+async function getUserProfile(userId: string, groupId?: string): Promise<UserProfile | null> {
   const cached = userProfiles.get(userId)
   if (cached && Date.now() - cached.lastSeen < 3600000) {
     cached.lastSeen = Date.now()
@@ -135,12 +168,22 @@ async function getUserProfile(userId: string): Promise<UserProfile | null> {
   }
 
   try {
-    const profile = await lineClient.getProfile(userId)
+    let displayName = "Unknown"
+    if (groupId) {
+      try {
+        const member = await lineClient.getGroupMemberProfile(groupId, userId)
+        displayName = member.displayName || "Unknown"
+      } catch {
+        const profile = await lineClient.getProfile(userId)
+        displayName = profile.displayName || "Unknown"
+      }
+    } else {
+      const profile = await lineClient.getProfile(userId)
+      displayName = profile.displayName || "Unknown"
+    }
     const userProfile: UserProfile = {
       userId,
-      displayName: profile.displayName || "Unknown",
-      pictureUrl: profile.pictureUrl,
-      statusMessage: profile.statusMessage,
+      displayName,
       firstSeen: cached?.firstSeen || Date.now(),
       lastSeen: Date.now(),
       messageCount: (cached?.messageCount || 0) + 1,
@@ -151,6 +194,24 @@ async function getUserProfile(userId: string): Promise<UserProfile | null> {
     console.warn("Failed to get user profile:", err)
     return cached || null
   }
+}
+
+// --- User context helper ---
+function getUserContext(userId: string): string {
+  const profile = userProfiles.get(userId)
+  if (!profile) return ""
+  return `[User: ${profile.displayName}]`
+}
+
+// --- Error hint helper ---
+function getErrorHint(errMsg: string): string {
+  const msg = errMsg.toLowerCase()
+  if (msg.includes("429") || msg.includes("rate limit")) return "เกิน rate limit ครับ รอสักครู่แล้วลองใหม่"
+  if (msg.includes("timeout") || msg.includes("timed out") || msg.includes("abort")) return "AI ใช้เวลานานเกินไปครับ ลองพิมพ์ /new แล้วถามใหม่"
+  if (msg.includes("401") || msg.includes("403") || msg.includes("auth") || msg.includes("unauthorized")) return "มีปัญหาเรื่อง authentication ครับ กรุณาแจ้ง admin"
+  if (msg.includes("500") || msg.includes("internal server")) return "server มีปัญหาครับ ลองใหม่อีกครั้ง"
+  if (msg.includes("context") || msg.includes("too long") || msg.includes("token")) return "บทสนทนายาวเกินไปครับ ลองพิมพ์ /new เพื่อเริ่มใหม่"
+  return `เกิดข้อผิดพลาดครับ: ${errMsg.slice(0, 200)}`
 }
 
 function getTimeContext(): string {
@@ -164,16 +225,27 @@ function getTimeContext(): string {
   return `[Time: ${bangkokTime}+07:00]`
 }
 
+// --- Handle image messages ---
+async function handleImageMessage(userId: string, replyToken: string, isGroup: boolean): Promise<void> {
+  const userName = userProfiles.get(userId)?.displayName || userId.slice(-8)
+  log(`Image from ${userName}, group: ${isGroup} (no vision)`)
+  if (isGroup) return
+  await lineClient.replyMessage({
+    replyToken,
+    messages: [{ type: "text", text: "ยังดูรูปไม่ได้ครับ ส่งเป็นข้อความแทนนะ" }],
+  }).catch(() => {})
+}
+
 // --- Handle LINE Join/Leave events ---
 async function handleJoinEvent(event: any): Promise<void> {
   const chatId = event.source?.groupId || event.source?.roomId
   if (chatId) {
     console.log(`Bot joined group/room: ${chatId}`)
-    const welcomeMsg = `🧑‍💻 สวัสดีครับ! ผม Gocode Bot
+    const welcomeMsg = `สวัสดีครับ! ผม Gocode Bot
 
-💬 พิมพ์อะไรก็ได้ ผมช่วยได้ครับ
-📖 พิมพ์ /help ดูคำสั่งทั้งหมด
-🔒 คุยส่วนตัว: ${lineOAUrl}`
+พิมพ์อะไรก็ได้ ผมช่วยได้ครับ
+พิมพ์ /help ดูคำสั่งทั้งหมด
+คุยส่วนตัว: ${lineOAUrl}`
     if (event.source?.groupId) {
       await lineClient.pushMessage({
         to: event.source.groupId,
@@ -293,9 +365,11 @@ async function handleTextMessage(
   replyToken: string,
   sessionKey: string | null = userId,
   isGroup: boolean = false,
+  groupId?: string,
+  quotedMessageId?: string,
 ): Promise<void> {
   const userName = userProfiles.get(userId)?.displayName || userId.slice(-8)
-  log(`💬 ${userName}: "${text.slice(0, 80)}${text.length > 80 ? "..." : ""}" [group:${isGroup}, key:${sessionKey?.slice(-8)}]`)
+  log(`${userName}: "${text.slice(0, 80)}${text.length > 80 ? "..." : ""}" [group:${isGroup}, key:${sessionKey?.slice(-8)}]`)
 
   // --- Commands ---
   if (text.toLowerCase() === "/new") {
@@ -338,14 +412,14 @@ async function handleTextMessage(
   }
 
   if (text.toLowerCase() === "/about" || text.toLowerCase() === "/who") {
-    const aboutMsg = `🧑‍💻 สวัสดีครับ! ผมคือ Gocode Bot
+    const aboutMsg = `สวัสดีครับ! ผมคือ Gocode Bot
 
-🤖 AI Coding Agent (Go + OpenAI-compatible LLM)
-📱 ทำงานผ่าน LINE — ถามอะไรก็ได้ ช่วยเขียน code ให้
+AI Coding Agent (Go + OpenAI-compatible LLM)
+ทำงานผ่าน LINE -- ถามอะไรก็ได้ ช่วยเขียน code ให้
 
-📦 GitHub: https://github.com/{{GITHUB_ORG}}/{{PROJECT_NAME}}
-💬 คุยส่วนตัว: ${lineOAUrl}
-📖 พิมพ์ /help ดูคำสั่งทั้งหมด`
+GitHub: https://github.com/{{GITHUB_ORG}}/{{PROJECT_NAME}}
+คุยส่วนตัว: ${lineOAUrl}
+พิมพ์ /help ดูคำสั่งทั้งหมด`
     await lineClient.replyMessage({
       replyToken,
       messages: [{ type: "text", text: aboutMsg }],
@@ -354,20 +428,20 @@ async function handleTextMessage(
   }
 
   if (text.toLowerCase() === "/help" || text.toLowerCase() === "/คำสั่ง") {
-    const helpMsg = `📖 คำสั่งทั้งหมด:
+    const helpMsg = `คำสั่งทั้งหมด:
 
-🤖 ทั่วไป
-  /about — แนะนำตัว bot
-  /help — คำสั่งทั้งหมด
+ทั่วไป
+  /about -- แนะนำตัว bot
+  /help -- คำสั่งทั้งหมด
 
-💻 Session
-  /new — เริ่มบทสนทนาใหม่
-  /abort — ยกเลิก prompt ที่กำลังทำ
-  /sessions — ดูสถานะ session
+Session
+  /new -- เริ่มบทสนทนาใหม่
+  /abort -- ยกเลิก prompt ที่กำลังทำ
+  /sessions -- ดูสถานะ session
 
-💬 วิธีใช้งาน:
-  แชทส่วนตัว — พิมพ์ได้เลย!
-  ในกลุ่ม — พิมพ์ได้เลย bot จะตอบเฉพาะข้อความที่เกี่ยวข้อง`
+วิธีใช้งาน:
+  แชทส่วนตัว -- พิมพ์ได้เลย!
+  ในกลุ่ม -- พิมพ์ได้เลย bot จะตอบเฉพาะข้อความที่เกี่ยวข้อง`
     await lineClient.replyMessage({
       replyToken,
       messages: [{ type: "text", text: helpMsg }],
@@ -393,19 +467,31 @@ async function handleTextMessage(
   }
 
   // --- Send prompt ---
-  log(`➡️ Sending to gocode (session: ${session.sessionId.slice(-8)}): ${text.slice(0, 60)}${text.length > 60 ? "..." : ""}`)
+  log(`Sending to gocode (session: ${session.sessionId.slice(-8)}): ${text.slice(0, 60)}${text.length > 60 ? "..." : ""}`)
 
   if (!isGroup) {
     lineClient.showLoadingAnimation({ chatId: userId, loadingSeconds: 60 }).catch(() => {})
   }
 
-  try {
-    await getUserProfile(userId)
+  // Resolve group name
+  let groupName: string | undefined
+  if (groupId) {
+    const name = await getGroupName(groupId)
+    if (name) groupName = name
+  }
 
-    const result = await sendPrompt(session.sessionId, text)
+  try {
+    await getUserProfile(userId, groupId)
+
+    const result = await sendPrompt(session.sessionId, text, {
+      userId,
+      groupName,
+      quotedMessageId,
+      isGroup,
+    })
 
     if (result?._timedOut) {
-      await sendMessage(sessionKey || userId, "⏱️ AI ใช้เวลานานเกินไป ลองพิมพ์ /new แล้วถามใหม่", replyToken)
+      await sendMessage(sessionKey || userId, "AI ใช้เวลานานเกินไป ลองพิมพ์ /new แล้วถามใหม่", replyToken)
       return
     }
 
@@ -414,33 +500,43 @@ async function handleTextMessage(
     // In group: skip if AI decides message isn't for it
     const trimmedResponse = responseText.trim()
     if (isGroup && (trimmedResponse === "[SKIP]" || trimmedResponse.startsWith("[SKIP]\n") || trimmedResponse.startsWith("[SKIP] "))) {
-      log(`⏭️ Skipped: "${text.slice(0, 60)}${text.length > 60 ? "..." : ""}"`)
+      log(`Skipped: "${text.slice(0, 60)}${text.length > 60 ? "..." : ""}"`)
       return
     }
 
-    log(`⬅️ Response (${responseText.length} chars): ${responseText.slice(0, 100)}${responseText.length > 100 ? "..." : ""}`)
+    // Truncated response indicator
+    if (responseText.length >= LINE_MAX_TEXT * 2) {
+      responseText += "\n\n--- ข้อความถูกตัดเนื่องจากยาวเกินไป ---"
+    }
+
+    log(`Response (${responseText.length} chars): ${responseText.slice(0, 100)}${responseText.length > 100 ? "..." : ""}`)
     await sendMessage(sessionKey || userId, responseText, replyToken)
   } catch (err: any) {
-    log("❌ Gocode prompt error:", err?.message)
+    log("Gocode prompt error:", err?.message)
 
     if (err?.message?.includes("404") || err?.message?.includes("not found")) {
       if (sessionKey) sessions.delete(sessionKey)
-      log("🔄 Session expired, auto-retrying with new session...")
+      log("Session expired, auto-retrying with new session...")
       try {
         const newResult = await createSession()
         session = { sessionId: newResult.id, userId, isGroup }
         if (sessionKey) sessions.set(sessionKey, session)
-        const retryResult = await sendPrompt(session.sessionId, text)
+        const retryResult = await sendPrompt(session.sessionId, text, {
+          userId,
+          groupName,
+          quotedMessageId,
+          isGroup,
+        })
         const retryText = extractResponse(retryResult)
         await sendMessage(sessionKey || userId, retryText, replyToken)
         return
       } catch (retryErr: any) {
-        log("❌ Auto-retry failed:", retryErr?.message)
+        log("Auto-retry failed:", retryErr?.message)
         await sendMessage(sessionKey || userId, "สร้าง session ใหม่ไม่สำเร็จครับ ลองส่งข้อความมาใหม่อีกครั้ง", replyToken)
         return
       }
     } else {
-      await sendMessage(sessionKey || userId, `เกิดข้อผิดพลาดครับ: ${err?.message?.slice(0, 200) ?? "ไม่ทราบสาเหตุ"}`, replyToken)
+      await sendMessage(sessionKey || userId, getErrorHint(err?.message ?? "ไม่ทราบสาเหตุ"), replyToken)
     }
   }
 }
@@ -479,6 +575,53 @@ Bun.serve({
       return new Response("Gocode LINE Bot is running")
     }
 
+    if (req.method === "GET" && url.pathname === "/about") {
+      const html = `<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gocode LINE Bot — About</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#0a0a1a;color:#e0e0e0;min-height:100vh;padding:2rem 1rem}
+  .container{max-width:640px;margin:0 auto}
+  h1{font-size:1.8rem;margin-bottom:.5rem;background:linear-gradient(135deg,#00d4aa,#0088cc);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+  h2{font-size:1.3rem;margin-top:2rem;margin-bottom:.75rem;color:#00d4aa}
+  p,li{line-height:1.7;color:#b2bec3;margin-bottom:.5rem}
+  a{color:#74b9ff;text-decoration:none}
+  a:hover{text-decoration:underline}
+  .card{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:12px;padding:1.25rem;margin-bottom:1rem}
+  .card h3{color:#00d4aa;font-size:1.1rem;margin-bottom:.5rem}
+  ul{padding-left:1.2rem}
+  footer{margin-top:3rem;text-align:center;color:#636e72;font-size:.8rem}
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>Gocode LINE Bot</h1>
+  <p>AI coding assistant powered by Go + OpenAI-compatible LLM -- ถามคำถาม ให้ AI ช่วยตอบได้เลยผ่าน LINE</p>
+
+  <h2>LINE Bot Commands</h2>
+  <div class="card">
+    <ul>
+      <li><strong>/new</strong> -- เริ่ม session ใหม่</li>
+      <li><strong>/abort</strong> -- ยกเลิก prompt ที่กำลังทำ</li>
+      <li><strong>/sessions</strong> -- ดูสถานะ session</li>
+      <li><strong>/about</strong> -- แนะนำตัว bot</li>
+      <li><strong>/help</strong> -- ดูคำสั่งทั้งหมด</li>
+    </ul>
+  </div>
+
+  <footer><p>Built with Go + chi + OpenAI-compatible API + LINE Messaging API</p></footer>
+</div>
+</body>
+</html>`
+      return new Response(html, {
+        headers: { "Content-Type": "text/html; charset=utf-8" },
+      })
+    }
+
     if (req.method === "POST" && url.pathname === "/webhook") {
       const body = await req.text()
       const signature = req.headers.get("x-line-signature") || ""
@@ -505,21 +648,29 @@ Bun.serve({
           continue
         }
 
-        if (
-          event.type === "message" &&
-          event.message?.type === "text" &&
-          event.source?.userId
-        ) {
+        if (event.type === "message" && event.source?.userId) {
           const isGroup = !!event.source?.groupId || !!event.source?.roomId
           const sessionKey = getSessionKey(event)
+          const eventGroupId = event.source?.groupId
+          const quotedMessageId = event.message?.quotedMessageId
 
-          handleTextMessage(
-            event.source.userId,
-            event.message.text.trim(),
-            event.replyToken,
-            sessionKey,
-            isGroup,
-          ).catch((err) => console.error("Error handling text message:", err))
+          if (event.message?.type === "text") {
+            handleTextMessage(
+              event.source.userId,
+              event.message.text.trim(),
+              event.replyToken,
+              sessionKey,
+              isGroup,
+              eventGroupId,
+              quotedMessageId,
+            ).catch((err) => console.error("Error handling text message:", err))
+          } else if (event.message?.type === "image") {
+            handleImageMessage(
+              event.source.userId,
+              event.replyToken,
+              isGroup,
+            ).catch((err) => console.error("Error handling image message:", err))
+          }
         }
       }
 
