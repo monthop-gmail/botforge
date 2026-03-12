@@ -47,7 +47,7 @@ Botforge — CLI tool that generates LINE Bot + AI projects from templates. Each
 ```
 projects/<name>/
 ├── bot-service/          # Separate git repo
-│   ├── src/index.ts      # LINE bot (webhook, commands, session mgmt)
+│   ├── src/index.ts      # LINE bot (webhook, commands, session mgmt, group chat, Thai errors, /about HTML)
 │   ├── server/           # AI server (claude-code, gocode, adkcode, gemini-cli, qwen-code, codex)
 │   ├── docker-compose.yml
 │   ├── .env              # Credentials (gitignored)

@@ -29,7 +29,7 @@ server (Hono + Codex CLI, port 4096)
 OpenAI (o4-mini, o3, gpt-4.1)
 ```
 
-- **`src/index.ts`** — LINE bot: webhook, signature validation, message chunking, commands
+- **`src/index.ts`** — LINE bot: webhook, signature validation, message chunking, commands, group chat support, user/group context enrichment, Thai error hints, image handling, /about HTML page
 - **`server/src/index.ts`** — Hono API server (routes, SSE, auth)
 - **`server/src/codex.ts`** — Codex CLI child process wrapper
 - **`server/src/session.ts`** — In-memory session manager

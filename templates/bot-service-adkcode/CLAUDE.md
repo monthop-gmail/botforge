@@ -29,7 +29,7 @@ server (FastAPI + Google ADK, port 8000)
 Gemini API (gemini-2.5-flash, gemini-2.0-flash)
 ```
 
-- **`src/index.ts`** — LINE bot: webhook, signature validation, message chunking, commands, session management
+- **`src/index.ts`** — LINE bot: webhook, signature validation, message chunking, commands, session management, group chat support, user/group context enrichment, Thai error hints, image handling, /about HTML page
 - **`server/api.py`** — FastAPI REST wrapper around ADK runner + ADK web UI (shared session service)
 - **`server/adkcode/agent.py`** — Multi-agent system: orchestrator, coder, reviewer, tester
 - **`server/adkcode/tools.py`** — Coding tools: read/write/edit files, shell, grep, web search/fetch, semantic search

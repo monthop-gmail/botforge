@@ -11,17 +11,24 @@ Bot Forge รวม project แล้วจร้า
 
 https://github.com/monthop-gmail/botforge
 
-- ใครใช้ claude code (pro/max oauth นะ ไม่ใช่ claude api)
-- ใครใช้ opencode
+เลือก AI engine ได้ 8 แบบ:
+- OpenCode — 40+ models (Claude, GPT, Gemini, DeepSeek, Qwen, Groq)
+- Claude Code — Anthropic Agent SDK (OAuth หรือ API key)
+- Gocode — Go + OpenAI-compatible LLM
+- ADKcode — Google ADK + Gemini multi-agent
+- Gemini CLI — Google Gemini CLI (OAuth ได้)
+- Qwen Code — Alibaba Qwen Code CLI (ฟรี 1K req/วัน)
+- Codex — OpenAI Codex CLI (ChatGPT login ได้)
+- Copilot CLI — GitHub Copilot SDK (Claude/GPT-5/o4-mini)
 
-แล้วอยากจะเอา AI coding agent มาใช้บน line (line oa, line group)
 เนรมิต line bot แค่คำสั่งเดียวเลย
 
 botforge new my-bot
 
-3-container architecture: LINE Bot + AI coding agent(claude code หรือ opencode) + CloudFlare Tunnel
+3-container architecture: LINE Bot + AI coding agent + CloudFlare Tunnel
+ทุก engine มี group chat, Thai error hints, /about page, image handling, user/group context
 
-ปล. ให้ ai clone เอาไปใช้นะครับ เอกสารน้อย รวมแบบเร่งด่วน ยังไม่ได้ทดสอบ ปรับเองได้เลยจร้า จะส่งทาง line
+ปล. ให้ ai clone เอาไปใช้นะครับ ปรับเองได้เลยจร้า
 ```
 
 ---
@@ -33,11 +40,11 @@ botforge new my-bot
 ```
 Introducing Botforge — Create AI-powered LINE Bots in seconds.
 
-One command. Two engines. 40+ AI models.
+One command. 8 engines. 40+ AI models.
 
 ./botforge new my-bot
 
-Choose OpenCode (Claude, GPT, Gemini, DeepSeek, Qwen) or Claude Code (Agent SDK).
+OpenCode, Claude Code, Gocode, ADKcode, Gemini CLI, Qwen Code, Codex, Copilot CLI.
 Docker-ready. Self-hosted. 100% open source.
 
 https://github.com/monthop-gmail/botforge
@@ -50,7 +57,7 @@ https://github.com/monthop-gmail/botforge
 
 ./botforge new my-bot
 
-เลือก engine ได้: OpenCode (40+ models) หรือ Claude Code (Agent SDK)
+เลือก engine ได้ 8 แบบ: OpenCode, Claude Code, Gocode, ADKcode, Gemini CLI, Qwen Code, Codex, Copilot CLI
 Deploy ด้วย Docker, self-hosted, open source 100% ฟรี
 
 https://github.com/monthop-gmail/botforge
@@ -77,9 +84,12 @@ What you get:
 - Cloudflare Tunnel for instant public URL
 - Docker Compose — deploy in minutes
 
-Two AI engines to choose from:
-- OpenCode — multi-model, multi-provider flexibility
-- Claude Code — Anthropic Agent SDK, simpler setup, built-in cost control
+8 AI engines to choose from:
+- OpenCode — multi-model, multi-provider (40+ models)
+- Claude Code — Anthropic Agent SDK, built-in cost control
+- Gocode — Go + OpenAI-compatible LLM
+- ADKcode — Google ADK + Gemini multi-agent
+- Gemini CLI, Qwen Code, Codex, Copilot CLI — agentic CLI wrappers
 
 100% open source (MIT). Self-hosted. No vendor lock-in. SaaS option coming soon for teams who prefer managed hosting.
 
@@ -107,9 +117,12 @@ Contributions welcome!
 - Cloudflare Tunnel เปิด URL สาธารณะทันที
 - Docker Compose — deploy ภายในไม่กี่นาที
 
-เลือก engine ได้ 2 แบบ:
-- OpenCode — หลาย model หลาย provider
-- Claude Code — ใช้ Anthropic Agent SDK ตรง เบา ง่าย คุม cost ได้
+เลือก engine ได้ 8 แบบ:
+- OpenCode — หลาย model หลาย provider (40+ models)
+- Claude Code — Anthropic Agent SDK คุม cost ได้
+- Gocode — Go + OpenAI-compatible LLM
+- ADKcode — Google ADK + Gemini multi-agent
+- Gemini CLI, Qwen Code, Codex, Copilot CLI — agentic CLI wrappers
 
 Open source 100% (MIT License) ใช้ฟรีไม่จำกัด ทั้ง personal และ commercial
 
@@ -140,13 +153,20 @@ docker compose up -d --build
 
 That's it. Your bot is live.
 
-Two AI engines:
+8 AI engines:
 
-| | OpenCode | Claude Code |
+| Engine | AI Provider | Auth |
 |---|---|---|
-| Models | 40+ (Claude, GPT, Gemini, DeepSeek, Qwen) | Claude (Sonnet/Opus/Haiku) |
-| Setup | More config, more flexibility | Simple, just ANTHROPIC_API_KEY |
-| Cost control | Per-provider | Built-in budget limit |
+| OpenCode | 40+ models (Claude, GPT, Gemini, DeepSeek, Qwen) | API keys |
+| Claude Code | Claude (Sonnet/Opus/Haiku) | API key or OAuth |
+| Gocode | OpenAI-compatible (DeepSeek, GPT, Qwen, Groq) | API key |
+| ADKcode | Gemini multi-agent | API key or Vertex AI ADC |
+| Gemini CLI | Gemini (2.5-flash, 2.5-pro) | OAuth or API key |
+| Qwen Code | Qwen (qwen3-coder-plus) | OAuth (free 1K/day) |
+| Codex | OpenAI (o4-mini, o3) | ChatGPT login or API key |
+| Copilot CLI | Claude 4.5, GPT-5, o4-mini | GitHub Copilot subscription |
+
+All engines include: group chat, Thai error hints, /about page, image handling, user/group context.
 
 Tech stack: Bun, TypeScript, Docker Compose, Cloudflare Tunnel
 
@@ -175,13 +195,20 @@ docker compose up -d --build
 
 แค่นี้ bot ก็พร้อมใช้งาน
 
-เลือก AI engine ได้ 2 แบบ:
+เลือก AI engine ได้ 8 แบบ:
 
-| | OpenCode | Claude Code |
+| Engine | AI Provider | Auth |
 |---|---|---|
-| Models | 40+ (Claude, GPT, Gemini, DeepSeek, Qwen) | Claude (Sonnet/Opus/Haiku) |
-| ตั้งค่า | config เยอะ แต่ยืดหยุ่น | ง่าย แค่ ANTHROPIC_API_KEY |
-| คุม cost | ตาม provider | Built-in budget limit |
+| OpenCode | 40+ models (Claude, GPT, Gemini, DeepSeek, Qwen) | API keys |
+| Claude Code | Claude (Sonnet/Opus/Haiku) | API key หรือ OAuth |
+| Gocode | OpenAI-compatible (DeepSeek, GPT, Qwen, Groq) | API key |
+| ADKcode | Gemini multi-agent | API key หรือ Vertex AI ADC |
+| Gemini CLI | Gemini (2.5-flash, 2.5-pro) | OAuth หรือ API key |
+| Qwen Code | Qwen (qwen3-coder-plus) | OAuth (ฟรี 1K/วัน) |
+| Codex | OpenAI (o4-mini, o3) | ChatGPT login หรือ API key |
+| Copilot CLI | Claude 4.5, GPT-5, o4-mini | GitHub Copilot subscription |
+
+ทุก engine มี: group chat, Thai error hints, /about page, image handling, user/group context
 
 Tech stack: Bun, TypeScript, Docker Compose, Cloudflare Tunnel
 
@@ -213,9 +240,8 @@ One command gives you:
 - Cloudflare Tunnel for instant public URL
 - Docker Compose for easy deployment
 
-Choose your engine:
-- OpenCode: Multi-model, multi-provider (40+ models)
-- Claude Code: Anthropic Agent SDK (simpler, built-in cost control)
+Choose from 8 engines:
+OpenCode, Claude Code, Gocode, ADKcode, Gemini CLI, Qwen Code, Codex, Copilot CLI
 
 100% open source (MIT). Self-hosted. No lock-in.
 SaaS coming soon for teams who want managed hosting.

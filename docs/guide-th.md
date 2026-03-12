@@ -393,6 +393,8 @@ API Token ต้องมีสิทธิ์:
 | `/new` | เริ่ม session ใหม่ |
 | `/abort` | ยกเลิก prompt |
 | `/sessions` | ดู session status |
+| `/about` | แนะนำตัว bot |
+| `/help` | คำสั่งทั้งหมด |
 
 ### Qwen Code engine
 

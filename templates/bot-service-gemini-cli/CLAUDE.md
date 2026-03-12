@@ -29,7 +29,7 @@ server (Hono + Gemini CLI, port 4096)
 Gemini (gemini-2.5-flash, gemini-2.5-pro, gemini-2.0-flash)
 ```
 
-- **`src/index.ts`** — LINE bot: webhook, signature validation, message chunking, commands
+- **`src/index.ts`** — LINE bot: webhook, signature validation, message chunking, commands, group chat support, user/group context enrichment, Thai error hints, image handling, /about HTML page
 - **`server/src/index.ts`** — Hono API server (routes, SSE, auth)
 - **`server/src/gemini.ts`** — Gemini CLI child process wrapper
 - **`server/src/session.ts`** — In-memory session manager

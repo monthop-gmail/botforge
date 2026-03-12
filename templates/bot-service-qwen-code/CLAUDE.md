@@ -29,7 +29,7 @@ server (Hono + Qwen Code CLI, port 4096)
 Qwen (qwen3.5-plus, qwen3-coder-plus, qwen3-coder-next)
 ```
 
-- **`src/index.ts`** — LINE bot: webhook, signature validation, message chunking, commands
+- **`src/index.ts`** — LINE bot: webhook, signature validation, message chunking, commands, group chat support, user/group context enrichment, Thai error hints, image handling, /about HTML page
 - **`server/src/index.ts`** — Hono API server (routes, SSE, auth)
 - **`server/src/qwen.ts`** — Qwen Code CLI child process wrapper
 - **`server/src/session.ts`** — In-memory session manager

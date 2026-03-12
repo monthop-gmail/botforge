@@ -46,6 +46,7 @@ docker compose up -d --build line-bot
 | Command | Description |
 |---------|-------------|
 | `/new` | Start new session |
+| `/abort` | Cancel current prompt |
 | `/sessions` | View session status |
 | `/about` | About this bot |
 | `/help` | Show all commands |

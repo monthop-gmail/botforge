@@ -29,7 +29,7 @@ server (Go + chi, port 4096)
 LLM (DeepSeek, OpenAI, Qwen, Groq, Ollama, etc.)
 ```
 
-- **`src/index.ts`** — LINE bot: webhook, signature validation, message chunking, commands, session management
+- **`src/index.ts`** — LINE bot: webhook, signature validation, message chunking, commands, session management, group chat support, user/group context enrichment, Thai error hints, image handling, /about HTML page
 - **`server/main.go`** — Go server entry point (cobra CLI: serve + chat commands)
 - **`server/internal/server/`** — HTTP server (chi router, WebSocket, REST endpoints)
 - **`server/internal/agent/`** — Agent loop (LLM ↔ tools), session store
