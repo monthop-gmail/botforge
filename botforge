@@ -309,28 +309,18 @@ get_sync_files() {
         opencode)
             echo "Dockerfile.opencode docker-compose.yml opencode.json .env.example"
             ;;
-        claude-code)
-            echo "server/Dockerfile docker-compose.yml .env.example"
-            ;;
-        gocode)
-            echo "server/Dockerfile docker-compose.yml .env.example"
-            ;;
-        adkcode)
-            echo "server/Dockerfile docker-compose.yml .env.example"
-            ;;
-        gemini-cli)
-            echo "server/Dockerfile docker-compose.yml .env.example"
-            ;;
-        qwen-code)
-            echo "server/Dockerfile docker-compose.yml .env.example"
-            ;;
-        codex)
-            echo "server/Dockerfile docker-compose.yml .env.example"
-            ;;
-        copilot-cli)
+        claude-code|gocode|adkcode|gemini-cli|qwen-code|codex|copilot-cli)
             echo "server/Dockerfile docker-compose.yml .env.example"
             ;;
     esac
+}
+
+# Full sync files (infrastructure + src/index.ts)
+get_full_sync_files() {
+    local engine="$1"
+    local base
+    base=$(get_sync_files "$engine")
+    echo "$base src/index.ts"
 }
 
 # Generate reference file from template with placeholders replaced
@@ -356,6 +346,7 @@ generate_reference() {
 sync_project() {
     local name="$1"
     local apply="$2"
+    local full="${3:-false}"
     local bot_dir="$PROJECTS_DIR/$name/bot-service"
 
     if [[ ! -d "$bot_dir" ]]; then
@@ -381,7 +372,11 @@ sync_project() {
 
     local template_dir="$TEMPLATES_DIR/$template"
     local sync_files
-    sync_files=$(get_sync_files "$engine")
+    if [[ "$full" == "true" ]]; then
+        sync_files=$(get_full_sync_files "$engine")
+    else
+        sync_files=$(get_sync_files "$engine")
+    fi
 
     echo -e "  ${BOLD}$name${NC} ${DIM}($engine)${NC}"
 
@@ -460,11 +455,13 @@ cmd_sync() {
     local target="${1:-}"
     local flag="${2:-}"
     local apply=false
+    local full=false
 
     # Parse flags from any position
     for arg in "$@"; do
         case "$arg" in
             --apply) apply=true ;;
+            --full) full=true ;;
             --*) ;;
             *) target="$arg" ;;
         esac
@@ -475,20 +472,30 @@ cmd_sync() {
     if [[ -z "$target" ]]; then
         echo "  Usage:"
         echo ""
-        echo "    ./botforge sync <name|all>           Show diffs (dry-run)"
-        echo "    ./botforge sync <name|all> --apply   Apply template updates"
+        echo "    ./botforge sync <name|all>                  Show diffs (dry-run)"
+        echo "    ./botforge sync <name|all> --apply          Apply template updates"
+        echo "    ./botforge sync <name|all> --apply --full   Include src/index.ts"
         echo ""
         echo "  Syncs infrastructure files from templates to existing projects."
         echo "  Files synced: Dockerfile, docker-compose.yml, opencode.json, .env.example"
-        echo "  Files NOT synced: src/index.ts, AGENTS.md, .env (user code/data)"
+        echo "  With --full:  + src/index.ts (warning: overwrites project customizations)"
+        echo "  Files NOT synced: AGENTS.md, .env (user data)"
         echo ""
         return
     fi
 
+    local mode_label="DRY RUN"
     if [[ "$apply" == "true" ]]; then
-        echo -e "  ${BOLD}Mode: APPLY${NC} (will update files + create .bak backups)"
+        mode_label="APPLY"
+    fi
+    if [[ "$full" == "true" ]]; then
+        mode_label="$mode_label + FULL"
+    fi
+
+    if [[ "$apply" == "true" ]]; then
+        echo -e "  ${BOLD}Mode: ${mode_label}${NC} (will update files + create .bak backups)"
     else
-        echo -e "  ${BOLD}Mode: DRY RUN${NC} (showing diffs only)"
+        echo -e "  ${BOLD}Mode: ${mode_label}${NC} (showing diffs only)"
     fi
     echo ""
 
@@ -510,7 +517,7 @@ cmd_sync() {
     fi
 
     for name in "${projects[@]}"; do
-        sync_project "$name" "$apply"
+        sync_project "$name" "$apply" "$full"
     done
 
     if [[ "$apply" != "true" ]]; then
