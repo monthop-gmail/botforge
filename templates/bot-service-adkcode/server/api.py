@@ -72,6 +72,36 @@ app = adk_web_server.get_fast_api_app(
     web_assets_dir=WEB_ASSETS_DIR if WEB_ASSETS_DIR.exists() else None,
 )
 
+# --- Optional auth middleware ---
+API_PASSWORD = os.environ.get("API_PASSWORD", "")
+
+if API_PASSWORD:
+    from starlette.middleware.base import BaseHTTPMiddleware
+    from starlette.responses import JSONResponse
+
+    class AuthMiddleware(BaseHTTPMiddleware):
+        async def dispatch(self, request, call_next):
+            # Skip auth for health, root, event, and dev-ui/static assets
+            if request.url.path in ("/health", "/", "/event") or request.url.path.startswith("/dev-ui"):
+                return await call_next(request)
+
+            auth = request.headers.get("authorization", "")
+            if not auth:
+                return JSONResponse({"error": "Authorization required"}, status_code=401)
+
+            if auth.startswith("Bearer "):
+                if auth[7:] != API_PASSWORD:
+                    return JSONResponse({"error": "Invalid password"}, status_code=403)
+            else:
+                return JSONResponse({"error": "Invalid auth format"}, status_code=401)
+
+            return await call_next(request)
+
+    app.add_middleware(AuthMiddleware)
+    logger.info("Auth: enabled")
+else:
+    logger.info("Auth: disabled")
+
 # --- Use the SAME runner as web UI (no separate runner) ---
 async def get_runner():
     return await adk_web_server.get_runner_async("adkcode")

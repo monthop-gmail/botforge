@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
@@ -31,6 +33,37 @@ func New(a *agent.Agent, sessions *agent.SessionStore) *Server {
 func (s *Server) setupRoutes() {
 	s.router.Use(middleware.Logger)
 	s.router.Use(middleware.Recoverer)
+
+	// API password authentication middleware
+	if apiPassword := os.Getenv("API_PASSWORD"); apiPassword != "" {
+		log.Printf("API password authentication enabled")
+		s.router.Use(func(next http.Handler) http.Handler {
+			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				// Skip auth for health check
+				if r.URL.Path == "/health" {
+					next.ServeHTTP(w, r)
+					return
+				}
+
+				auth := r.Header.Get("Authorization")
+				if auth == "" {
+					http.Error(w, "Unauthorized", http.StatusUnauthorized)
+					return
+				}
+
+				// Check Bearer token
+				if strings.HasPrefix(auth, "Bearer ") {
+					token := strings.TrimPrefix(auth, "Bearer ")
+					if token == apiPassword {
+						next.ServeHTTP(w, r)
+						return
+					}
+				}
+
+				http.Error(w, "Forbidden", http.StatusForbidden)
+			})
+		})
+	}
 
 	s.router.Get("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("ok"))

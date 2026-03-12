@@ -123,7 +123,7 @@ Template สำหรับ audit features ของ LINE bot templates/projects
 | 9.4 | Named tunnel | URL คงที่ (vs quick tunnel เปลี่ยนทุกครั้ง) | | |
 | 9.5 | Logging (Bangkok TZ) | `[YYYY-MM-DD HH:MM:SS]` format | | |
 | 9.6 | `text.trim()` | trim whitespace ก่อน handle command | | |
-| 9.7 | Server auth | `SERVER_PASSWORD` → `Authorization: Bearer` header | | |
+| 9.7 | Server auth | `API_PASSWORD` → server, `SERVER_PASSWORD` → bot `Authorization: Bearer` header | | |
 | 9.8 | `getBotInfo()` at startup | ดึง bot userId สำหรับ mention detection | | |
 | 9.9 | Service dependency | `depends_on: [server]` ใน docker-compose | | |
 | 9.10 | Named container pattern | `{{CONTAINER_PREFIX}}-line-bot`, `-server`, `-tunnel` | | |

@@ -42,12 +42,14 @@ LLM (DeepSeek, OpenAI, Qwen, Groq, Ollama, etc.)
 ### Bot
 - `LINE_CHANNEL_ACCESS_TOKEN`, `LINE_CHANNEL_SECRET` — LINE credentials
 - `GOCODE_URL` — Server API URL (default: `http://server:4096`)
+- `SERVER_PASSWORD` — Server auth (optional)
 - `PROMPT_TIMEOUT_MS` — Timeout per prompt (default: `120000`)
 
 ### Server
 - `GOCODE_API_KEY` — LLM API key
 - `GOCODE_BASE_URL` — LLM API base URL (e.g. `https://api.deepseek.com/v1`)
 - `GOCODE_MODEL` — LLM model name (e.g. `deepseek-chat`)
+- `API_PASSWORD` — API auth password (optional)
 
 ## Server API Endpoints
 

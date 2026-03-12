@@ -42,6 +42,7 @@ Gemini API (gemini-2.5-flash, gemini-2.0-flash)
 ### Bot
 - `LINE_CHANNEL_ACCESS_TOKEN`, `LINE_CHANNEL_SECRET` — LINE credentials
 - `ADKCODE_URL` — Server API URL (default: `http://server:8000`)
+- `SERVER_PASSWORD` — Server auth (optional)
 - `PROMPT_TIMEOUT_MS` — Timeout per prompt (default: `120000`)
 
 ### Server (choose one auth method)
@@ -51,6 +52,7 @@ Gemini API (gemini-2.5-flash, gemini-2.0-flash)
 - `GOOGLE_CLOUD_LOCATION` — GCP region (default: `us-central1`)
 - `ADKCODE_MODEL_SMART` — Smart model for orchestrator/reviewer (default: `gemini-2.5-flash`)
 - `ADKCODE_MODEL_FAST` — Fast model for coder/tester (default: `gemini-2.0-flash`)
+- `API_PASSWORD` — API auth password (optional)
 
 ## Server API Endpoints
 

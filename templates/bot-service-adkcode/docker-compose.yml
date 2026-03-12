@@ -11,6 +11,7 @@ services:
       - ADKCODE_MODEL_SMART=${ADKCODE_MODEL_SMART:-gemini-2.5-flash}
       - ADKCODE_MODEL_FAST=${ADKCODE_MODEL_FAST:-gemini-2.0-flash}
       - GITHUB_TOKEN=${GITHUB_TOKEN:-}
+      - API_PASSWORD=${API_PASSWORD:-}
       - PORT=8000
     volumes:
       - ${PROJECT_DIR:-./workspace}:/workspace
@@ -28,6 +29,7 @@ services:
       - PORT=3000
       - ADKCODE_URL=http://server:8000
       - LINE_OA_URL=${LINE_OA_URL:-}
+      - SERVER_PASSWORD=${API_PASSWORD:-}
       - PROMPT_TIMEOUT_MS=${PROMPT_TIMEOUT_MS:-120000}
     depends_on:
       - server

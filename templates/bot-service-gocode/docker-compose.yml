@@ -8,6 +8,7 @@ services:
       - GOCODE_BASE_URL=${GOCODE_BASE_URL:-}
       - GOCODE_MODEL=${GOCODE_MODEL:-}
       - GITHUB_TOKEN=${GITHUB_TOKEN:-}
+      - API_PASSWORD=${API_PASSWORD:-}
     volumes:
       - ${PROJECT_DIR:-./workspace}:/workspace/project
       - ./server/config.example.yaml:/workspace/config.yaml:ro
@@ -24,6 +25,7 @@ services:
       - PORT=3000
       - GOCODE_URL=http://server:4096
       - LINE_OA_URL=${LINE_OA_URL:-}
+      - SERVER_PASSWORD=${API_PASSWORD:-}
       - PROMPT_TIMEOUT_MS=${PROMPT_TIMEOUT_MS:-120000}
     depends_on:
       - server

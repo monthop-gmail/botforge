@@ -7,6 +7,7 @@ const channelSecret = process.env.LINE_CHANNEL_SECRET
 const port = Number(process.env.PORT ?? 3000)
 const adkcodeUrl = (process.env.ADKCODE_URL ?? "http://server:8000").replace(/\/$/, "")
 const lineOAUrl = process.env.LINE_OA_URL ?? "https://line.me/ti/p/~your-oa"
+const serverPassword = process.env.SERVER_PASSWORD
 
 // --- Logging helper ---
 function log(...args: any[]) {
@@ -29,14 +30,18 @@ console.log("- Channel access token present:", !!channelAccessToken)
 console.log("- Channel secret present:", !!channelSecret)
 console.log("- Webhook port:", port)
 console.log("- ADKcode URL:", adkcodeUrl)
+console.log("- Server auth:", serverPassword ? "enabled" : "disabled")
 
 // --- LINE Client ---
 const lineClient = new line.messagingApi.MessagingApiClient({ channelAccessToken })
 
 // --- ADKcode HTTP Client ---
+const serverAuth = serverPassword ? `Bearer ${serverPassword}` : ""
+
 async function adkcodeRequest(method: string, path: string, body?: unknown, signal?: AbortSignal): Promise<any> {
   const headers: Record<string, string> = {}
   if (body !== undefined) headers["Content-Type"] = "application/json"
+  if (serverAuth) headers["Authorization"] = serverAuth
 
   const resp = await fetch(`${adkcodeUrl}${path}`, {
     method,
