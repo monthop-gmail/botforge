@@ -9,6 +9,15 @@ const serverUrl = process.env.SERVER_URL ?? "http://server:4096"
 const serverPassword = process.env.SERVER_PASSWORD
 const timeoutMs = Number(process.env.PROMPT_TIMEOUT_MS ?? 300_000)
 
+// --- Model config ---
+const MODELS: Record<string, string> = {
+  "sonnet": "claude-sonnet-4-20250514",
+  "opus": "claude-opus-4-20250514",
+  "haiku": "claude-haiku-4-5-20251001",
+}
+const DEFAULT_MODEL = process.env.CLAUDE_MODEL ?? "sonnet"
+const modelPrefs = new Map<string, string>() // sessionKey → model shortname
+
 if (!channelAccessToken || !channelSecret) {
   console.error("Missing LINE_CHANNEL_ACCESS_TOKEN or LINE_CHANNEL_SECRET")
   process.exit(1)
@@ -343,11 +352,15 @@ async function sendPrompt(
 
   log(`[${sessionKey.slice(-8)}] Sending prompt to session ${sessionId}`)
 
+  // Resolve model from prefs
+  const modelKey = modelPrefs.get(sessionKey) ?? DEFAULT_MODEL
+  const modelId = MODELS[modelKey] ?? modelKey
+
   try {
     const result = await serverRequest(
       "POST",
       `/session/${sessionId}/message`,
-      { prompt: fullPrompt },
+      { prompt: fullPrompt, model: modelId },
     )
 
     const cost = result.cost_usd ?? 0
@@ -506,10 +519,12 @@ async function handleTextMessage(
   }
 
   if (text.toLowerCase() === "/about" || text.toLowerCase() === "/who") {
+    const currentModel = modelPrefs.get(key) ?? DEFAULT_MODEL
     const aboutMsg = `🧑‍💻 สวัสดีครับ! ผมคือ Claude Code Bot
 
 🤖 AI Coding Agent (Claude Agent SDK)
 📱 ทำงานผ่าน LINE — ถามอะไรก็ได้ ช่วยเขียน code ให้
+🧠 Model: ${currentModel}
 
 📦 GitHub: https://github.com/{{GITHUB_ORG}}/{{PROJECT_NAME}}
 📖 พิมพ์ /help ดูคำสั่งทั้งหมด`
@@ -526,6 +541,7 @@ async function handleTextMessage(
 🤖 ทั่วไป
   /about — แนะนำตัว bot
   /help — คำสั่งทั้งหมด
+  /model — ดูรายการ / เปลี่ยน AI model
 
 💻 Session
   /new — เริ่มบทสนทนาใหม่
@@ -552,6 +568,39 @@ async function handleTextMessage(
       replyToken,
       messages: [{ type: "text", text: msg }],
     })
+    return
+  }
+
+  if (text.toLowerCase().startsWith("/model")) {
+    const arg = text.slice(6).trim().toLowerCase()
+    const currentModel = modelPrefs.get(key) ?? DEFAULT_MODEL
+
+    if (!arg) {
+      const options = Object.keys(MODELS)
+        .map((k) => `  ${k === currentModel ? "→" : " "} ${k}`)
+        .join("\n")
+      await lineClient.replyMessage({
+        replyToken,
+        messages: [{ type: "text", text: `🤖 Model: ${currentModel}\n\nใช้: /model <name>\n\n${options}` }],
+      })
+      return
+    }
+
+    // Exact or partial match
+    const match = MODELS[arg] ? arg : Object.keys(MODELS).find((k) => k.includes(arg))
+    if (match) {
+      modelPrefs.set(key, match)
+      sessions.delete(key) // reset session for new model
+      await lineClient.replyMessage({
+        replyToken,
+        messages: [{ type: "text", text: `เปลี่ยนเป็น ${match} แล้วครับ\nSession ใหม่พร้อมใช้งาน` }],
+      })
+    } else {
+      await lineClient.replyMessage({
+        replyToken,
+        messages: [{ type: "text", text: `ไม่รู้จัก model "${arg}"\n\nพิมพ์ /model ดูรายการทั้งหมด` }],
+      })
+    }
     return
   }
 
