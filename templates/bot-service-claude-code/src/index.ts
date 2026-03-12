@@ -190,7 +190,18 @@ function chunkText(text: string, limit: number = LINE_MAX_TEXT): string[] {
   return chunks
 }
 
-// --- Send message: replyMessage first (free), fallback to pushMessage ---
+// --- Thai error hints ---
+function getErrorHint(errMsg: string): string {
+  const msg = errMsg.toLowerCase()
+  if (msg.includes("429") || msg.includes("rate limit")) return "เกิน rate limit ครับ รอสักครู่แล้วลองใหม่"
+  if (msg.includes("timeout") || msg.includes("timed out") || msg.includes("abort")) return "AI ใช้เวลานานเกินไปครับ ลองพิมพ์ /new แล้วถามใหม่"
+  if (msg.includes("401") || msg.includes("403") || msg.includes("auth") || msg.includes("unauthorized")) return "มีปัญหาเรื่อง authentication ครับ กรุณาแจ้ง admin"
+  if (msg.includes("500") || msg.includes("internal server")) return "server มีปัญหาครับ ลองใหม่อีกครั้ง"
+  if (msg.includes("context") || msg.includes("too long") || msg.includes("token")) return "บทสนทนายาวเกินไปครับ ลองพิมพ์ /new เพื่อเริ่มใหม่"
+  return `เกิดข้อผิดพลาดครับ: ${errMsg.slice(0, 200)}`
+}
+
+// --- Send message: replyMessage first (free), fallback to pushMessage with retry ---
 async function sendMessage(to: string, text: string, replyToken?: string): Promise<void> {
   const chunks = chunkText(text)
 
@@ -210,15 +221,26 @@ async function sendMessage(to: string, text: string, replyToken?: string): Promi
       }
     }
 
-    // Remaining chunks or reply failed: pushMessage
-    await lineClient
-      .pushMessage({
-        to,
-        messages: [{ type: "text", text: chunk }],
-      })
-      .catch((err: any) => {
-        console.error("Failed to send LINE message:", err?.message ?? err)
-      })
+    // Remaining chunks or reply failed: pushMessage with retry on 429
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        await lineClient.pushMessage({
+          to,
+          messages: [{ type: "text", text: chunk }],
+        })
+        break
+      } catch (err: any) {
+        const msg = err?.message ?? String(err)
+        if (msg.includes("429") && attempt < 2) {
+          const delay = (attempt + 1) * 5000
+          log(`Rate limited, retrying in ${delay / 1000}s...`)
+          await new Promise((r) => setTimeout(r, delay))
+        } else {
+          console.error("Failed to send LINE message:", msg)
+          break
+        }
+      }
+    }
   }
 }
 
@@ -496,7 +518,12 @@ async function handleTextMessage(
         responseText += `\n\n[cost: $${cost.toFixed(4)}]`
       }
       if (isError) {
-        responseText = `Error: ${result}`
+        responseText = getErrorHint(result)
+      }
+
+      // Truncated response indicator
+      if (responseText.length >= LINE_MAX_TEXT * 2) {
+        responseText += '\n\n⏱️ คำตอบยังไม่ครบ... พิมพ์ "ต่อ" เพื่อขอส่วนที่เหลือ'
       }
 
       log(
@@ -507,11 +534,26 @@ async function handleTextMessage(
       log("Prompt error:", err?.message)
       await sendMessage(
         key,
-        `Error: ${err?.message?.slice(0, 200) ?? "Unknown error"}`,
+        getErrorHint(err?.message ?? "ไม่ทราบสาเหตุ"),
         replyToken,
       )
     }
   })
+}
+
+// --- Handle image messages ---
+async function handleImageMessage(
+  userId: string,
+  replyToken: string,
+  isGroup: boolean,
+): Promise<void> {
+  const userName = userProfiles.get(userId)?.displayName || userId.slice(-8)
+  log(`Image from ${userName}, group: ${isGroup} (no vision)`)
+  if (isGroup) return
+  await lineClient.replyMessage({
+    replyToken,
+    messages: [{ type: "text", text: "ยังดูรูปไม่ได้ครับ ส่งเป็นข้อความแทนนะ" }],
+  }).catch(() => {})
 }
 
 // --- Get bot userId for mention detection ---
@@ -532,6 +574,53 @@ Bun.serve({
 
     if (req.method === "GET" && url.pathname === "/") {
       return new Response("Claude Code LINE Bot is running")
+    }
+
+    if (req.method === "GET" && url.pathname === "/about") {
+      const html = `<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Claude Code LINE Bot — About</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#0a0a1a;color:#e0e0e0;min-height:100vh;padding:2rem 1rem}
+  .container{max-width:640px;margin:0 auto}
+  h1{font-size:1.8rem;margin-bottom:.5rem;background:linear-gradient(135deg,#d4a574,#e8c9a0);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+  h2{font-size:1.3rem;margin-top:2rem;margin-bottom:.75rem;color:#d4a574}
+  p,li{line-height:1.7;color:#b2bec3;margin-bottom:.5rem}
+  a{color:#74b9ff;text-decoration:none}
+  a:hover{text-decoration:underline}
+  .card{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:12px;padding:1.25rem;margin-bottom:1rem}
+  .card h3{color:#55efc4;font-size:1.1rem;margin-bottom:.5rem}
+  ul{padding-left:1.2rem}
+  footer{margin-top:3rem;text-align:center;color:#636e72;font-size:.8rem}
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>Claude Code LINE Bot</h1>
+  <p>AI coding assistant powered by Claude Agent SDK — ถามคำถาม ให้ AI ช่วยตอบได้เลยผ่าน LINE</p>
+
+  <h2>LINE Bot Commands</h2>
+  <div class="card">
+    <ul>
+      <li><strong>/new</strong> — เริ่ม session ใหม่</li>
+      <li><strong>/abort</strong> — ยกเลิก prompt ที่กำลังทำ</li>
+      <li><strong>/sessions</strong> — ดูสถานะ session</li>
+      <li><strong>/about</strong> — แนะนำตัว bot</li>
+      <li><strong>/help</strong> — ดูคำสั่งทั้งหมด</li>
+    </ul>
+  </div>
+
+  <footer><p>Built with Claude Agent SDK + LINE Messaging API</p></footer>
+</div>
+</body>
+</html>`
+      return new Response(html, {
+        headers: { "Content-Type": "text/html; charset=utf-8" },
+      })
     }
 
     if (req.method === "POST" && url.pathname === "/webhook") {
@@ -563,6 +652,19 @@ Bun.serve({
         if (event.type === "leave") {
           handleLeaveEvent(event).catch((err) => {
             console.error("Error handling leave event:", err)
+          })
+          continue
+        }
+
+        // Handle image messages
+        if (
+          event.type === "message" &&
+          event.message?.type === "image" &&
+          event.source?.userId
+        ) {
+          const isGroup = !!event.source?.groupId || !!event.source?.roomId
+          handleImageMessage(event.source.userId, event.replyToken, isGroup).catch((err) => {
+            console.error("Error handling image:", err)
           })
           continue
         }
