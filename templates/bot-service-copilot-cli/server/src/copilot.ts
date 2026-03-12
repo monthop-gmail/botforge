@@ -44,9 +44,10 @@ let client: CopilotClient | null = null
 async function getClient(): Promise<CopilotClient> {
   if (client && client.getState() === "connected") return client
 
+  const ghToken = process.env.GITHUB_TOKEN || process.env.GH_TOKEN || process.env.COPILOT_GITHUB_TOKEN
   client = new CopilotClient({
     logLevel: "warning",
-    useLoggedInUser: true,
+    ...(ghToken ? { githubToken: ghToken } : { useLoggedInUser: true }),
   })
   await client.start()
 
