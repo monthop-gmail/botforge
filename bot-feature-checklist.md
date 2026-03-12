@@ -58,6 +58,7 @@ Template สำหรับ audit features ของ LINE bot templates/projects
 | 3.8 | Join event | welcome message เมื่อ bot เข้ากลุ่ม | | |
 | 3.9 | Leave event | cleanup session เมื่อ bot ออกกลุ่ม | | |
 | 3.10 | Bot mention detection | `@bot`, `@<engine>`, LINE mention API (`getBotInfo`) | | |
+| 3.11 | LINE OA URL | `LINE_OA_URL` — ลิงก์คุยส่วนตัว ใช้ใน welcome + /about | | |
 
 ## 4. Group Chat
 
@@ -162,7 +163,7 @@ Template สำหรับ audit features ของ LINE bot templates/projects
 |------|:-----:|:--:|:--:|:--:|
 | 1. Bot Commands | 8 | | | |
 | 2. AI / Session | 12 | | | |
-| 3. LINE Integration | 10 | | | |
+| 3. LINE Integration | 11 | | | |
 | 4. Group Chat | 7 | | | |
 | 5. Context Enrichment | 7 | | | |
 | 6. Error Handling | 6 | | | |
@@ -172,7 +173,7 @@ Template สำหรับ audit features ของ LINE bot templates/projects
 | 10. Auth & Credentials | 5 | | | |
 | 11. MCP Tools | 4 | | | |
 | 12. Workspace Skills | 2 | | | |
-| **Total** | **80** | | | |
+| **Total** | **81** | | | |
 
 **Audited by:** _______________
 **Date:** _______________
