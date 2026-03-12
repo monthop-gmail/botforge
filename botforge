@@ -315,12 +315,24 @@ get_sync_files() {
     esac
 }
 
-# Full sync files (infrastructure + src/index.ts)
+# Full sync files (infrastructure + src/index.ts + CLAUDE.md + server code)
 get_full_sync_files() {
     local engine="$1"
     local base
     base=$(get_sync_files "$engine")
-    echo "$base src/index.ts"
+    local extra="src/index.ts CLAUDE.md"
+    case "$engine" in
+        claude-code|copilot-cli|gemini-cli|qwen-code|codex)
+            extra="$extra server/src/index.ts"
+            ;;
+        adkcode)
+            extra="$extra server/api.py"
+            ;;
+        gocode)
+            extra="$extra server/internal/server/server.go"
+            ;;
+    esac
+    echo "$base $extra"
 }
 
 # Generate reference file from template with placeholders replaced
@@ -478,7 +490,7 @@ cmd_sync() {
         echo ""
         echo "  Syncs infrastructure files from templates to existing projects."
         echo "  Files synced: Dockerfile, docker-compose.yml, opencode.json, .env.example"
-        echo "  With --full:  + src/index.ts (warning: overwrites project customizations)"
+        echo "  With --full:  + src/index.ts, CLAUDE.md, server code (overwrites customizations)"
         echo "  Files NOT synced: AGENTS.md, .env (user data)"
         echo ""
         return
