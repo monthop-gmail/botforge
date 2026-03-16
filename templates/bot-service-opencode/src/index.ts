@@ -21,7 +21,7 @@ const MODELS: Record<string, { providerID: string; modelID: string; label: strin
   "qwen/qwen3.5-plus":                { providerID: "qwen",      modelID: "qwen3.5-plus",              label: "Qwen3.5 Plus (1M)" },
   "qwen/qwen3.5-397b-a17b":           { providerID: "qwen",      modelID: "qwen3.5-397b-a17b",         label: "Qwen3.5 397B" },
   // groq (API key)
-  "groq/kimi-k2":                     { providerID: "groq",      modelID: "moonshotai/kimi-k2-instruct", label: "Kimi K2 (Groq)" },
+  "groq/kimi-k2":                     { providerID: "groq",      modelID: "moonshotai/kimi-k2-instruct-0905", label: "Kimi K2 (Groq)" },
 }
 const DEFAULT_MODEL = "qwen/qwen3.5-plus"
 

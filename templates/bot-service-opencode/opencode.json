@@ -55,7 +55,7 @@
         "apiKey": "{env:GROQ_API_KEY}"
       },
       "models": {
-        "moonshotai/kimi-k2-instruct": { "name": "Kimi K2 (128K)" }
+        "moonshotai/kimi-k2-instruct-0905": { "name": "Kimi K2 (128K)" }
       }
     }
   }

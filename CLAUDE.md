@@ -26,6 +26,11 @@ Botforge — CLI tool that generates LINE Bot + AI projects from templates. Each
 ./botforge-deploy tunnel setup <name|all> # Create tunnel + DNS records
 ./botforge-deploy tunnel list             # List all tunnels
 ./botforge-deploy tunnel delete <name>    # Delete tunnel + DNS
+
+# Fetch AI provider model lists
+./botforge-models                         # Fetch all providers
+./botforge-models groq google             # Fetch specific providers
+./botforge-models --list                  # Show cached model lists
 ```
 
 ## Architecture
@@ -64,9 +69,11 @@ Templates use `{{PLACEHOLDER}}` syntax, replaced by `botforge new`:
 
 - **`botforge`** — Project generator CLI (Bash). Engine selection (lines ~86-101), template copy + sed replacement, git init.
 - **`botforge-deploy`** — Multi-bot manager (Bash). Uses `docker compose --project-name "$name"` for isolation. Cloudflare API integration for tunnel CRUD + DNS.
+- **`botforge-models`** — Fetches latest model lists from AI providers (Anthropic, OpenAI, Google, DeepSeek, Qwen, Groq). Output: `models/<provider>.txt`.
 - **`templates/bot-service-*/`** — Engine templates. Each has: `docker-compose.yml`, `Dockerfile`, `src/index.ts` (LINE bot), `server/` (AI backend), `.env.example`, `CLAUDE.md`.
 - **`templates/workspace/`** — Shared workspace template with `AGENTS.md` (bot instructions in Thai).
 - **`.botforge-deploy.env`** — Cloudflare credentials (`CF_API_TOKEN`, `CF_ACCOUNT_ID`, `CF_ZONE_ID`, `CF_DOMAIN`). Gitignored.
+- **`.botforge-models.env`** — AI provider API keys for `botforge-models`. Gitignored.
 
 ## Engine Detection
 

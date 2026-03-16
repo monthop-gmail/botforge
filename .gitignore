@@ -4,6 +4,8 @@ projects/
 # Environment / secrets
 .env
 .botforge-deploy.env
+.botforge-models.env
+models/
 
 # Node
 node_modules/
