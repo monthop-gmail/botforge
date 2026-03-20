@@ -93,6 +93,7 @@ cmd_new() {
     echo "    6) qwen-code  — Alibaba Qwen Code CLI (agentic, free 1K req/day via OAuth)"
     echo "    7) codex       — OpenAI Codex CLI (agentic, ChatGPT login or API key)"
     echo "    8) copilot-cli — GitHub Copilot SDK (Claude/GPT-5/o4-mini, GitHub OAuth)"
+    echo "    9) codex-appserver — OpenAI Codex App Server (WebSocket JSON-RPC, persistent)"
     read -rp "  Select [1]: " engine_choice
     engine_choice="${engine_choice:-1}"
 
@@ -106,6 +107,7 @@ cmd_new() {
         6) engine="qwen-code"; bot_template="bot-service-qwen-code" ;;
         7) engine="codex"; bot_template="bot-service-codex" ;;
         8) engine="copilot-cli"; bot_template="bot-service-copilot-cli" ;;
+        9) engine="codex-appserver"; bot_template="bot-service-codex-appserver" ;;
     esac
 
     echo ""
@@ -246,6 +248,8 @@ cmd_list() {
                 engine_type="gemini-cli"
             elif grep -q "QWEN_MODEL" "$dir/bot-service/docker-compose.yml" 2>/dev/null; then
                 engine_type="qwen-code"
+            elif grep -q "CODEX_APPSERVER_PORT" "$dir/bot-service/docker-compose.yml" 2>/dev/null; then
+                engine_type="codex-appserver"
             elif grep -q "CODEX_MODEL" "$dir/bot-service/docker-compose.yml" 2>/dev/null; then
                 engine_type="codex"
             elif grep -q "COPILOT_MODEL" "$dir/bot-service/docker-compose.yml" 2>/dev/null; then
@@ -275,6 +279,8 @@ detect_engine() {
         echo "gemini-cli"
     elif grep -q "QWEN_MODEL" "$dir/docker-compose.yml" 2>/dev/null; then
         echo "qwen-code"
+    elif grep -q "CODEX_APPSERVER_PORT" "$dir/docker-compose.yml" 2>/dev/null; then
+        echo "codex-appserver"
     elif grep -q "CODEX_MODEL" "$dir/docker-compose.yml" 2>/dev/null; then
         echo "codex"
     elif grep -q "COPILOT_MODEL" "$dir/docker-compose.yml" 2>/dev/null; then
@@ -297,6 +303,7 @@ engine_to_template() {
         gemini-cli)  echo "bot-service-gemini-cli" ;;
         qwen-code)   echo "bot-service-qwen-code" ;;
         codex)       echo "bot-service-codex" ;;
+        codex-appserver) echo "bot-service-codex-appserver" ;;
         copilot-cli) echo "bot-service-copilot-cli" ;;
         *)           echo "" ;;
     esac
@@ -309,7 +316,7 @@ get_sync_files() {
         opencode)
             echo "Dockerfile.opencode docker-compose.yml opencode.json .env.example"
             ;;
-        claude-code|gocode|adkcode|gemini-cli|qwen-code|codex|copilot-cli)
+        claude-code|gocode|adkcode|gemini-cli|qwen-code|codex|codex-appserver|copilot-cli)
             echo "server/Dockerfile docker-compose.yml .env.example"
             ;;
     esac
@@ -322,7 +329,7 @@ get_full_sync_files() {
     base=$(get_sync_files "$engine")
     local extra="src/index.ts CLAUDE.md"
     case "$engine" in
-        claude-code|copilot-cli|gemini-cli|qwen-code|codex)
+        claude-code|copilot-cli|gemini-cli|qwen-code|codex|codex-appserver)
             extra="$extra server/src/index.ts"
             ;;
         adkcode)
@@ -564,6 +571,7 @@ cmd_help() {
     echo "    gemini-cli   Google Gemini CLI (agentic, session support, Google Search)"
     echo "    qwen-code   Alibaba Qwen Code CLI (agentic, free 1K req/day via OAuth)"
     echo "    codex       OpenAI Codex CLI (agentic, ChatGPT login or API key)"
+    echo "    codex-appserver  OpenAI Codex App Server (WebSocket JSON-RPC, persistent)"
     echo ""
     echo "  Each project generates 2 directories:"
     echo ""

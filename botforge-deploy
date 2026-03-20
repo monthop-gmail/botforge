@@ -73,6 +73,8 @@ detect_engine() {
         echo "gemini-cli"
     elif grep -q "QWEN_MODEL" "$dir/docker-compose.yml" 2>/dev/null; then
         echo "qwen-code"
+    elif grep -q "CODEX_APPSERVER_PORT" "$dir/docker-compose.yml" 2>/dev/null; then
+        echo "codex-appserver"
     elif grep -q "CODEX_MODEL" "$dir/docker-compose.yml" 2>/dev/null; then
         echo "codex"
     elif grep -q "COPILOT_MODEL" "$dir/docker-compose.yml" 2>/dev/null; then

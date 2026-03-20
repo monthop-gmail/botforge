@@ -126,9 +126,21 @@ fetch_groq() {
   echo -e "  ${GREEN}ok${RESET} ${DIM}($count models → models/groq.txt)${RESET}"
 }
 
+fetch_opencode() {
+  if ! command -v opencode &>/dev/null; then
+    echo -e "  ${YELLOW}skip${RESET} (opencode CLI not found)"
+    return 0
+  fi
+  local out
+  out=$(opencode models 2>/dev/null | grep '^opencode/') || { echo -e "  ${RED}error${RESET} (failed to list models)"; return 0; }
+  echo "$out" | sort > "$OUTPUT_DIR/opencode.txt"
+  local count=$(wc -l < "$OUTPUT_DIR/opencode.txt")
+  echo -e "  ${GREEN}ok${RESET} ${DIM}($count models → models/opencode.txt)${RESET}"
+}
+
 # ─── Main ───
 
-PROVIDERS=(anthropic openai google deepseek qwen groq)
+PROVIDERS=(anthropic openai google deepseek qwen groq opencode)
 
 usage() {
   echo -e "${CYAN}${BOLD}Botforge Models — AI Provider Model List${RESET}"
@@ -184,6 +196,7 @@ main() {
       deepseek)  fetch_deepseek ;;
       qwen)      fetch_qwen ;;
       groq)      fetch_groq ;;
+      opencode)  fetch_opencode ;;
       *) echo -e "  ${RED}unknown provider${RESET}: $provider" ;;
     esac
   done
