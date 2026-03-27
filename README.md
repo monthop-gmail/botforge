@@ -1,6 +1,6 @@
 # Botforge
 
-**Create AI-powered LINE Bots in seconds.** One command to generate a fully working LINE Bot with multi-model AI support, ready to deploy with Docker. Choose your engine: **OpenCode** (40+ models), **Claude Code** (Anthropic Agent SDK), **Gocode** (Go + OpenAI-compatible), **ADKcode** (Google ADK + Gemini), **Gemini CLI** (Google Gemini CLI), **Qwen Code** (Alibaba Qwen Code CLI), **Codex** (OpenAI Codex CLI), or **Copilot CLI** (GitHub Copilot SDK).
+**Create AI-powered LINE Bots in seconds.** One command to generate a fully working LINE Bot with multi-model AI support, ready to deploy with Docker. Choose your engine: **OpenCode** (40+ models), **Claude Code** (Anthropic Agent SDK), **Gocode** (Go + OpenAI-compatible), **ADKcode** (Google ADK + Gemini), **Gemini CLI** (Google Gemini CLI), **Qwen Code** (Alibaba Qwen Code CLI), **Codex** (OpenAI Codex CLI), **Codex App Server** (WebSocket JSON-RPC), or **Copilot CLI** (GitHub Copilot SDK).
 
 ```bash
 ./botforge new my-bot
@@ -11,7 +11,7 @@
 ## Features
 
 - **One-command setup** — Generate a complete LINE Bot project with a single command
-- **8 AI engines** — OpenCode (40+ models), Claude Code (Agent SDK), Gocode (Go + OpenAI-compatible), ADKcode (Google ADK + Gemini), Gemini CLI (Google Gemini CLI), Qwen Code (Alibaba Qwen Code CLI), Codex (OpenAI Codex CLI), Copilot CLI (GitHub Copilot SDK)
+- **9 AI engines** — OpenCode (40+ models), Claude Code (Agent SDK), Gocode (Go + OpenAI-compatible), ADKcode (Google ADK + Gemini), Gemini CLI (Google Gemini CLI), Qwen Code (Alibaba Qwen Code CLI), Codex (OpenAI Codex CLI), Codex App Server (WebSocket JSON-RPC), Copilot CLI (GitHub Copilot SDK)
 - **Docker-ready** — 3-container architecture: Bot + AI Server + Tunnel
 - **Self-hosted** — Run on your own server, full control, no vendor lock-in
 - **Customizable** — Edit bot behavior via `AGENTS.md`, swap AI providers, add MCP tools
@@ -21,14 +21,14 @@
 
 Choose your AI engine when creating a project:
 
-| | **OpenCode** | **Claude Code** | **Gocode** | **ADKcode** | **Gemini CLI** | **Qwen Code** | **Codex** | **Copilot CLI** |
-|---|---|---|---|---|---|---|---|---|
-| **AI Models** | 40+ (Claude, GPT, Gemini, DeepSeek, Qwen, Groq) | Claude only (Sonnet, Opus, Haiku) | OpenAI-compatible (DeepSeek, GPT, Qwen, Groq, Ollama) | Gemini (2.5-flash, 2.0-flash) | Gemini (2.5-flash, 2.5-pro, 2.0-flash) | Qwen (qwen3-coder-plus, qwen3.5-plus) | OpenAI (o4-mini, o3, gpt-4.1) | Claude 4.5, GPT-5, o4-mini |
-| **Auth** | API keys | API key or OAuth | API key | API key or Vertex AI ADC | API key or OAuth | API key or OAuth (1K free/day) | ChatGPT login or API key | GitHub OAuth or PAT |
-| **Middleware** | OpenCode Server | Claude Agent SDK (direct) | Go server (chi + WebSocket) | Google ADK + FastAPI | Hono + Gemini CLI | Hono + Qwen Code CLI | Hono + Codex CLI | Hono + Copilot SDK |
-| **Language** | TypeScript | TypeScript | Go | Python | TypeScript | TypeScript | TypeScript | TypeScript |
-| **Architecture** | Single agent | Single agent | Single agent + tools | Multi-agent (orchestrator → coder, reviewer, tester) | Single agent (agentic CLI) | Single agent (agentic CLI) | Single agent (agentic CLI) | Single agent (agentic SDK) |
-| **Best for** | Multi-model flexibility | Claude-focused, simple setup | Self-hosted, any OpenAI-compatible LLM | Google ecosystem, multi-agent workflows | Google Gemini, session support, OAuth login | Qwen ecosystem, free tier, OAuth login | OpenAI ecosystem, ChatGPT plan, reasoning models | GitHub ecosystem, Copilot subscription, multi-model |
+| | **OpenCode** | **Claude Code** | **Gocode** | **ADKcode** | **Gemini CLI** | **Qwen Code** | **Codex** | **Codex App Server** | **Copilot CLI** |
+|---|---|---|---|---|---|---|---|---|---|
+| **AI Models** | 40+ (Claude, GPT, Gemini, DeepSeek, Qwen, Groq) | Claude only (Sonnet, Opus, Haiku) | OpenAI-compatible (DeepSeek, GPT, Qwen, Groq, Ollama) | Gemini (2.5-flash, 2.0-flash) | Gemini (2.5-flash, 2.5-pro, 2.0-flash) | Qwen (qwen3-coder-plus, qwen3.5-plus) | OpenAI (o4-mini, o3, gpt-4.1) | OpenAI (o4-mini, o3, gpt-4.1, gpt-5.4-mini) | Claude 4.5, GPT-5, o4-mini |
+| **Auth** | API keys | API key or OAuth | API key | API key or Vertex AI ADC | API key or OAuth | API key or OAuth (1K free/day) | ChatGPT login or API key | ChatGPT login or API key | GitHub OAuth or PAT |
+| **Middleware** | OpenCode Server | Claude Agent SDK (direct) | Go server (chi + WebSocket) | Google ADK + FastAPI | Hono + Gemini CLI | Hono + Qwen Code CLI | Hono + Codex CLI | Hono + Codex App Server (WebSocket JSON-RPC) | Hono + Copilot SDK |
+| **Language** | TypeScript | TypeScript | Go | Python | TypeScript | TypeScript | TypeScript | TypeScript | TypeScript |
+| **Architecture** | Single agent | Single agent | Single agent + tools | Multi-agent (orchestrator → coder, reviewer, tester) | Single agent (agentic CLI) | Single agent (agentic CLI) | Single agent (agentic CLI) | Single agent (persistent WebSocket) | Single agent (agentic SDK) |
+| **Best for** | Multi-model flexibility | Claude-focused, simple setup | Self-hosted, any OpenAI-compatible LLM | Google ecosystem, multi-agent workflows | Google Gemini, session support, OAuth login | Qwen ecosystem, free tier, OAuth login | OpenAI ecosystem, ChatGPT plan, reasoning models | OpenAI ecosystem, persistent connection, streaming | GitHub ecosystem, Copilot subscription, multi-model |
 
 ## How It Works
 
@@ -87,6 +87,13 @@ LINE App → Tunnel → LINE Bot (Bun) → Codex Server (Hono, port 4096)
                                         '--- codex exec "..." --json --full-auto
 ```
 
+**Codex App Server engine:**
+```
+LINE App → Tunnel → LINE Bot (Bun) → Codex App Server (Hono, port 4096)
+                                        ↕ WebSocket JSON-RPC 2.0
+                                        '--- codex app-server (ws://localhost:4500)
+```
+
 **Copilot CLI engine:**
 ```
 LINE App → Tunnel → LINE Bot (Bun) → Copilot Server (Hono + Copilot SDK, port 4096)
@@ -112,6 +119,7 @@ LINE App → Tunnel → LINE Bot (Bun) → Copilot Server (Hono + Copilot SDK, p
   - **Gemini CLI engine:** [Google AI](https://aistudio.google.com) API key or OAuth login (no key needed)
   - **Qwen Code engine:** [DashScope](https://dashscope.console.aliyun.com) API key or Qwen OAuth (free 1K req/day)
   - **Codex engine:** [OpenAI](https://platform.openai.com) API key or ChatGPT Plus/Pro login
+  - **Codex App Server engine:** [OpenAI](https://platform.openai.com) API key or ChatGPT Plus/Pro login
   - **Copilot CLI engine:** [GitHub](https://github.com/settings/copilot) Copilot subscription + `gh auth login` or PAT with Copilot Requests permission
 
 ### 1. Clone & Create
@@ -164,6 +172,7 @@ $ ./botforge new customer-support
     6) qwen-code  — Alibaba Qwen Code CLI (agentic, free 1K req/day)
     7) codex       — OpenAI Codex CLI (agentic, ChatGPT login or API key)
     8) copilot-cli — GitHub Copilot SDK (Claude/GPT-5/o4-mini, GitHub OAuth)
+    9) codex-appserver — OpenAI Codex App Server (WebSocket JSON-RPC, persistent)
   Select [1]: 3
 
   GitHub org/user [monthop-gmail]:
@@ -332,6 +341,28 @@ projects/<name>/
     └── docs/
 ```
 
+**Codex App Server engine:**
+```
+projects/<name>/
+├── bot-service/
+│   ├── src/index.ts              # Bot logic (TypeScript/Bun)
+│   ├── docker-compose.yml        # 3 services: server, line-bot, cloudflared
+│   ├── Dockerfile                # LINE bot container
+│   ├── server/                   # Codex App Server API server
+│   │   ├── Dockerfile            # Node 22 + Bun + Codex CLI (app-server)
+│   │   ├── entrypoint.sh         # Starts app-server + Hono
+│   │   └── src/
+│   │       ├── index.ts          # Hono REST API
+│   │       ├── codex-appserver.ts # WebSocket JSON-RPC 2.0 client
+│   │       ├── session.ts        # Session manager
+│   │       └── events.ts         # SSE event bus
+│   ├── .env.example
+│   └── workspace/AGENTS.md
+└── workspace/
+    ├── AGENTS.md
+    └── docs/
+```
+
 **Copilot CLI engine:**
 ```
 projects/<name>/
@@ -428,6 +459,16 @@ projects/<name>/
 | `/about` | About this bot |
 | `/help` | Show all commands |
 
+**Codex App Server engine:**
+
+| Command | Description |
+|---------|-------------|
+| `/new` | Start a new conversation |
+| `/abort` | Cancel current prompt |
+| `/sessions` | View session status |
+| `/about` | About this bot |
+| `/help` | Show all commands |
+
 **Copilot CLI engine:**
 
 | Command | Description |
@@ -479,9 +520,9 @@ Set `GEMINI_MODEL` in `.env` to `gemini-2.5-flash`, `gemini-2.5-pro`, or `gemini
 
 Set `QWEN_MODEL` in `.env` to `qwen3-coder-plus`, `qwen3.5-plus`, or `qwen3-coder-next`
 
-### Change Codex model (Codex engine)
+### Change Codex model (Codex / Codex App Server engine)
 
-Set `CODEX_MODEL` in `.env` to `o4-mini`, `o3`, or `gpt-4.1`
+Set `CODEX_MODEL` in `.env` to `o4-mini`, `o3`, `gpt-4.1`, or `gpt-5.4-mini`
 
 ### Change Copilot model (Copilot CLI engine)
 
@@ -495,7 +536,7 @@ Set `COPILOT_MODEL` in `.env` to `claude-sonnet-4.5`, `gpt-5`, or `o4-mini`
 
 ### Modify templates
 
-Edit files in `templates/bot-service-opencode/`, `templates/bot-service-claude-code/`, `templates/bot-service-gocode/`, `templates/bot-service-adkcode/`, `templates/bot-service-gemini-cli/`, `templates/bot-service-qwen-code/`, `templates/bot-service-codex/`, `templates/bot-service-copilot-cli/`, or `templates/workspace/`. Use these placeholders:
+Edit files in `templates/bot-service-opencode/`, `templates/bot-service-claude-code/`, `templates/bot-service-gocode/`, `templates/bot-service-adkcode/`, `templates/bot-service-gemini-cli/`, `templates/bot-service-qwen-code/`, `templates/bot-service-codex/`, `templates/bot-service-codex-appserver/`, `templates/bot-service-copilot-cli/`, or `templates/workspace/`. Use these placeholders:
 
 | Placeholder | Replaced with |
 |-------------|--------------|
@@ -530,6 +571,7 @@ Botforge is and will always be **100% open source**. The Cloud option is for tea
 - [x] Gemini CLI engine (Google Gemini CLI, agentic, session support)
 - [x] Qwen Code engine (Alibaba Qwen Code CLI, agentic, free OAuth)
 - [x] Codex engine (OpenAI Codex CLI, agentic, ChatGPT login)
+- [x] Codex App Server engine (WebSocket JSON-RPC 2.0, persistent connection, streaming)
 - [x] Copilot CLI engine (GitHub Copilot SDK, multi-model, GitHub OAuth)
 - [x] OAuth/ADC support (Gemini CLI, Qwen Code, Claude Code OAuth, ADKcode Vertex AI ADC, Codex ChatGPT login, Copilot GitHub OAuth)
 - [x] Engine selection during project creation
@@ -583,4 +625,4 @@ cd botforge
 
 ---
 
-**Built with [OpenCode](https://opencode.ai) + [Claude Agent SDK](https://docs.anthropic.com/en/docs/agents-and-tools/claude-code/sdk) + [Gocode](https://github.com/monthop-gmail/gocode) + [Google ADK](https://google.github.io/adk-docs/) + [Gemini CLI](https://github.com/google-gemini/gemini-cli) + [Qwen Code](https://github.com/QwenLM/qwen-code) + [Codex](https://github.com/openai/codex) + [Copilot SDK](https://github.com/github/copilot-sdk) + [LINE Messaging API](https://developers.line.biz) + [Cloudflare Tunnel](https://cloudflare.com)**
+**Built with [OpenCode](https://opencode.ai) + [Claude Agent SDK](https://docs.anthropic.com/en/docs/agents-and-tools/claude-code/sdk) + [Gocode](https://github.com/monthop-gmail/gocode) + [Google ADK](https://google.github.io/adk-docs/) + [Gemini CLI](https://github.com/google-gemini/gemini-cli) + [Qwen Code](https://github.com/QwenLM/qwen-code) + [Codex](https://github.com/openai/codex) + [Codex App Server](https://developers.openai.com/codex/app-server) + [Copilot SDK](https://github.com/github/copilot-sdk) + [LINE Messaging API](https://developers.line.biz) + [Cloudflare Tunnel](https://cloudflare.com)**
