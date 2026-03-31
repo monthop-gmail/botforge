@@ -23,7 +23,7 @@ const MODELS: Record<string, { providerID: string; modelID: string; label: strin
   // groq (API key)
   "groq/kimi-k2":                     { providerID: "groq",      modelID: "moonshotai/kimi-k2-instruct-0905", label: "Kimi K2 (Groq)" },
 }
-const DEFAULT_MODEL = "qwen/qwen3.5-plus"
+const DEFAULT_MODEL = "opencode/big-pickle"
 
 // --- Logging helper ---
 function log(...args: any[]) {

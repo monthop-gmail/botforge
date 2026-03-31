@@ -48,7 +48,7 @@ LINE app → Cloudflare Tunnel → line-bot (Bun, port 3000) → OpenCode (port 
 
 **OpenCode REST API (not SDK):** All calls use direct `fetch()` to `http://opencode:4096` with Basic auth (`opencode:{password}`) and `x-opencode-directory` header.
 
-**Model switching via `/model` command:** Users can switch models per session. Default: `qwen/qwen3.5-plus`. Model preference stored in `modelPrefs` Map per group/user.
+**Model switching via `/model` command:** Users can switch models per session. Default: `opencode/big-pickle` (free via OpenCode Zen). Model preference stored in `modelPrefs` Map per group/user.
 
 **MCP Tools:** `workspace/opencode.jsonc` configures MCP servers. Currently: `odoo-mcp-tarad` (Odoo ERP via XML-RPC, stdio transport).
 
