@@ -12,6 +12,7 @@ services:
       - GOOGLE_API_KEY=${GOOGLE_API_KEY:-}
       - QWEN_API_KEY=${QWEN_API_KEY:-}
       - GROQ_API_KEY=${GROQ_API_KEY:-}
+      - THAILLM_API_KEY=${THAILLM_API_KEY:-}
       - GITHUB_TOKEN=${GITHUB_TOKEN:-}
       - ODOO_URL=${ODOO_URL:-}
       - ODOO_DB=${ODOO_DB:-}

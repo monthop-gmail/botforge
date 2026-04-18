@@ -57,6 +57,50 @@
       "models": {
         "moonshotai/kimi-k2-instruct-0905": { "name": "Kimi K2 (128K)" }
       }
+    },
+    "openthaigpt": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "OpenThaiGPT (ไทย)",
+      "options": {
+        "baseURL": "http://thaillm.or.th/api/openthaigpt/v1",
+        "headers": { "apikey": "{env:THAILLM_API_KEY}" }
+      },
+      "models": {
+        "/model": { "name": "OpenThaiGPT 8B v7.2" }
+      }
+    },
+    "pathumma": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "Pathumma (ไทย)",
+      "options": {
+        "baseURL": "http://thaillm.or.th/api/pathumma/v1",
+        "headers": { "apikey": "{env:THAILLM_API_KEY}" }
+      },
+      "models": {
+        "/model": { "name": "Pathumma Qwen3 8B Think" }
+      }
+    },
+    "typhoon-thai": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "Typhoon-S (ไทย)",
+      "options": {
+        "baseURL": "http://thaillm.or.th/api/typhoon/v1",
+        "headers": { "apikey": "{env:THAILLM_API_KEY}" }
+      },
+      "models": {
+        "/model": { "name": "Typhoon-S 8B" }
+      }
+    },
+    "thalle": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "THaLLE (ไทย)",
+      "options": {
+        "baseURL": "http://thaillm.or.th/api/kbtg/v1",
+        "headers": { "apikey": "{env:THAILLM_API_KEY}" }
+      },
+      "models": {
+        "/model": { "name": "THaLLE 0.2 8B" }
+      }
     }
   }
 }

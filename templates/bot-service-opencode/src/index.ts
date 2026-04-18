@@ -22,6 +22,11 @@ const MODELS: Record<string, { providerID: string; modelID: string; label: strin
   "qwen/qwen3.5-plus":                { providerID: "qwen",      modelID: "qwen3.5-plus",              label: "Qwen3.5 Plus (1M)" },
   // groq (API key)
   "groq/kimi-k2":                     { providerID: "groq",      modelID: "moonshotai/kimi-k2-instruct-0905", label: "Kimi K2 (Groq)" },
+  // thaillm.or.th (Thai LLMs — shared apikey via THAILLM_API_KEY)
+  "thaillm/openthaigpt-8b":           { providerID: "openthaigpt", modelID: "/model", label: "OpenThaiGPT 8B v7.2 (ไทย)" },
+  "thaillm/pathumma-8b":              { providerID: "pathumma",    modelID: "/model", label: "Pathumma Qwen3 8B Think (ไทย)" },
+  "thaillm/typhoon-s-8b":             { providerID: "typhoon-thai", modelID: "/model", label: "Typhoon-S 8B (ไทย)" },
+  "thaillm/thalle-8b":                { providerID: "thalle",      modelID: "/model", label: "THaLLE 0.2 8B (ไทย)" },
 }
 const DEFAULT_MODEL = "opencode/big-pickle"
 
