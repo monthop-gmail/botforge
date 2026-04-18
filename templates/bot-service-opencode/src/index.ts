@@ -195,7 +195,8 @@ function extractResponse(result: any): string {
   for (const p of result.parts) {
     // Direct text response
     if (p.type === "text" && p.text) {
-      parts.push(p.text)
+      const cleaned = stripThinkTags(p.text)
+      if (cleaned) parts.push(cleaned)
     }
     // Tool question - extract the question text for user
     if (p.type === "tool" && p.tool === "question" && p.state?.input?.questions) {
@@ -210,12 +211,17 @@ function extractResponse(result: any): string {
     // Reasoning - use as fallback if no text parts
     if (p.type === "reasoning" && p.text) {
       if (!result.parts.some((x: any) => x.type === "text" && x.text)) {
-        parts.push(p.text)
+        parts.push(stripThinkTags(p.text))
       }
     }
   }
 
   return parts.join("\n\n") || "เสร็จแล้วครับ (ไม่มีข้อความตอบกลับ)"
+}
+
+// Strip <think>...</think> blocks emitted by reasoning models like Pathumma/THaLLE/OpenThaiGPT
+function stripThinkTags(text: string): string {
+  return text.replace(/<think>[\s\S]*?<\/think>\s*/g, "").replace(/<think>[\s\S]*$/g, "").trim()
 }
 
 // --- Handle incoming LINE Image message ---

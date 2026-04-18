@@ -66,7 +66,12 @@
         "headers": { "apikey": "{env:THAILLM_API_KEY}" }
       },
       "models": {
-        "/model": { "name": "OpenThaiGPT 8B v7.2" }
+        "/model": {
+          "name": "OpenThaiGPT 8B v7.2",
+          "limit": { "context": 16384, "output": 2048 },
+          "tool_call": false,
+          "attachments": false
+        }
       }
     },
     "pathumma": {
@@ -77,7 +82,12 @@
         "headers": { "apikey": "{env:THAILLM_API_KEY}" }
       },
       "models": {
-        "/model": { "name": "Pathumma Qwen3 8B Think" }
+        "/model": {
+          "name": "Pathumma Qwen3 8B Think",
+          "limit": { "context": 16384, "output": 2048 },
+          "tool_call": false,
+          "attachments": false
+        }
       }
     },
     "typhoon-thai": {
@@ -88,7 +98,12 @@
         "headers": { "apikey": "{env:THAILLM_API_KEY}" }
       },
       "models": {
-        "/model": { "name": "Typhoon-S 8B" }
+        "/model": {
+          "name": "Typhoon-S 8B",
+          "limit": { "context": 16384, "output": 2048 },
+          "tool_call": false,
+          "attachments": false
+        }
       }
     },
     "thalle": {
@@ -99,7 +114,12 @@
         "headers": { "apikey": "{env:THAILLM_API_KEY}" }
       },
       "models": {
-        "/model": { "name": "THaLLE 0.2 8B" }
+        "/model": {
+          "name": "THaLLE 0.2 8B",
+          "limit": { "context": 16384, "output": 2048 },
+          "tool_call": false,
+          "attachments": false
+        }
       }
     }
   }
