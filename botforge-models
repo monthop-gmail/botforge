@@ -28,7 +28,7 @@ load_keys() {
       key=$(echo "$key" | xargs)
       val=$(echo "$val" | xargs)
       # Only set if not already set and value is not a placeholder
-      if [[ -z "${!key:-}" && -n "$val" && "$val" != your-* && "$val" != sk-... && "$val" != AIza... && "$val" != gsk_... && "$val" != changeme ]]; then
+      if [[ -z "${!key:-}" && -n "$val" && "$val" != your-* && "$val" != sk-... && "$val" != sk_... && "$val" != AIza... && "$val" != gsk_... && "$val" != changeme ]]; then
         export "$key=$val"
       fi
     done < "$f"
@@ -126,6 +126,23 @@ fetch_groq() {
   echo -e "  ${GREEN}ok${RESET} ${DIM}($count models → models/groq.txt)${RESET}"
 }
 
+fetch_okmd() {
+  local key="${OKMD_API_KEY:-}"
+  local url="https://gen.ai.kku.ac.th/okmd/api/v1/models"
+  local out
+  # Unlike every other provider here, OKMD serves /models without auth — so this
+  # still works with no key, and the key is only sent when one is configured.
+  if [[ -n "$key" ]]; then
+    out=$(curl -sf "$url" -H "Authorization: Bearer $key" 2>/dev/null) || { echo -e "  ${RED}error${RESET} (API call failed)"; return 0; }
+  else
+    out=$(curl -sf "$url" 2>/dev/null) || { echo -e "  ${RED}error${RESET} (API call failed)"; return 0; }
+    echo -e "  ${DIM}(no OKMD_API_KEY — /models is public, listing anyway)${RESET}"
+  fi
+  echo "$out" | jq -r '.data[] | .id + "\t" + (.created | todate | split("T")[0]) + "\t" + .owned_by' | sort > "$OUTPUT_DIR/okmd.txt"
+  local count=$(wc -l < "$OUTPUT_DIR/okmd.txt")
+  echo -e "  ${GREEN}ok${RESET} ${DIM}($count models → models/okmd.txt)${RESET}"
+}
+
 fetch_opencode() {
   if ! command -v opencode &>/dev/null; then
     echo -e "  ${YELLOW}skip${RESET} (opencode CLI not found)"
@@ -140,7 +157,7 @@ fetch_opencode() {
 
 # ─── Main ───
 
-PROVIDERS=(anthropic openai google deepseek qwen groq opencode)
+PROVIDERS=(anthropic openai google deepseek qwen groq okmd opencode)
 
 usage() {
   echo -e "${CYAN}${BOLD}Botforge Models — AI Provider Model List${RESET}"
@@ -196,6 +213,7 @@ main() {
       deepseek)  fetch_deepseek ;;
       qwen)      fetch_qwen ;;
       groq)      fetch_groq ;;
+      okmd)      fetch_okmd ;;
       opencode)  fetch_opencode ;;
       *) echo -e "  ${RED}unknown provider${RESET}: $provider" ;;
     esac
