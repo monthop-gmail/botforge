@@ -23,6 +23,16 @@ const MODELS: Record<string, { providerID: string; modelID: string; label: strin
   "qwen/qwen3.5-plus":                { providerID: "qwen",      modelID: "qwen3.5-plus",              label: "Qwen3.5 Plus (1M)" },
   // groq (API key)
   "groq/kimi-k2":                     { providerID: "groq",      modelID: "moonshotai/kimi-k2-instruct-0905", label: "Kimi K2 (Groq)" },
+  // okmd (OKMD AI Playground — one OKMD_API_KEY, per-model daily token quota)
+  // Full list of 23 models lives in opencode.json; these are the picks exposed in LINE.
+  "okmd/claude-sonnet-5":             { providerID: "okmd",      modelID: "claude-sonnet-5",           label: "Claude Sonnet 5 (OKMD)" },
+  "okmd/gpt-5.4":                     { providerID: "okmd",      modelID: "gpt-5.4",                   label: "GPT-5.4 (OKMD)" },
+  "okmd/gpt-5.4-mini":                { providerID: "okmd",      modelID: "gpt-5.4-mini",              label: "GPT-5.4 Mini (OKMD)" },
+  "okmd/gemini-3.5-flash":            { providerID: "okmd",      modelID: "gemini-3.5-flash",          label: "Gemini 3.5 Flash (OKMD)" },
+  "okmd/deepseek-v4-pro":             { providerID: "okmd",      modelID: "deepseek-v4-pro",           label: "DeepSeek V4 Pro (OKMD)" },
+  "okmd/qwen3.7-max":                 { providerID: "okmd",      modelID: "qwen3.7-max",               label: "Qwen3.7 Max (OKMD)" },
+  "okmd/grok-4.3":                    { providerID: "okmd",      modelID: "grok-4.3",                  label: "Grok 4.3 (OKMD)" },
+  "okmd/sonar-pro":                   { providerID: "okmd",      modelID: "sonar-pro",                 label: "Sonar Pro (OKMD)" },
   // thaillm.or.th (Thai LLMs — shared apikey via THAILLM_API_KEY)
   "thaillm/openthaigpt-8b":           { providerID: "openthaigpt", modelID: "/model", label: "OpenThaiGPT 8B v7.2 (ไทย)", noTools: true },
   "thaillm/pathumma-8b":              { providerID: "pathumma",    modelID: "/model", label: "Pathumma Qwen3 8B Think (ไทย)", noTools: true },
@@ -188,6 +198,11 @@ function extractResponse(result: any): string {
     const err = result.info.error
     const errMsg = err.data?.message || err.name || "Unknown error"
     log("⚠️ API error:", errMsg)
+    // OKMD answers 401 (not 429) once a model's daily token quota is spent, so the raw
+    // message reads as an auth failure. Quota is per-model, so switching models still works.
+    if (/reached daily limit/i.test(errMsg)) {
+      return "🪫 โควต้าของโมเดลนี้หมดสำหรับวันนี้ครับ\nพิมพ์ /model เพื่อเปลี่ยนไปโมเดลอื่น (โควต้าแยกกันแต่ละโมเดล) หรือรอรีเซ็ตวันถัดไป"
+    }
     return `❌ API Error: ${errMsg}`
   }
 

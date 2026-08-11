@@ -58,6 +58,39 @@
         "moonshotai/kimi-k2-instruct-0905": { "name": "Kimi K2 (128K)" }
       }
     },
+    "okmd": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "OKMD Playground",
+      "options": {
+        "baseURL": "https://gen.ai.kku.ac.th/okmd/api/v1",
+        "apiKey": "{env:OKMD_API_KEY}"
+      },
+      "models": {
+        "claude-sonnet-5": { "name": "Claude Sonnet 5" },
+        "claude-sonnet-4.6": { "name": "Claude Sonnet 4.6" },
+        "gpt-5.4": { "name": "GPT-5.4" },
+        "gpt-5.4-mini": { "name": "GPT-5.4 Mini" },
+        "gpt-5.4-nano": { "name": "GPT-5.4 Nano" },
+        "gemini-3.5-flash": { "name": "Gemini 3.5 Flash" },
+        "gemini-3.1-pro-preview": { "name": "Gemini 3.1 Pro" },
+        "gemini-3.1-flash-lite": { "name": "Gemini 3.1 Flash Lite" },
+        "gemini-3.1-flash-lite-preview": { "name": "Gemini 3.1 Flash Lite Preview" },
+        "gemini-2.5-flash-lite": { "name": "Gemini 2.5 Flash Lite" },
+        "deepseek-v4-pro": { "name": "DeepSeek V4 Pro" },
+        "deepseek-v4-flash": { "name": "DeepSeek V4 Flash" },
+        "qwen3.7-max": { "name": "Qwen3.7 Max" },
+        "qwen3.7-plus": { "name": "Qwen3.7 Plus" },
+        "qwen3.6-flash": { "name": "Qwen3.6 Flash" },
+        "qwen3.5-9b": { "name": "Qwen3.5 9B" },
+        "grok-4.3": { "name": "Grok 4.3" },
+        "llama-4-maverick": { "name": "Llama 4 Maverick" },
+        "llama-4-scout": { "name": "Llama 4 Scout" },
+        "mistral-medium-3.1": { "name": "Mistral Medium 3.1" },
+        "nova-pro-v1": { "name": "Nova Pro" },
+        "nova-2-lite-v1": { "name": "Nova 2 Lite" },
+        "sonar-pro": { "name": "Sonar Pro (Perplexity)" }
+      }
+    },
     "openthaigpt": {
       "npm": "@ai-sdk/openai-compatible",
       "name": "OpenThaiGPT (ไทย)",

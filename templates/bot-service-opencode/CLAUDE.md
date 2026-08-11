@@ -65,6 +65,8 @@ Required in `.env` (not committed):
 - `GROQ_API_KEY` — Groq API key (optional, for Llama/Mixtral/Gemma models)
 - `GOOGLE_API_KEY` — Google AI API key (optional)
 - `QWEN_API_KEY` — Qwen/DashScope API key (optional)
+- `OKMD_API_KEY` — OKMD AI Playground key (optional). One key unlocks 23 models (Claude, GPT, Gemini, DeepSeek, Qwen, Grok, Llama, Mistral, Nova, Sonar) through an OpenAI-compatible gateway. Each model carries its own daily token quota (~30-50K), so a heavy session can exhaust one model while others still work. Create at [playground.okmd.or.th](https://playground.okmd.or.th) → API Platform
+- `THAILLM_API_KEY` — ThaiLLM hub key (optional, 4 Thai 8B models)
 - `ODOO_URL`, `ODOO_DB`, `ODOO_USERNAME`, `ODOO_PASSWORD` — Odoo ERP credentials for odoo-mcp
 - `CLOUDFLARE_TUNNEL_TOKEN` — Tunnel authentication
 - `OPENCODE_PASSWORD` — OpenCode server Basic auth password (default: `changeme`)
