@@ -11,7 +11,8 @@ const opencodeDir = process.env.OPENCODE_DIR ?? "/workspace"
 const lineOAUrl = process.env.LINE_OA_URL ?? "https://line.me/ti/p/~your-oa"
 
 // --- Model config (use /model provider/model to switch) ---
-const MODELS: Record<string, { providerID: string; modelID: string; label: string }> = {
+// noTools: model is served without working tool calling — see opencode.json (tool_call: false)
+const MODELS: Record<string, { providerID: string; modelID: string; label: string; noTools?: boolean }> = {
   // opencode (Free via Zen)
   "opencode/big-pickle":              { providerID: "opencode",  modelID: "big-pickle",                label: "Big Pickle (Free)" },
   "opencode/nemotron-3-super":        { providerID: "opencode",  modelID: "nemotron-3-super-free",     label: "Nemotron 3 Super (Free)" },
@@ -23,12 +24,14 @@ const MODELS: Record<string, { providerID: string; modelID: string; label: strin
   // groq (API key)
   "groq/kimi-k2":                     { providerID: "groq",      modelID: "moonshotai/kimi-k2-instruct-0905", label: "Kimi K2 (Groq)" },
   // thaillm.or.th (Thai LLMs — shared apikey via THAILLM_API_KEY)
-  "thaillm/openthaigpt-8b":           { providerID: "openthaigpt", modelID: "/model", label: "OpenThaiGPT 8B v7.2 (ไทย)" },
-  "thaillm/pathumma-8b":              { providerID: "pathumma",    modelID: "/model", label: "Pathumma Qwen3 8B Think (ไทย)" },
+  "thaillm/openthaigpt-8b":           { providerID: "openthaigpt", modelID: "/model", label: "OpenThaiGPT 8B v7.2 (ไทย)", noTools: true },
+  "thaillm/pathumma-8b":              { providerID: "pathumma",    modelID: "/model", label: "Pathumma Qwen3 8B Think (ไทย)", noTools: true },
   "thaillm/typhoon-s-8b":             { providerID: "typhoon-thai", modelID: "/model", label: "Typhoon-S 8B (ไทย)" },
   "thaillm/thalle-8b":                { providerID: "thalle",      modelID: "/model", label: "THaLLE 0.2 8B (ไทย)" },
 }
 const DEFAULT_MODEL = "opencode/big-pickle"
+const NO_TOOLS_NOTE = "\n⚠️ โมเดลนี้ตอบข้อความอย่างเดียว อ่าน/แก้ไฟล์ไม่ได้"
+const STRAY_TOOL_CALL_NOTE = "โมเดลพยายามเรียกใช้เครื่องมือแต่ไม่สำเร็จครับ ลองถามใหม่อีกครั้ง หรือพิมพ์ /model เพื่อเปลี่ยนโมเดล"
 
 // --- Logging helper ---
 function log(...args: any[]) {
@@ -195,8 +198,10 @@ function extractResponse(result: any): string {
   for (const p of result.parts) {
     // Direct text response
     if (p.type === "text" && p.text) {
-      const cleaned = stripThinkTags(p.text)
-      if (cleaned) parts.push(cleaned)
+      const { text, strayToolCall } = cleanModelText(p.text)
+      if (strayToolCall) log("Dropped unparsed <tool_call> block from model text response")
+      if (text) parts.push(text)
+      else if (strayToolCall) parts.push(STRAY_TOOL_CALL_NOTE)
     }
     // Tool question - extract the question text for user
     if (p.type === "tool" && p.tool === "question" && p.state?.input?.questions) {
@@ -211,7 +216,7 @@ function extractResponse(result: any): string {
     // Reasoning - use as fallback if no text parts
     if (p.type === "reasoning" && p.text) {
       if (!result.parts.some((x: any) => x.type === "text" && x.text)) {
-        parts.push(stripThinkTags(p.text))
+        parts.push(cleanModelText(p.text).text)
       }
     }
   }
@@ -222,6 +227,24 @@ function extractResponse(result: any): string {
 // Strip <think>...</think> blocks emitted by reasoning models like Pathumma/THaLLE/OpenThaiGPT
 function stripThinkTags(text: string): string {
   return text.replace(/<think>[\s\S]*?<\/think>\s*/g, "").replace(/<think>[\s\S]*$/g, "").trim()
+}
+
+// Remove <tool_call> blocks the server-side parser failed to consume. The Thai 8B models
+// occasionally close a tool call with </think> instead of </tool_call>, so vLLM cannot parse
+// it and leaves the raw JSON in the text response — which would otherwise reach the user.
+// Requires a JSON payload with "name" so prose that merely mentions the tag is left alone.
+function stripStrayToolCalls(text: string): string {
+  return text
+    .replace(/<tool_call>\s*\{[\s\S]*?"name"[\s\S]*?(?:<\/tool_call>|<\/think>|$)\s*/g, "")
+    .replace(/<\/(?:think|tool_call)>\s*/g, "")
+    .trim()
+}
+
+// Returns user-facing text, plus whether a broken tool call was dropped along the way
+function cleanModelText(text: string): { text: string; strayToolCall: boolean } {
+  const withoutThink = stripThinkTags(text)
+  const cleaned = stripStrayToolCalls(withoutThink)
+  return { text: cleaned, strayToolCall: cleaned !== withoutThink }
 }
 
 // --- Handle incoming LINE Image message ---
@@ -540,14 +563,17 @@ async function handleTextMessage(
       for (const [key, m] of Object.entries(MODELS)) {
         const provider = key.split("/")[0]
         if (!grouped[provider]) grouped[provider] = []
-        grouped[provider].push(`  ${key === currentModel ? "→" : " "} ${key}`)
+        grouped[provider].push(`  ${key === currentModel ? "→" : " "} ${key}${m.noTools ? " *" : ""}`)
       }
       const options = Object.entries(grouped)
         .map(([provider, keys]) => `[${provider}]\n${keys.join("\n")}`)
         .join("\n\n")
+      const legend = Object.values(MODELS).some(m => m.noTools)
+        ? "\n\n* = ตอบข้อความอย่างเดียว ใช้ tool ไม่ได้"
+        : ""
       await lineClient.replyMessage({
         replyToken,
-        messages: [{ type: "text", text: `🤖 Model: ${current?.label ?? currentModel}\n\nใช้: /model provider/model\n\n${options}` }],
+        messages: [{ type: "text", text: `🤖 Model: ${current?.label ?? currentModel}\n\nใช้: /model provider/model\n\n${options}${legend}` }],
       })
       return
     }
@@ -564,7 +590,7 @@ async function handleTextMessage(
         const m = MODELS[partial]
         await lineClient.replyMessage({
           replyToken,
-          messages: [{ type: "text", text: `เปลี่ยนเป็น ${m.label} แล้วครับ\n(${partial})\nSession ใหม่พร้อมใช้งาน` }],
+          messages: [{ type: "text", text: `เปลี่ยนเป็น ${m.label} แล้วครับ\n(${partial})\nSession ใหม่พร้อมใช้งาน${m.noTools ? NO_TOOLS_NOTE : ""}` }],
         })
         return
       }
@@ -583,7 +609,7 @@ async function handleTextMessage(
     const m = MODELS[arg]
     await lineClient.replyMessage({
       replyToken,
-      messages: [{ type: "text", text: `เปลี่ยนเป็น ${m.label} แล้วครับ\nSession ใหม่พร้อมใช้งาน` }],
+      messages: [{ type: "text", text: `เปลี่ยนเป็น ${m.label} แล้วครับ\nSession ใหม่พร้อมใช้งาน${m.noTools ? NO_TOOLS_NOTE : ""}` }],
     })
     return
   }

@@ -101,7 +101,7 @@
         "/model": {
           "name": "Typhoon-S 8B",
           "limit": { "context": 16384, "output": 2048 },
-          "tool_call": false,
+          "tool_call": true,
           "attachments": false
         }
       }
@@ -117,7 +117,7 @@
         "/model": {
           "name": "THaLLE 0.2 8B",
           "limit": { "context": 16384, "output": 2048 },
-          "tool_call": false,
+          "tool_call": true,
           "attachments": false
         }
       }
