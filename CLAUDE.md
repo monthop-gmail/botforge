@@ -70,7 +70,7 @@ Templates use `{{PLACEHOLDER}}` syntax, replaced by `botforge new`:
 
 - **`botforge`** — Project generator CLI (Bash). Engine selection (lines ~86-101), template copy + sed replacement, git init.
 - **`botforge-deploy`** — Multi-bot manager (Bash). Uses `docker compose --project-name "$name"` for isolation. Cloudflare API integration for tunnel CRUD + DNS.
-- **`botforge-models`** — Fetches latest model lists from AI providers (Anthropic, OpenAI, Google, DeepSeek, Qwen, Groq, OKMD). Output: `models/<provider>.txt`. OKMD needs no API key — its `/models` endpoint is public.
+- **`botforge-models`** — Fetches latest model lists from AI providers (Anthropic, OpenAI, Google, DeepSeek, Qwen, Groq, OKMD, ThaiLLM). Output: `models/<provider>.txt`. OKMD needs no API key — its `/models` endpoint is public. ThaiLLM is a drift check rather than a listing: its 4 endpoints are hardcoded (each reports the id `/model`), and it reports the served model version plus `max_model_len`, warning when that no longer matches the `limit.context` pinned in `opencode.json`.
 - **`templates/bot-service-*/`** — Engine templates. Each has: `docker-compose.yml`, `Dockerfile`, `src/index.ts` (LINE bot), `server/` (AI backend), `.env.example`, `CLAUDE.md`.
 - **`templates/workspace/`** — Shared workspace template with `AGENTS.md` (bot instructions in Thai).
 - **`.botforge-deploy.env`** — Cloudflare credentials (`CF_API_TOKEN`, `CF_ACCOUNT_ID`, `CF_ZONE_ID`, `CF_DOMAIN`). Gitignored.

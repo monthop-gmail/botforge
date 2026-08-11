@@ -67,7 +67,8 @@ fetch_anthropic() {
     fi
     return 0
   fi
-  echo "$out" | jq -r '.data[] | .id + "\t" + (.created_at | todate | split("T")[0])' | sort > "$OUTPUT_DIR/anthropic.txt"
+  # created_at is already an ISO 8601 string, so it must not go through todate
+  echo "$out" | jq -r '.data[] | .id + "\t" + (.created_at | split("T")[0])' | sort > "$OUTPUT_DIR/anthropic.txt"
   local count=$(wc -l < "$OUTPUT_DIR/anthropic.txt")
   echo -e "  ${GREEN}ok${RESET} ${DIM}($count models → models/anthropic.txt)${RESET}"
 }
@@ -143,6 +144,48 @@ fetch_okmd() {
   echo -e "  ${GREEN}ok${RESET} ${DIM}($count models → models/okmd.txt)${RESET}"
 }
 
+fetch_thaillm() {
+  local key="${THAILLM_API_KEY:-}"
+  [[ -z "$key" ]] && echo -e "  ${YELLOW}skip${RESET} (no THAILLM_API_KEY)" && return 0
+  # ThaiLLM has no combined model list — each model sits behind its own endpoint and every
+  # one reports the id "/model", so the paths below are fixed rather than discovered. What
+  # is worth fetching is the served model version and max_model_len, both of which
+  # opencode.json hardcodes and neither of which we control.
+  local endpoints=(openthaigpt pathumma typhoon kbtg)
+  local cfg="$SCRIPT_DIR/templates/bot-service-opencode/opencode.json"
+  local tmp; tmp=$(mktemp)
+  local drift=0
+  for ep in "${endpoints[@]}"; do
+    local out
+    out=$(curl -sf "http://thaillm.or.th/api/$ep/v1/models" -H "apikey: $key" 2>/dev/null) \
+      || { echo -e "  ${YELLOW}warn${RESET} ${DIM}($ep unreachable)${RESET}"; continue; }
+    echo "$out" | jq -r --arg ep "$ep" '.data[] | $ep + "\t" + (.root | sub("^/models/";"")) + "\t" + (.max_model_len | tostring)' >> "$tmp"
+    # Compare the served context window against whatever opencode.json pins for this endpoint
+    if [[ -f "$cfg" ]]; then
+      local served pinned
+      served=$(echo "$out" | jq -r '.data[0].max_model_len')
+      pinned=$(jq -r --arg ep "$ep" '.provider | to_entries[]
+        | select((.value.options.baseURL // "") | contains("/api/" + $ep + "/"))
+        | .value.models["/model"].limit.context // empty' "$cfg")
+      if [[ -n "$pinned" && -n "$served" && "$pinned" != "$served" ]]; then
+        echo -e "  ${YELLOW}drift${RESET} ${DIM}($ep: hub serves $served, opencode.json pins $pinned)${RESET}"
+        drift=$((drift + 1))
+      fi
+    fi
+  done
+  if [[ ! -s "$tmp" ]]; then
+    rm -f "$tmp"
+    echo -e "  ${RED}error${RESET} (no endpoint responded)"
+    return 0
+  fi
+  sort "$tmp" > "$OUTPUT_DIR/thaillm.txt"
+  rm -f "$tmp"
+  local count=$(wc -l < "$OUTPUT_DIR/thaillm.txt")
+  echo -e "  ${GREEN}ok${RESET} ${DIM}($count models → models/thaillm.txt)${RESET}"
+  [[ $drift -gt 0 ]] && echo -e "  ${DIM}→ update limit.context in templates/bot-service-opencode/opencode.json${RESET}"
+  return 0
+}
+
 fetch_opencode() {
   if ! command -v opencode &>/dev/null; then
     echo -e "  ${YELLOW}skip${RESET} (opencode CLI not found)"
@@ -157,7 +200,7 @@ fetch_opencode() {
 
 # ─── Main ───
 
-PROVIDERS=(anthropic openai google deepseek qwen groq okmd opencode)
+PROVIDERS=(anthropic openai google deepseek qwen groq okmd thaillm opencode)
 
 usage() {
   echo -e "${CYAN}${BOLD}Botforge Models — AI Provider Model List${RESET}"
@@ -214,9 +257,10 @@ main() {
       qwen)      fetch_qwen ;;
       groq)      fetch_groq ;;
       okmd)      fetch_okmd ;;
+      thaillm)   fetch_thaillm ;;
       opencode)  fetch_opencode ;;
       *) echo -e "  ${RED}unknown provider${RESET}: $provider" ;;
-    esac
+    esac || echo -e "  ${RED}error${RESET} (fetch failed — continuing)"  # one bad provider must not abort the run
   done
 
   echo
