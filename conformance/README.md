@@ -7,7 +7,7 @@ ADR-0006 ของ `agent-platform` กำหนดว่า consumer ต้อ�
 | # | ข้อกำหนด | ที่นี่ | สถานะ |
 | :-: | --- | --- | :-: |
 | 1 | manifest | [`docs/architecture/platform-contract.draft.yaml`](../docs/architecture/platform-contract.draft.yaml) | 🚧 ยังเป็นร่าง ยังไม่ขึ้น root |
-| 2 | conformance test ที่ validate **payload จริง** | `payload_check.py` | ✅ |
+| 2 | conformance test ที่ validate **payload จริง** | `payload_check.py` — `error/v1` 14 ใบ · `channel-event/v1` 17 ใบ | ✅ |
 | 3 | release gate — CI ไม่ผ่าน = merge ไม่ได้ | [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) | 🚧 ต้องตั้ง required check ใน repo settings |
 
 ## รัน
@@ -42,8 +42,22 @@ ADR-0006 ข้อ 2 ต้องการ payload **จริงที่ระ
 - `error/v1.message` **ห้ามมี credential** — ตรวจ `sk-*` `ghp_*` `Bearer *` และ hex ยาว
 - `message` ยาวไม่เกิน 200 ตัวอักษร — เท่ากับที่ v1 ตัดไว้
 
+## schema ที่ vendor ไว้ 8 ไฟล์ แต่ประกาศใน manifest แค่ 2
+
+`event/v1` `$ref` ไปหา `identity` `error` `model` `policy` `consent` และต่อไปถึง
+`capability` `tool` — ต้อง resolve ให้ได้ครบตอน validate ไม่งั้น `payload_check` รันไม่ผ่าน
+การ vendor ไว้จึงไม่ได้แปลว่าประกาศว่าใช้ · `contracts:` ของ manifest ยังมีแค่
+`error/v1` กับ `event/v1` ตามที่มี payload จริงให้ตรวจ
+
+## ทำไม heuristic หา credential ข้าม field ที่เป็น id
+
+LINE id คือ hex 32 ตัวโดยธรรมชาติ (`line-ca56f9e2b1c3d4e5f6a7b8c9d0e1f2a3`)
+ซึ่งชน pattern ของ hex ยาวโดยไม่ได้เป็น credential เลย
+`payload_check.py` จึงสแกนเฉพาะส่วนที่เป็น **ข้อความอิสระ** — `error.message`
+`transition.reason` `metadata` `actor.display_name` `source.system` `message_id`
+
 ## ยังไม่ได้ทำ
 
-- `event/v1` vendor ไว้แล้วแต่ยังไม่มี payload ให้ตรวจ — core ยังไม่ปล่อย event
 - `drift_check.py` ตอน dev เทียบกับ working tree ของ sibling ซึ่งไม่รับประกันว่าอยู่ที่ commit ที่ pin
   (มีคำเตือนบอกตอนรัน) · ตอน CI ดึงจาก GitHub ที่ commit ที่ pin จริง
+- CI ยังไม่เคยรันจริง — branch `v2` ยังไม่ถูก push

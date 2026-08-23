@@ -1,0 +1,59 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: https://schemas.agent-platform.internal/capability/v1/capability.schema.yaml
+title: Capability Taxonomy
+description: >-
+  รายการ capability ที่ platform รู้จัก พร้อมนิยามและระดับความเสี่ยง (ADR-0009)
+  capability คือ "ทำอะไรได้" — ไม่ใช่ "ใครให้บริการ" (นั่นคือ provider/v1)
+  เพิ่มค่าใหม่ใน enum = ไม่ breaking · ลบหรือเปลี่ยนความหมาย = breaking (ADR-0006)
+
+$defs:
+  CapabilityId:
+    description: >-
+      taxonomy กลาง — consumer ที่เจอค่าที่ไม่รู้จักต้องถือว่า "ไม่มี" ไม่ใช่ "มี" (ADR-0009)
+    enum:
+      - code_execution
+      - shell
+      - filesystem
+      - git
+      - github
+      - browser
+      - mcp
+      - vision
+      - long_context
+      - streaming
+      - autonomous_execution
+      - docker
+      - network_egress
+
+  CapabilityScope:
+    description: >-
+      3 ระดับที่ห้ามปนกัน (ADR-0009) — capability ตัวเดียวกันอยู่ได้แค่ scope เดียว
+    enum:
+      - provider   # ความสามารถของ model/agent provider เช่น long_context, vision
+      - host       # ความสามารถของ worker ที่รัน เช่น docker, network_egress
+      - tool       # ความสามารถที่มาจาก tool ที่ต่ออยู่ เช่น github, browser
+
+  ActionRisk:
+    description: >-
+      ความเสียหายถ้าทำผิด — static ผูกกับ capability/tool ไม่ใช่กับ request (ADR-0010)
+      ห้ามสับสนกับ `authority` (policy/v1) และ `severity` (domain กำหนดเอง)
+      consumer ที่เจอค่าที่ไม่รู้จักต้อง fallback เป็น `critical`
+    enum: [low, medium, high, critical]
+
+type: object
+description: หนึ่งรายการใน catalog
+required: [id, scope, action_risk, description]
+properties:
+  id:
+    $ref: '#/$defs/CapabilityId'
+  scope:
+    $ref: '#/$defs/CapabilityScope'
+  action_risk:
+    $ref: '#/$defs/ActionRisk'
+  description:
+    type: string
+  requires:
+    type: array
+    description: capability ที่ต้องมีร่วมด้วยจึงจะมีความหมาย เช่น `git` ต้องมี `filesystem`
+    items:
+      $ref: '#/$defs/CapabilityId'

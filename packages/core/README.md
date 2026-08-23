@@ -15,10 +15,10 @@
 | `session/queue.ts` | `enqueueForSession` — **เดิมมีแค่ 6 ใน 9 engine** | ✅ |
 | `context/time.ts` | `getTimeContext` + timestamp ของ `log()` | ✅ |
 | `context/profile.ts` | `getUserProfile` `getGroupName` `getUserContext` + cache 1 ชม. | ✅ |
+| `events/` | ปล่อย `event/v1` + `channel-event/v1` — **ของใหม่ v1 ไม่มีบันทึกเลย** | ✅ |
 | command router | `handleTextMessage()` 240 บรรทัด | ⬜ |
-| event | ปล่อย `event/v1` ทุกจุดที่ state เปลี่ยน | ⬜ |
 
-**62 test ผ่าน** · typecheck สะอาด · ไม่มี runtime dependency
+**78 test ผ่าน** · typecheck สะอาด · ไม่มี runtime dependency
 
 ## duplication ที่ปิดไปแล้ว
 

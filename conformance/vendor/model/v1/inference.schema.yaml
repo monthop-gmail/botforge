@@ -1,0 +1,86 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: https://schemas.agent-platform.internal/model/v1/inference.schema.yaml
+title: Model Inference
+description: >-
+  สัญญาการเรียก model inference — ใช้กับ model provider เท่านั้น (ADR-0004)
+  agent provider ไม่ใช้ไฟล์นี้ เพราะมันรับงานเป็น execution ไม่ใช่ message list
+
+$defs:
+  Role:
+    enum: [system, user, assistant, tool]
+
+  Message:
+    type: object
+    required: [role]
+    properties:
+      role: { $ref: '#/$defs/Role' }
+      content:
+        oneOf:
+          - type: string
+          - type: array
+            items:
+              type: object
+              required: [type]
+              properties:
+                type:
+                  enum: [text, image, audio, document]
+                text: { type: string }
+                uri: { type: string, format: uri }
+                media_type: { type: string }
+      tool_call_id: { type: string }
+
+  ToolCall:
+    type: object
+    required: [id, tool_id, arguments]
+    properties:
+      id: { type: string }
+      tool_id:
+        $ref: https://schemas.agent-platform.internal/tool/v1/tool.schema.yaml#/$defs/ToolId
+      arguments: { type: object }
+
+  Usage:
+    type: object
+    description: ใช้คิด cost attribution ต่อ tenant — ต้องมีทุกครั้งที่เรียกสำเร็จ
+    properties:
+      input_tokens: { type: integer, minimum: 0 }
+      output_tokens: { type: integer, minimum: 0 }
+      cached_input_tokens: { type: integer, minimum: 0 }
+      cost_usd: { type: number, minimum: 0 }
+
+Request:
+  type: object
+  required: [context, provider_id, model_id, messages]
+  properties:
+    context:
+      $ref: https://schemas.agent-platform.internal/identity/v1/identity.schema.yaml#/$defs/RequestContext
+    provider_id: { type: string }
+    model_id:
+      type: string
+      description: >-
+        ห้าม hard-code รายชื่อ model ไว้ใน task schema — ระบุตอน runtime เท่านั้น
+        การเลือก model เป็นหน้าที่ของ routing ตาม capability (ADR-0009)
+    messages:
+      type: array
+      minItems: 1
+      items: { $ref: '#/$defs/Message' }
+    tools:
+      type: array
+      items:
+        $ref: https://schemas.agent-platform.internal/tool/v1/tool.schema.yaml
+    stream: { type: boolean, default: false }
+    max_output_tokens: { type: integer, minimum: 1 }
+    temperature: { type: number, minimum: 0 }
+
+Response:
+  type: object
+  required: [message, usage]
+  properties:
+    message: { $ref: '#/$defs/Message' }
+    tool_calls:
+      type: array
+      items: { $ref: '#/$defs/ToolCall' }
+    stop_reason:
+      enum: [end_turn, max_tokens, tool_use, stop_sequence, error]
+    usage: { $ref: '#/$defs/Usage' }
+    error:
+      $ref: https://schemas.agent-platform.internal/error/v1/error.schema.yaml

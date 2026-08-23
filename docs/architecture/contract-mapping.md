@@ -319,10 +319,10 @@ extensions:  ของที่ Botforge เป็นเจ้าของเอ
 ```
 1  ✅ ตัดสิน §5.1 (id mapping) และ §5.2 (tenant)
 2  ✅ @botforge/core: classify() → error/v1 + renderThai() ที่ channel layer
-3  ⬜ core ปล่อย event/v1 ทุกจุดที่ state เปลี่ยน       ← ปิด "no silent state change"
+3  ✅ core ปล่อย event/v1 ทุกจุดที่ state เปลี่ยน       ← ปิด "no silent state change"
 4  ✅ conformance/drift_check.py + payload_check.py
 5  🚧 CI ที่รันทั้งสองตัวทุก PR — มีไฟล์แล้ว ยังต้องตั้ง required check ใน repo settings
-6  ⬜ ย้าย platform-contract.yaml ขึ้น root + เปิด issue ขอแถวใน consumers.md
+6  ⬜ push v2 ให้ CI รันจริง → ย้าย manifest ขึ้น root → เปิด issue ขอแถวใน consumers.md
 ```
 
 ข้อ 2 กับ 3 คือ **งาน de-duplicate (Phase 1.5) ที่ทำไปพร้อมกัน** — ไม่ใช่งานเพิ่ม เพราะการดึง `getErrorHint()` ออกจาก 23 สำเนามาไว้ที่เดียว กับการทำให้มันคืน `error/v1` เป็นงานเดียวกัน

@@ -8,7 +8,10 @@
     ".": "./src/index.ts",
     "./identity": "./src/identity.ts",
     "./errors": "./src/errors.ts",
-    "./channel": "./src/channel/index.ts"
+    "./channel": "./src/channel/index.ts",
+    "./events": "./src/events/index.ts",
+    "./session": "./src/session/index.ts",
+    "./context": "./src/context/index.ts"
   },
   "scripts": {
     "test": "node --experimental-strip-types --test 'src/**/*.test.ts'",

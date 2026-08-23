@@ -70,6 +70,7 @@ line-bot   server   cloudflared
 | Context — memory | `getGroupMemory()` | claude-code, copilot-cli | ⬜ |
 | Error | `getErrorHint()` | ✓ (8/9) | ✅ ยกแล้ว |
 | Logging | `log()` (Bangkok TZ) | ✓ | ✅ ยกแล้ว (`logTimestamp`) |
+| **Audit** | *(v1 ไม่มีเลย)* | ✗ | ✅ ใหม่ — `events/` ปล่อย `event/v1` |
 
 > `chunkText()` มี code-block balancing (ปิด ``` ที่ค้าง) อยู่ในทุกไฟล์ — logic แบบนี้แหละที่ไม่ควรมี 23 สำเนา
 

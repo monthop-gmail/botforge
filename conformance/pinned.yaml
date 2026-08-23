@@ -13,4 +13,12 @@ vendored_at: "2026-08-23"
 schemas:
   - error/v1/error.schema.yaml
   - identity/v1/identity.schema.yaml
-  - event/v1/event.schema.yaml       # vendor ไว้ล่วงหน้า ยังไม่มี payload ให้ตรวจ
+  - event/v1/event.schema.yaml
+  - model/v1/inference.schema.yaml
+  - policy/v1/policy-decision.schema.yaml
+  - consent/v1/consent.schema.yaml
+  - capability/v1/capability.schema.yaml
+  - tool/v1/tool.schema.yaml
+
+# 4 ตัวท้ายไม่ได้ประกาศใน contracts: ของ manifest — vendor ไว้เพราะ event/v1
+# $ref ไปหา ต้อง resolve ให้ได้ตอน validate ไม่งั้น payload_check รันไม่ผ่าน

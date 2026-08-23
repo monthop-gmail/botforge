@@ -1,0 +1,69 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: https://schemas.botforge.internal/event/v1/channel-event.schema.yaml
+title: Channel Event
+description: >-
+  ส่วนขยายของ `event/v1` สำหรับ event ที่เกิดบน channel — LINE, Telegram, Web, Discord
+
+  **Botforge เป็นเจ้าของ schema นี้เอง ไม่ได้ขอให้ agent-platform รับไปดูแล**
+
+  ChannelContract ตกเกณฑ์รับ contract ใหม่ของ agent-platform ข้อ 2
+  (ต้องมี consumer อย่างน้อย 2 ราย — ตอนนี้ Botforge เจ้าเดียว)
+  และข้อ 4 (platform ต้องเข้าใจ semantics พอจะเป็นผู้ตัดสิน — platform
+  ไม่ควรรู้รายละเอียดของ LINE) ดู docs/architecture/contract-mapping.md §6
+
+  ทำแบบเดียวกับ `care-event/v1` ของ care-agent-platform — additive ตาม RFC-0009
+  ไม่ลดทอน guarantee ข้อใดของ `event/v1` ถ้าวันหนึ่งมี repo ที่สองที่ต้องการ
+  channel semantics เหมือนกัน ค่อยเสนอขึ้นไป โดยตอนนั้นจะครบเกณฑ์ข้อ 2 พอดี
+
+extends: event/v1
+
+allOf:
+  - $ref: https://schemas.agent-platform.internal/event/v1/event.schema.yaml
+  - type: object
+    properties:
+      channel_type:
+        enum: [line, telegram, web, discord]
+        description: ชนิดของ channel ที่ event นี้เกิด
+      channel_id:
+        $ref: https://schemas.agent-platform.internal/identity/v1/identity.schema.yaml#/$defs/Id
+        description: >-
+          ห้องสนทนา — group, room หรือคู่สนทนา 1:1
+          ต้องผ่าน `toChannelId()` มาแล้ว คือรูปแบบ `{channel}-{lowercase(rawId)}`
+          เพราะ id ดิบของ LINE ขึ้นต้นด้วย U/C/R ตัวใหญ่ ซึ่งผิด `identity/v1#/$defs/Id`
+      message_id:
+        type: string
+        description: id ของข้อความต้นเหตุ ใช้ผูกกลับไปหา webhook payload ตอน debug
+
+# event type ที่ส่วนขยายนี้เพิ่ม — นอกเหนือจาก 7 ค่ามาตรฐานของ event/v1
+# ทำได้เพราะ field `event_type` อ้าง `EventTypeName` ซึ่งบังคับแค่รูปแบบชื่อ
+# และ `$defs.EventType` ระบุเองว่าเป็น "🔓 ชุดเปิด"
+vocabulary:
+  - id: SESSION_STARTED
+    subject_type: execution
+    detail: runtime สร้าง session ใหม่ให้ห้องสนทนานี้
+  - id: SESSION_CLOSED
+    subject_type: execution
+    detail: session ถูกปิดด้วย /new · /model · /abort หรือ bot ออกจากกลุ่ม
+  - id: CHANNEL_JOINED
+    subject_type: record
+    detail: >-
+      bot ถูกเชิญเข้ากลุ่ม · ใช้ `subject_type: record` + `metadata.record_type: channel`
+      เพราะไม่ได้เกิดจาก job และไม่ใช่ artifact ของ execution
+  - id: CHANNEL_LEFT
+    subject_type: record
+    detail: bot ออกจากกลุ่ม
+  - id: MESSAGE_SKIPPED
+    subject_type: execution
+    detail: >-
+      agent ตัดสินว่าข้อความในกลุ่มไม่ได้เรียกถึง bot (ตอบ `[SKIP]`)
+      บันทึกแค่ว่ามีการข้าม **ไม่บันทึกเนื้อข้อความของผู้ใช้**
+
+# กฎที่ Botforge บังคับเองเพิ่มจาก guarantees ของ event/v1
+rules:
+  - "channel_id ต้องผ่าน toChannelId() แล้ว — id ดิบของ LINE ผิด ID_PATTERN ทุกตัว"
+  - >-
+    ห้ามใส่ reply_token ลงใน event — เป็น token ที่ยิง API ได้จริง
+    ไม่ควรอยู่ในบันทึกที่ append-only และอ่านย้อนหลังได้ตลอดไป
+  - >-
+    ห้ามใส่เนื้อข้อความของผู้ใช้ลง metadata — เป็นทั้ง PII และเนื้อหา prompt
+    ซึ่ง event/v1 ห้ามไว้แล้วที่ error/v1.message และที่ metadata

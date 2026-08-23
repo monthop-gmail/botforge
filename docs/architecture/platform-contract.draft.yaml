@@ -79,40 +79,46 @@ not_yet:
   - artifact/v1     # ไม่ผลิต artifact
 
 conformance:
-  # error/v1 ผ่านแล้วจริง แต่ event/v1 ที่ประกาศไว้ยังไม่มี payload ให้ตรวจ
-  # จึงยังไม่ใช่ passing — จะเป็น passing เมื่อ core ปล่อย event จริง
+  # ครบข้อ 1 และ 2 ของ ADR-0006 แล้ว · เหลือข้อ 3 (release gate)
+  # ยังไม่ใช่ passing เพราะ CI ยังไม่เคยรันจริงบน GitHub — branch v2 ยังไม่ถูก push
+  # และยังไม่ได้ตั้ง required check · "passing" ต้องหมายถึง CI ผ่านจริง ไม่ใช่รันผ่านในเครื่อง
   status: unknown
   last_verified: "2026-08-23"
+  verified_locally: true
 
   checks:
     - name: drift_check
       command: python3 conformance/drift_check.py
       status: passing
       scope: >-
-        schema ที่ vendor ไว้ยังตรงกับ agent-platform ที่ commit ที่ pin
+        schema ที่ vendor ไว้ 8 ไฟล์ยังตรงกับ agent-platform ที่ commit ที่ pin
         (local checkout ตอน dev · GitHub raw ตอน CI)
+        4 ไฟล์ท้ายไม่ได้ประกาศใน contracts: แต่ต้อง vendor เพราะ event/v1 $ref ไปหา
 
     - name: payload_check
       command: python3 conformance/payload_check.py
       status: passing
       scope: >-
-        error/v1 — 14 payload จริงที่ classify() ของ @botforge/core ผลิตออกมา
-        validate กับ schema ที่ commit ที่ pin ไว้ ครอบคลุม 6 category
-        (rate_limited · timeout · authentication · provider_error · validation · internal)
-        + ตรวจ guarantee ที่ JSON Schema ตรวจไม่ได้ — message ห้ามมี credential และยาวไม่เกิน 200
-        ไม่มี fixture ที่เขียนขึ้นเพื่อให้ผ่าน
+        error/v1 — 14 payload จริงจาก classify() ครอบคลุม 6 category
+        channel-event/v1 (allOf event/v1) — 17 event จริงจาก scenario LINE webhook เต็มรอบ
+        (bot เข้ากลุ่ม · เทิร์นสำเร็จมี cost · เทิร์นสำเร็จไม่มี cost · ล้มเพราะ provider
+        · timeout · /abort · [SKIP] ในกลุ่ม · /new ปิด session · bot ออกจากกลุ่ม)
+        ทั้งหมดมาจาก @botforge/core จริง ไม่มี fixture ที่เขียนขึ้นเพื่อให้ผ่าน
+        + ตรวจ guarantee ที่ JSON Schema ตรวจไม่ได้ — ห้าม credential · ห้าม reply_token
+        · ห้าม chain-of-thought · ห้าม job_id ปลอม · sequence เพิ่มขึ้นเสมอต่อ subject
 
     - name: core_test
       command: npm test --prefix packages/core
       status: passing
       scope: >-
-        19 test — รวม characterization test ที่ยืนยันว่า toUserMessage() ให้ผลตรงกับ
-        getErrorHint() ฉบับ verbatim จาก v1-final ทุกตัวอักษร บน corpus 27 แบบ
+        78 test — รวม characterization test ที่ยืนยันว่าโค้ดที่ยกมาจาก v1
+        ให้ผลตรงกับต้นฉบับ verbatim ทุกตัวอักษร (getErrorHint · chunkText · getTimeContext)
 
   # ที่ยังขาดก่อนย้าย manifest ขึ้น root
   not_yet_checked:
-    - event/v1 — vendor ไว้แล้วแต่ core ยังไม่ปล่อย event
-    - release gate — มี .github/workflows/ci.yml แล้ว ยังต้องตั้ง required check ใน repo settings
+    - push branch v2 ขึ้น GitHub ให้ CI รันจริงสักรอบ
+    - ตั้ง required check ของ branch v2 ใน repo settings — ข้อ 3 ของ ADR-0006
+    - เปิด issue ที่ agent-platform ขอแถวใน architecture/consumers.md
 
 
 # ส่วนขยายที่ Botforge นิยามเองในโดเมนของตัวเอง — ไม่ได้ขอให้ platform รับไปดูแล
