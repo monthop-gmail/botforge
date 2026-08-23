@@ -11,7 +11,8 @@
     "./channel": "./src/channel/index.ts",
     "./events": "./src/events/index.ts",
     "./session": "./src/session/index.ts",
-    "./context": "./src/context/index.ts"
+    "./context": "./src/context/index.ts",
+    "./router": "./src/router/index.ts"
   },
   "scripts": {
     "test": "node --experimental-strip-types --test 'src/**/*.test.ts'",

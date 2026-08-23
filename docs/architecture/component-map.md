@@ -106,6 +106,11 @@ handleTextMessage()
 
 **นี่คือ blocker เดียวที่แท้จริงของการแยก layer** — โครง folder ที่ doc V2 §Phase 2 วางไว้ ทำเสร็จได้ใน 10 นาที แต่ถ้า `handleTextMessage()` ยังเป็นก้อนเดียว การแยกนั้นก็เป็นแค่การย้ายไฟล์
 
+> **แก้แล้ว 2026-08-23** — แยกเป็น `router/commands.ts` (parse) · `router/model.ts` (เลือก model)
+> · `router/response.ts` (`[SKIP]` · การต่อท้ายว่าโดนตัด) · `router/turn.ts` (pipeline)
+> runtime อยู่หลัง `RuntimePort` ตัวเดียว · channel อยู่หลัง `LineTransport`
+> 110 test ผ่าน ดู [`packages/core/README.md`](../../packages/core/README.md)
+
 ---
 
 ## 4. ขอบเขตที่เสนอ

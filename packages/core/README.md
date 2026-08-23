@@ -16,9 +16,9 @@
 | `context/time.ts` | `getTimeContext` + timestamp ของ `log()` | ✅ |
 | `context/profile.ts` | `getUserProfile` `getGroupName` `getUserContext` + cache 1 ชม. | ✅ |
 | `events/` | ปล่อย `event/v1` + `channel-event/v1` — **ของใหม่ v1 ไม่มีบันทึกเลย** | ✅ |
-| command router | `handleTextMessage()` 240 บรรทัด | ⬜ |
+| `router/` | `handleTextMessage()` 240 บรรทัด × 23 สำเนา | ✅ |
 
-**78 test ผ่าน** · typecheck สะอาด · ไม่มี runtime dependency
+**110 test ผ่าน** · typecheck สะอาด · ไม่มี runtime dependency
 
 ## duplication ที่ปิดไปแล้ว
 
@@ -53,7 +53,12 @@ npm run typecheck --prefix packages/core
 
 ## เกณฑ์ว่างานนี้สำเร็จ
 
-> แก้ `chunkText()` แล้วต้องแตะ **1 ไฟล์** ไม่ใช่ 23
+> แก้ `chunkText()` แล้วต้องแตะ **1 ไฟล์** ไม่ใช่ 23 ✅
+
+และ Definition of Done ของ V2:
+
+> เปลี่ยน Codex → Claude โดยไม่แก้ Channel ✅ — runtime อยู่หลัง `RuntimePort` ตัวเดียว
+> เปลี่ยน LINE → Web โดยไม่แก้ Runtime · ⬜ — `LineTransport` แยกแล้ว แต่ยังไม่มี channel ที่สอง
 
 ## Preserve behavior พิสูจน์ยังไง
 
