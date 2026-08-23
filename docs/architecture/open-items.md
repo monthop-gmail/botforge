@@ -153,12 +153,54 @@ verify ราย field แล้วเฉพาะ `error/v1` · `event/v1` · `
 `codex` กับ `adkcode` มีทั้งสองรุ่นแต่คนละความหมาย (V1 `adkcode` ใช้ `API_PASSWORD`
 V2 ใช้ `SERVER_PASSWORD` · V1 `codex` มี container `server` V2 ไม่มี)
 
+### ตั้งรหัสให้ 5 ตัวที่ค้างแล้ว 2026-08-24 — **14/14**
+
+สำรอง `.env.bak-20260824` (chmod 600) ไว้ข้าง ๆ ทุกไฟล์ก่อนแก้ ค่าใหม่ 32 ตัวอักษร
+ไม่ซ้ำกันสักคู่ · key อื่นไม่ถูกแตะ (diff ต่างแค่บรรทัดเดียว) · compose ยัง parse ได้
+
+ทั้ง 5 ใช้ `API_PASSWORD` ตัวเดียวส่งให้ทั้งสองฝั่ง จึงไม่ทำให้ bot คุยกับ server ไม่ได้:
+
+```yaml
+server:    API_PASSWORD=${API_PASSWORD:-}
+line-bot:  SERVER_PASSWORD=${API_PASSWORD:-}
+```
+
+**ยังไม่ได้ restart — ค่ายังไม่มีผล** container ที่รันอยู่ยังถือค่าว่าง
+ที่รันจริงมีแค่ `legal-services` (line-bot + server) และ **`cloudflared` ของมันไม่ได้รันอยู่**
+จึงยังไม่มีอะไรเปิดออกอินเทอร์เน็ต
+(`legal-adkcode` ที่เห็นใน `docker ps` เป็น compose project `odoo-legal-service` คนละตัวกัน)
+
+---
+
+## 🟠 adkcode: เปิด auth แล้ว UI พัง — auth กับ UI ทับกัน
+
+ตรวจกับ `legal-services-server` ที่รันอยู่จริง:
+
+```
+/            → 307 → /dev-ui/
+/dev-ui/     → 200 text/html    ← อยู่ใน skip list ของ middleware (เปิดตลอดแม้ตั้งรหัส)
+/list-apps   → 200 application/json  ← ไม่อยู่ใน skip list → 401 เมื่อเปิด auth
+```
+
+`server/api.py:85` ข้ามเฉพาะ `/health` · `/` · `/event` · `/dev-ui*`
+แต่ ADK dev UI เรียก API ที่ root level (`/list-apps`, `/run_sse`, `/apps/...`)
+ผลคือ **หน้า HTML ยังเปิดโล่ง แต่ UI ใช้งานไม่ได้** — ได้ทั้งสองอย่างที่ไม่ต้องการ
+และ ADK dev UI ไม่มีช่องให้ใส่รหัส เบราว์เซอร์จึงส่ง `Authorization` เองไม่ได้
+
+claude-code · copilot-cli ไม่มีปัญหานี้ — server เป็น JSON API ล้วน ไม่เสิร์ฟ UI เลย
+(`/` `/health` `/models` `/event` `/query` `/session*`) ตั้งรหัสได้เต็มที่
+
+ทางที่น่าจะถูกสำหรับ UI ที่คนเปิดผ่านเบราว์เซอร์คือ **กันที่ขอบ ไม่ใช่ในแอป** —
+Cloudflare Access หน้า `<name>-server.<domain>` เพราะ LINE bot ไม่ได้วิ่งผ่าน tunnel
+(คุยกันในเครือข่าย docker) จึงไม่กระทบ **ยังไม่ได้ทำและยังไม่ได้ตรวจว่า plan รองรับ**
+
 ### ยังไม่ได้ทำ
 
-- **5 project ของ V1 ยังไม่มีรหัส** — เครื่องมือเตือนแล้วตอน `tunnel setup` แต่ยังไม่มีใครไปตั้ง
-  (`cowork-claudecode` · `legal-claudecode` · `legal-copilot` · `legal-adkcode` · `legal-services`)
-- 9 ตัวที่ตั้งแล้วใช้ 8 ตัวอักษร — สั้นเกินไปสำหรับ endpoint ที่ยิงได้ไม่จำกัดรอบ
+- restart 5 ตัวเพื่อให้รหัสมีผล — 2 ตัวที่เป็น adkcode ต้องตัดสินใจเรื่อง UI ก่อน
+- 9 ตัวที่ตั้งไว้เดิมใช้ 8 ตัวอักษร — สั้นเกินไปสำหรับ endpoint ที่ยิงได้ไม่จำกัดรอบ
   ไม่มี rate limit ไม่มี lockout ความยาวคือการป้องกันเดียวที่มี
+- V2 สืบทอด skip list เดียวกันหรือเปล่ายังไม่ได้ตรวจ (`adapter-adkcode` คุยกับ API ตรง
+  ไม่ผ่าน UI จึงไม่เจอปัญหานี้ตอนเทสต์)
 
 ---
 
