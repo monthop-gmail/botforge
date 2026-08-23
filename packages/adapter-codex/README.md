@@ -89,6 +89,23 @@ npm test --prefix packages/adapter-codex
 เพื่อพิสูจน์ว่า framing ต่อเศษบรรทัดถูก — ของจริงก็ไม่รับประกันว่า chunk จะตรงขอบ message
 กับ **เขียน log ที่ไม่ใช่ JSON ปนมาทาง stdout** เพราะ app-server จริงก็ทำ
 
+## bug ที่เจอจากการรันจริง — `turn/completed` ของ turn เก่า
+
+`turn/interrupt` ไม่ได้ทำให้ turn หายไปเงียบ ๆ — app-server ส่ง `turn/completed`
+ของ turn นั้นตามมาทีหลัง และใบนั้น**อาจมาถึงตอนที่เทิร์นถัดไปเริ่มไปแล้ว**
+
+อาการ: เทิร์นหลังจาก timeout จบทันทีใน 1 ms ได้ `Done. (no text output)`
+ทั้งที่ยังไม่ได้ถามอะไรเลย — เจอตอนรัน `scripts/scenarios/codex-turns.ts` ไม่ใช่จาก test
+
+การกรองด้วย *"เป็น turn ของเราไหม"* อย่างเดียว**ไม่พอ** เพราะตอนใบเก่ามาถึง
+เทิร์นใหม่ยังไม่ได้รับ `turn/started` จึงยังไม่รู้ id ของตัวเอง
+
+adapter จึงจำ turn ที่ interrupt ไปแล้วไว้ (`#abandonedTurns`) เพื่อทิ้งใบที่ตามมา
+มี regression test ล็อกไว้ทั้งเส้นทาง timeout และ `/abort`
+
+> เป็นเหตุผลว่าทำไมต้องรัน scenario จริงถึงแม้ test จะเขียวหมด — test แต่ละตัว
+> ใช้ adapter คนละตัวจึงไม่มี state ค้างข้ามเทิร์น ส่วนของจริงใช้ตัวเดียวยาว ๆ
+
 ## ยังไม่ได้ทำ
 
 - ยังไม่ได้ยิง `codex app-server` ตัวจริง — เครื่องที่พัฒนาไม่มี codex CLI
