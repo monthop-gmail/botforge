@@ -65,11 +65,11 @@ line-bot   server   cloudflared
 | Channel — LINE transport | `validateSignature()` `sendMessage()` `chunkText()` | ✓ | ✅ ยกแล้ว |
 | Channel — routing | `getSessionKey()` `isBotMentioned()` | ✓ | ✅ ยกแล้ว |
 | Channel — events | `handleJoinEvent()` `handleLeaveEvent()` `handleImageMessage()` | ✓ | ⬜ |
-| Session | `enqueueForSession()` · `interface UserSession` | ✓ (8/9) | ⬜ |
-| Context | `getUserProfile()` `getUserContext()` `getTimeContext()` `getGroupName()` | ✓ | ⬜ |
+| Session | `enqueueForSession()` · `interface UserSession` | ✓ (6/9) | ✅ ยกแล้ว |
+| Context | `getUserProfile()` `getUserContext()` `getTimeContext()` `getGroupName()` | ✓ | ✅ ยกแล้ว |
 | Context — memory | `getGroupMemory()` | claude-code, copilot-cli | ⬜ |
 | Error | `getErrorHint()` | ✓ (8/9) | ✅ ยกแล้ว |
-| Logging | `log()` (Bangkok TZ) | ✓ | ⬜ |
+| Logging | `log()` (Bangkok TZ) | ✓ | ✅ ยกแล้ว (`logTimestamp`) |
 
 > `chunkText()` มี code-block balancing (ปิด ``` ที่ค้าง) อยู่ในทุกไฟล์ — logic แบบนี้แหละที่ไม่ควรมี 23 สำเนา
 

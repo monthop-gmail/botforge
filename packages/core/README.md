@@ -12,12 +12,34 @@
 | `identity.ts` | id ของ channel → `identity/v1` | ✅ |
 | `channel/line.ts` | `chunkText` `validateSignature` `getSessionKey` `isBotMentioned` × 23 สำเนา | ✅ |
 | `channel/send.ts` | `sendMessage` — reply-first + retry 429 × 23 สำเนา | ✅ |
-| session | `enqueueForSession` + `UserSession` | ⬜ |
-| context | `getUserContext` `getTimeContext` `getGroupName` | ⬜ |
+| `session/queue.ts` | `enqueueForSession` — **เดิมมีแค่ 6 ใน 9 engine** | ✅ |
+| `context/time.ts` | `getTimeContext` + timestamp ของ `log()` | ✅ |
+| `context/profile.ts` | `getUserProfile` `getGroupName` `getUserContext` + cache 1 ชม. | ✅ |
 | command router | `handleTextMessage()` 240 บรรทัด | ⬜ |
 | event | ปล่อย `event/v1` ทุกจุดที่ state เปลี่ยน | ⬜ |
 
-**40 test ผ่าน** · typecheck สะอาด · ไม่มี runtime dependency
+**62 test ผ่าน** · typecheck สะอาด · ไม่มี runtime dependency
+
+## duplication ที่ปิดไปแล้ว
+
+| | |
+| --- | ---: |
+| ฟังก์ชันที่ยกเข้า core | 12 ตัว ~197 บรรทัด/ไฟล์ |
+| เดิมกระจายอยู่ | 23 ไฟล์ (9 template + 14 project) |
+| บรรทัดที่เคยซ้ำ | **~4,500** |
+| ตอนนี้อยู่ที่ | 1 ที่ |
+
+## ช่องว่างที่ปิดไปด้วยระหว่างทาง
+
+การย้ายเข้า core ทำให้ของที่เคยมีแค่บาง engine กลายเป็นของทุก engine:
+
+| feature | เดิมมีที่ | ผลตอนนี้ |
+| --- | --- | --- |
+| 2.11 request queue | 6/9 — **ไม่มีใน `opencode`** ที่เป็น engine ของ 9 ใน 14 bot | ทุก engine |
+| 6.2 error hints ไทย | 8/9 — ไม่มีใน `opencode` | ทุก engine |
+| 4.3 / 5.5 group context | 8/9 — ไม่มีใน `opencode` | ทุก engine |
+
+ไม่ใช่ feature ใหม่ — เป็นของที่ engine อื่นมีอยู่แล้วแต่ `opencode` ตกหล่น
 
 ## รัน test
 
@@ -41,6 +63,7 @@ npm run typecheck --prefix packages/core
 | --- | --- | --- |
 | `getErrorHint_v1()` | 27 แบบ รวมเคสที่ลำดับสำคัญ (`"429 timeout"` · `"timeout during authentication"`) | `bot-service-codex/src/index.ts:219` |
 | `chunkText_v1()` | 13 แบบ × limit 14/20/50/100/999/5000 | `bot-service-opencode/src/index.ts:401` |
+| `getTimeContext_v1()` | 4 จุดเวลา รวมข้ามวันและข้ามปี | `bot-service-codex/src/index.ts:154` |
 
 ตรวจแล้วว่าโค้ดที่ยกมา **เหมือนกันเชิงความหมายทั้ง 9 engine**:
 `chunkText` ต่างกันแค่ comment บรรทัดเดียว · `validateSignature` เหมือนทุก byte ·
