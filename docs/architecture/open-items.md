@@ -17,7 +17,7 @@ audit event 3 ใบ · model จริงตอบ · reply→push fallback ท
 **เหลือขั้นสุดท้ายที่ยังไม่ได้ยืนยัน:** ส่งถึง LINE จริง (ต้องมี channel token ของจริง)
 
 `docker-compose.yml` ✅ (compose profiles) · template ให้ `botforge new` ✅ (`bot-service-v2`)
-· **เส้นทางย้าย 14 bot ยังไม่มี**
+· เส้นทางย้าย 14 bot ✅ ([`migration.md`](migration.md) + `botforge-migrate`) — **แต่ยังไม่ได้ย้ายจริงสักตัว**
 
 <details><summary>บันทึกเดิมก่อนแก้</summary>
 
