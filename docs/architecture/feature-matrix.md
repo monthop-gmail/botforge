@@ -21,16 +21,16 @@
 
 | Engine | ✅ | ⚠️ | ❌ | project ที่ใช้จริง |
 | --- | ---: | ---: | ---: | ---: |
-| `claude-code` | **64** | 1 | 16 | 2 |
-| `copilot-cli` | **63** | 1 | 17 | 1 |
+| `claude-code` | **65** | 1 | 15 | 2 |
+| `copilot-cli` | **64** | 1 | 16 | 1 |
 | `opencode` | 59 | 1 | 21 | **9** |
 | `codex` · `codex-appserver` · `qwen-code` · `gemini-cli` | 53 | 0 | 28 | 0 |
 | `adkcode` | 53 | 1 | 27 | 2 |
 | `gocode` | 53 | 0 | 28 | 0 |
 
-**ไม่มี engine ไหนได้ 81** — สูงสุดคือ `claude-code` ที่ 64
+**ไม่มี engine ไหนได้ 81** — สูงสุดคือ `claude-code` ที่ 65
 
-**ข้อที่ไม่มีสักengine เดียว: 8 ข้อ** → 4.5 · 11.1 · 11.2 · 11.3 · 12.1 · 12.2 (และ 11.4 มีแค่กลไก)
+**ข้อที่ไม่มีสักengine เดียว: 5 ข้อ** → 11.1 · 11.2 · 11.3 · 12.1 · 12.2 (และ 11.4 มีแค่กลไก · 4.5 แก้เป็น ⚠️ แล้ว)
 
 ---
 
@@ -100,11 +100,23 @@
 | 4.2 | `[SKIP]` detection | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | 4.3 | Group name context | **❌** | ✅ | ✅ | ✅ | ✅ | ✅ |
 | 4.4 | Group memory injection | ❌ | ✅ | ✅ | ❌ | ❌ | ❌ |
-| 4.5 | **Session-only injection** | **❌** | **❌** | **❌** | **❌** | **❌** | **❌** |
+| 4.5 | Session-only injection | ❌ | ⚠️ | ⚠️ | ❌ | ❌ | ❌ |
 | 4.6 | Group member profile | **❌** | ✅ | ✅ | ✅ | ✅ | ✅ |
 | 4.7 | `GROUP CHAT` instruction | ✅ | ✅ | ✅ | **❌** | ✅ | ✅ |
 
-**4.5 ไม่มีที่ไหนเลย** — checklist บรรยายว่า "inject memory เฉพาะ new session (ไม่ทุกข้อความ)" แต่ `claude-code` เรียก `getGroupMemory()` ที่บรรทัด 626 ซึ่งอยู่ใน per-message path คือ**อ่านไฟล์ memory ใหม่ทุกข้อความ** ข้อนี้เป็นความตั้งใจที่ไม่เคยถูก implement
+**4.5 — แก้คำตัดสินเดิม (2026-08-23)** · เดิมผมสรุปว่า **❌ ไม่มีที่ไหนเลย** ซึ่ง**ผิด**
+
+ของจริงแยกเป็นสองส่วนและผมดูแค่ส่วนเดียว:
+
+| | `claude-code` / `copilot-cli` |
+| --- | --- |
+| **อ่านไฟล์** `memory-{groupId}.md` | ทุกข้อความ (บรรทัด 626) — เปลืองจริง |
+| **inject เข้า prompt** | `if (!session && options?.groupMemory)` (บรรทัด 334) — **เฉพาะ session ใหม่ ตรงตาม checklist** |
+
+จึงเป็น ⚠️ ไม่ใช่ ❌ — กลไกที่ checklist บรรยายมีอยู่จริง แค่การอ่านไฟล์ไม่ได้ถูก gate ตามไปด้วย
+
+ที่ผมพลาดเพราะ grep หา `isNewSession|newSession` ซึ่งไม่มีวันเจอ โค้ดเขียนเป็น `!session`
+**คะแนนเปลี่ยน: `claude-code` 64 → 65 · `copilot-cli` 63 → 64**
 
 **`opencode` ไม่มี group context เลย** (4.3 + 4.6) — ไม่มี `getGroupName()` และไม่มี `getGroupMemberProfile()` ในไฟล์
 
@@ -248,7 +260,7 @@ workspace-cowork-opencode/
 
 **81 ข้อจึงบรรยาย repo อื่น** ที่ template ในrepo นี้ไม่เคยไล่ให้ทัน — อธิบายทั้งหมวด 11, 12 ที่หายไปเกลี้ยง และ 4.3/4.6/6.2 ที่ `opencode` ไม่มี
 
-> ตัวเลข "81 features" ใน architecture doc จึงเป็น**เป้าหมาย ไม่ใช่สถานะ** ที่มีจริงสูงสุดคือ 64
+> ตัวเลข "81 features" ใน architecture doc จึงเป็น**เป้าหมาย ไม่ใช่สถานะ** ที่มีจริงสูงสุดคือ 65
 
 ### 2. ไม่มี engine ไหนเป็น superset ของ engine อื่น
 

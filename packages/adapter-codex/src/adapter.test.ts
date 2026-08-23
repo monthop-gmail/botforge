@@ -5,6 +5,11 @@ import { CodexAdapter } from "./adapter.ts"
 import { buildPrefix, GROUP_CHAT_INSTRUCTION } from "./prompt.ts"
 
 /**
+ * ⚠️ งบเวลาใน test ตั้งไว้ที่ 600 ms ไม่ใช่ค่าที่แคบกว่านั้นโดยตั้งใจ
+ *    ทุก test spawn node process จริง — ตอนรันหลาย workspace พร้อมกัน (`npm run check`)
+ *    เวลา spawn แกว่งพอที่งบ 120–200 ms จะเกิด flake ได้
+ *    เคยเห็นแดงหนึ่งครั้งตอนรันพร้อมกัน แล้วทำซ้ำ 7 รอบไม่เกิดอีก
+ *
  * ทุก test ในไฟล์นี้คุยกับ **child process จริง** ผ่าน stdio
  * `fixtures/fake-app-server.mjs` พูด JSON-RPC เหมือนของจริง และจงใจเขียน stdout
  * เป็นก้อนละ 7 ตัวอักษร เพื่อพิสูจน์ว่า framing ต่อเศษบรรทัดถูก
@@ -91,7 +96,7 @@ test("turn status error → isError และ core แปลงเป็นไ�
 })
 
 test("timeout → timedOut ไม่ค้าง และ interrupt ถูกส่ง", async () => {
-  const a = make({ promptTimeoutMs: 150 })
+  const a = make({ promptTimeoutMs: 600 })
   try {
     const out = await a.sendPrompt(prompt({ text: "SLOW" }))
     assert.equal(out.timedOut, true)
@@ -111,7 +116,7 @@ test("auto-approve ตอบรับคำขออนุมัติให้�
 })
 
 test("ปิด auto-approve แล้วไม่มีใครตอบ — คำขอค้างจนหมดเวลา", async () => {
-  const a = make({ autoApprove: false, promptTimeoutMs: 200 })
+  const a = make({ autoApprove: false, promptTimeoutMs: 600 })
   const seen: string[] = []
   try {
     await a.connection.ensureReady()
@@ -173,7 +178,7 @@ test("turn/completed ของ turn เก่าไม่ปิดเทิร�
   // เจอจริงตอนรัน scripts/scenarios/codex-turns.ts:
   //   เทิร์น SLOW หมดเวลา → ส่ง turn/interrupt → app-server ตอบ turn/completed ของ turn เก่า
   //   ใบนั้นมาถึงตอนเทิร์นถัดไปเริ่มแล้ว ทำให้เทิร์นใหม่จบใน 1 ms ได้ "Done. (no text output)"
-  const a = make({ promptTimeoutMs: 120 })
+  const a = make({ promptTimeoutMs: 600 })
   try {
     const slow = await a.sendPrompt(prompt({ text: "SLOW" }))
     assert.equal(slow.timedOut, true)

@@ -60,7 +60,7 @@ npm run typecheck --prefix packages/core
 > เปลี่ยน Codex → Claude โดยไม่แก้ Channel ✅ — runtime อยู่หลัง `RuntimePort` ตัวเดียว
 > เปลี่ยน LINE → Web โดยไม่แก้ Runtime · ⬜ — `LineTransport` แยกแล้ว แต่ยังไม่มี channel ที่สอง
 
-adapter ที่มีแล้ว: [`adapter-opencode`](../adapter-opencode/) · [`adapter-codex`](../adapter-codex/) —
+adapter ที่มีแล้ว 3 shape: [`adapter-opencode`](../adapter-opencode/) (HTTP) · [`adapter-codex`](../adapter-codex/) (stdio JSON-RPC) · [`adapter-claude`](../adapter-claude/) (in-process SDK) —
 พิสูจน์แล้วด้วย `e2e.test.ts` ที่วิ่งผ่าน HTTP จริง และ `scripts/smoke-opencode.ts`
 ที่ยิง OpenCode server จริงได้ด้วย model ฟรี
 
