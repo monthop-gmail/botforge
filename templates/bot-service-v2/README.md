@@ -73,8 +73,8 @@ https://{{PROJECT_NAME}}-server.<domain>/   → UI ของ engine
 > ⚠️ container ของ engine **ต้องชื่อ `{{CONTAINER_PREFIX}}-server`** เพราะ ingress ของ tunnel
 > ชี้ไปที่ชื่อนี้ตายตัว เปลี่ยนชื่อแล้ว UI จะ 502
 
-> ⚠️ **ตั้ง `OPENCODE_PASSWORD` ด้วย** — โดยค่าเริ่มต้น server ของ opencode ไม่มีรหัสผ่าน
-> ใครเดา hostname ถูกก็เข้าถึง workspace ได้
+> ⚠️ **รหัสของ UI สุ่มให้แล้วตอน `botforge new`** — ดู `OPENCODE_PASSWORD` ใน `.env`
+> (adkcode ใช้ `SERVER_PASSWORD`) auth เป็น opt-in ถ้าลบค่านี้ทิ้ง UI จะเปิดโล่งทันที
 
 ## credential จาก host
 

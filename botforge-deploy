@@ -5,7 +5,8 @@ set -euo pipefail
 # Manage deployment of all LINE Bot projects
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECTS_DIR="$SCRIPT_DIR/projects"
+PROJECTS_DIR="${PROJECTS_DIR:-$SCRIPT_DIR/projects}"
+. "$SCRIPT_DIR/lib/secret.sh"
 CONFIG_FILE="$SCRIPT_DIR/.botforge-deploy.env"
 
 # Default domain suffix
@@ -515,6 +516,23 @@ cmd_tunnel_setup() {
             echo "    $host_server → http://${name}-server:${server_port}   (UI ของ engine)"
         else
             echo "    (ข้าม route UI — $engine ไม่มี container ของ engine แยก)"
+        fi
+
+        # ⚠️ จังหวะนี้คือจังหวะที่ UI ถูกเปิดออกอินเทอร์เน็ตจริง — เตือนถ้ายังไม่มีรหัส
+        #    auth ของทุก engine เป็น opt-in และค่าว่าง = ไม่ติดตั้ง middleware เลย
+        #    ที่นี่ **เตือนอย่างเดียว ไม่แก้ .env ให้** เพราะ bot อาจกำลังรันอยู่
+        #    การเปลี่ยนรหัสใต้ตีนต้องเป็นการตัดสินใจของคนใช้ ไม่ใช่ผลข้างเคียงของ setup
+        if engine_has_ui "$engine" && [[ -f "$env_file" ]]; then
+            local gen skey cur
+            [[ "$engine" == v2:* ]] && gen=v2 || gen=v1
+            skey=$(secret_key_for "$gen" "${engine#v2:}")
+            if [[ -n "$skey" ]]; then
+                cur=$(grep -m1 -E "^${skey}=" "$env_file" 2>/dev/null | cut -d= -f2- | tr -d "\"' \r") || true
+                if [[ -z "$cur" ]]; then
+                    print_warn "    $skey ว่าง — UI จะเปิดให้ทุกคนที่รู้ hostname"
+                    echo -e "    ${DIM}ตั้งใน $env_file แล้ว restart ก่อนเปิด tunnel${NC}"
+                fi
+            fi
         fi
 
         # Check if tunnel already exists

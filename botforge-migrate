@@ -16,6 +16,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECTS_DIR="${PROJECTS_DIR:-$SCRIPT_DIR/projects}"
 TEMPLATES_DIR="${TEMPLATES_DIR:-$SCRIPT_DIR/templates}"
 V2_TEMPLATE="$TEMPLATES_DIR/bot-service-v2"
+. "$SCRIPT_DIR/lib/secret.sh"
 
 BOLD='\033[1m'; GREEN='\033[0;32m'; YELLOW='\033[0;33m'; RED='\033[0;31m'; DIM='\033[2m'; NC='\033[0m'
 
@@ -88,6 +89,10 @@ unmapped_keys() {
         for kk in "${known[@]}"; do [[ "$k" == "$kk" ]] && { found=1; break; }; done
         [[ $found -eq 0 ]] && echo "$k"
     done < <(grep -oE '^[A-Z_]+=' "$file" 2>/dev/null | tr -d '=')
+    # ⚠️ ต้องมี — บรรทัดสุดท้ายของ loop คือ `[[ ]] && echo` ซึ่งเป็น false เมื่อ key
+    #    ตัวสุดท้าย "รู้จัก" ทำให้ฟังก์ชันคืน 1 ทั้งที่สำเร็จ แล้ว set -e ฆ่าสคริปต์
+    #    ตอนพิมพ์สรุป — เคสที่ทุก key แมพได้ครบ ซึ่งเป็นเคสที่ดีที่สุด
+    return 0
 }
 
 cmd_check() {
@@ -236,6 +241,24 @@ PY
     chmod 600 "$env_dst"
     echo -e "${GREEN}done${NC}"
 
+    # --- รหัสของ server ---
+    # endpoint นี้เปิดออกอินเทอร์เน็ตผ่าน tunnel (<name>-server.<domain>) เพื่อให้ใช้ UI
+    # ตอนงานยาว ๆ ที่ LINE รอไม่ไหว auth ของทุก engine เป็น opt-in และ **ถ้าค่าว่าง
+    # จะไม่ติดตั้ง middleware เลย** ไม่ใช่ปฏิเสธ request
+    # ตรวจ 14 project ของ V1 เมื่อ 2026-08-24: ตั้งรหัส 9 · ว่าง 3 · ไม่มี key 2
+    # opt-in จึงพิสูจน์แล้วว่าไม่ได้ผล — V2 สุ่มให้เลย
+    local secret_key generated=""
+    secret_key=$(secret_key_for v2 "$runtime")
+    if [[ -n "$secret_key" ]]; then
+        echo -n "  รหัสของ server...        "
+        if ensure_secret "$env_dst" "$secret_key"; then
+            generated="$secret_key"
+            echo -e "${GREEN}สุ่มใหม่ ${BOTFORGE_PASSWORD_LEN} ตัวอักษร${NC}"
+        else
+            echo -e "${GREEN}ใช้ของเดิมที่ย้ายมา${NC}"
+        fi
+    fi
+
     echo -n "  copy workspace...        "
     if [[ -d "$src_ws" ]]; then
         cp -r "$src_ws" "$dst/workspace"
@@ -247,12 +270,21 @@ PY
     echo -e "${GREEN}done${NC}"
 
     local unmapped=""
-    [[ -f "$env_src" ]] && unmapped=$(unmapped_keys "$env_src" "$runtime" | tr '\n' ' ')
+    # ไม่ใช้ `[[ ]] && x=...` เพราะถ้าเงื่อนไขเป็นเท็จ ทั้งบรรทัดคืน 1 แล้ว set -e ฆ่าสคริปต์
+    if [[ -f "$env_src" ]]; then
+        unmapped=$(unmapped_keys "$env_src" "$runtime" | tr '\n' ' ')
+    fi
 
     echo ""
     echo -e "  ${GREEN}${BOLD}สร้างแล้ว${NC} — ${BOLD}$name เดิมยังไม่ถูกแตะ ยังรันอยู่${NC}"
     echo ""
     [[ -n "${unmapped// /}" ]] && echo -e "  ${YELLOW}key ที่ไม่ได้ย้ายเพราะ V2 ยังไม่รู้จัก: ${unmapped}${NC}" && echo ""
+    if [[ -n "$generated" ]]; then
+        echo -e "  ${GREEN}สุ่ม ${generated} ให้แล้ว${NC} ${DIM}(${BOTFORGE_PASSWORD_LEN} ตัวอักษร)${NC}"
+        echo -e "  ${DIM}ของเดิมไม่ได้ตั้งรหัสไว้ ตัวใหม่จึงไม่เหมือนกัน${NC}"
+        echo -e "  ${DIM}อ่านค่าได้ที่ $dst/bot-service/.env — ใช้ตอนล็อกอิน UI ผ่าน tunnel${NC}"
+        echo ""
+    fi
     echo "  ขั้นถัดไป:"
     echo "    1. npm run image                        # build botforge/line-bot:v2"
     echo "    2. cd $dst/bot-service"

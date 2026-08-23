@@ -136,12 +136,29 @@ verify ราย field แล้วเฉพาะ `error/v1` · `event/v1` · `
 `legal-services-line-bot` · `legal-services-server` ซึ่งเข้าถึงได้เฉพาะในเครือข่าย docker
 ทั้ง 5 ตัวมี `CLOUDFLARE_TUNNEL_TOKEN` อยู่ใน `.env` — **ยกสวิตช์ tunnel ขึ้นเมื่อไหร่ก็เปิดโล่งทันที**
 
+### แก้แล้ว — เลิกเป็น opt-in
+
+ผลตรวจข้างบนคือหลักฐานว่า "ให้คนไปตั้งเอง" ไม่ได้ผล (5 ใน 14) จึงย้ายมาสุ่มให้เลย
+[`lib/secret.sh`](../../lib/secret.sh) — 32 ตัวอักษร base62 (~190 bit) จาก
+`openssl rand` → `python3 secrets` → `/dev/urandom` **ห้าม fallback ไป `$RANDOM`**
+(LCG 15 bit ที่ seed จาก pid — รหัสที่เดาได้แย่กว่าไม่มีรหัส เพราะมันดูปลอดภัย)
+
+| ที่ | ทำอะไร |
+| --- | --- |
+| `botforge new` | สร้าง `.env` ให้เลย (เดิมบอกให้ `cp .env.example .env` เอง) + สุ่มรหัส + `chmod 600` |
+| `botforge-migrate run` | สุ่มให้**เฉพาะเมื่อของเดิมไม่มี** — ค่าที่ย้ายมาจาก V1 ไม่ถูกทับ |
+| `botforge-deploy tunnel setup` | **เตือนอย่างเดียว ไม่แก้ `.env` ให้** — bot อาจกำลังรันอยู่ การเปลี่ยนรหัสใต้ตีนต้องเป็นการตัดสินใจของคนใช้ |
+
+`secret_key_for <v1\|v2> <name>` บังคับให้ระบุรุ่นเสมอ ห้ามเดาจากชื่อ —
+`codex` กับ `adkcode` มีทั้งสองรุ่นแต่คนละความหมาย (V1 `adkcode` ใช้ `API_PASSWORD`
+V2 ใช้ `SERVER_PASSWORD` · V1 `codex` มี container `server` V2 ไม่มี)
+
 ### ยังไม่ได้ทำ
 
-- 5 project ข้างบนต้องตั้งรหัสก่อนเปิด tunnel ครั้งถัดไป
-- V2 ค่าเริ่มต้นยังว่าง — ควรให้ `botforge new` / `botforge-migrate` **สุ่มรหัสให้เลย**
-  แทนที่จะปล่อยเป็น opt-in (ผลตรวจข้างบนคือหลักฐานว่า opt-in ไม่ได้ผล 5 ใน 14)
-- 8 ตัวอักษรสั้นเกินไปสำหรับ endpoint ที่เปิดอินเทอร์เน็ต
+- **5 project ของ V1 ยังไม่มีรหัส** — เครื่องมือเตือนแล้วตอน `tunnel setup` แต่ยังไม่มีใครไปตั้ง
+  (`cowork-claudecode` · `legal-claudecode` · `legal-copilot` · `legal-adkcode` · `legal-services`)
+- 9 ตัวที่ตั้งแล้วใช้ 8 ตัวอักษร — สั้นเกินไปสำหรับ endpoint ที่ยิงได้ไม่จำกัดรอบ
+  ไม่มี rate limit ไม่มี lockout ความยาวคือการป้องกันเดียวที่มี
 
 ---
 

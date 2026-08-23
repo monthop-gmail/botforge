@@ -131,9 +131,12 @@ engine ที่มี UI:
 > ถ้าตั้งชื่อ container เป็น `<prefix>-opencode` route UI จะ 502
 > (ยืนยันแล้วด้วย stack จริง: `http://uitest-server:4096/` → `200 text/html` title `OpenCode`)
 
-> ⚠️ **UI ของ opencode ไม่มีรหัสผ่านโดยค่าเริ่มต้น**
+> ⚠️ **auth ของ server เป็น opt-in และค่าว่าง = ไม่ติดตั้ง middleware เลย**
 > ตรวจแล้วกับ container จริง — `/global/health` ตอบ 200 โดยไม่ต้อง auth
-> ใครเดา hostname ถูกก็เข้าถึง workspace ได้ ตั้ง `OPENCODE_PASSWORD` ใน `.env` ด้วย
+>
+> `botforge new` และ `botforge-migrate run` **สุ่มรหัส 32 ตัวอักษรให้อัตโนมัติ**
+> ([`lib/secret.sh`](../../lib/secret.sh)) ถ้าสร้าง `.env` เองต้องตั้งเอง —
+> `tunnel setup` จะเตือนถ้ายังว่างตอนกำลังจะเปิด route ออกอินเทอร์เน็ต
 
 ## audit event
 
