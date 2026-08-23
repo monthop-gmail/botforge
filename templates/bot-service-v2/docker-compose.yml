@@ -1,0 +1,79 @@
+# {{PROJECT_NAME}} — Botforge V2
+#
+# ⚠️ **ไม่มีโค้ดใน project นี้** — โค้ดอยู่ใน image `${BOTFORGE_IMAGE}`
+#    ต่างจาก template V1 ที่ copy `src/index.ts` ~900 บรรทัดมาไว้ทุก project
+#    อัปเดต = `docker compose pull` ไม่ใช่ `botforge sync --full` ทับไฟล์
+#
+# รัน:
+#   COMPOSE_PROFILES=opencode,tunnel docker compose up -d
+#   COMPOSE_PROFILES=claude          docker compose up -d
+#
+# credential จาก host (~/.claude, ~/.codex, ~/.config/gcloud) ใส่ใน
+# docker-compose.override.yml — ดู .env.example
+
+name: {{CONTAINER_PREFIX}}
+
+services:
+  line-bot:
+    image: ${BOTFORGE_IMAGE:-botforge/line-bot:v2}
+    container_name: {{CONTAINER_PREFIX}}-line-bot
+    env_file: [.env]
+    environment:
+      - PORT=3000
+      - WORKSPACE_DIR=/workspace
+      - OPENCODE_URL=http://opencode:4096
+      - ADKCODE_URL=http://adkcode:8000
+    volumes:
+      - ${PROJECT_DIR:-../workspace}:/workspace
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+  opencode:
+    profiles: [opencode]
+    image: ${OPENCODE_IMAGE:-ghcr.io/anomalyco/opencode:latest}
+    container_name: {{CONTAINER_PREFIX}}-opencode
+    command: ["serve", "--hostname=0.0.0.0", "--port=4096"]
+    working_dir: /workspace
+    environment:
+      - OPENCODE_SERVER_PASSWORD=${OPENCODE_PASSWORD:-}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY:-}
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY:-}
+      - QWEN_API_KEY=${QWEN_API_KEY:-}
+      - GROQ_API_KEY=${GROQ_API_KEY:-}
+      - OKMD_API_KEY=${OKMD_API_KEY:-}
+      - THAILLM_API_KEY=${THAILLM_API_KEY:-}
+      - GITHUB_TOKEN=${GITHUB_TOKEN:-}
+    volumes:
+      - ${PROJECT_DIR:-../workspace}:/workspace
+      - opencode-data:/root/.local/share/opencode
+      - opencode-state:/root/.local/state/opencode
+    restart: unless-stopped
+
+  adkcode:
+    profiles: [adkcode]
+    image: ${ADKCODE_IMAGE:-botforge/adkcode:v2}
+    container_name: {{CONTAINER_PREFIX}}-adkcode
+    environment:
+      - API_PASSWORD=${SERVER_PASSWORD:-}
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY:-}
+    volumes:
+      - ${PROJECT_DIR:-../workspace}:/workspace
+    restart: unless-stopped
+
+  cloudflared:
+    profiles: [tunnel]
+    image: cloudflare/cloudflared:latest
+    container_name: {{CONTAINER_PREFIX}}-tunnel
+    command: tunnel --no-autoupdate run --token ${CLOUDFLARE_TUNNEL_TOKEN}
+    depends_on: [line-bot]
+    restart: unless-stopped
+
+volumes:
+  opencode-data:
+  opencode-state:

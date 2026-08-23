@@ -85,6 +85,7 @@ cmd_new() {
 
     # Select engine
     echo "  Engine:"
+    echo "    0) v2          — Botforge V2 (ไม่ copy โค้ด · เปลี่ยน runtime ได้ทีหลัง) [แนะนำ]"
     echo "    1) opencode    — Multi-model (Claude, GPT, Gemini, DeepSeek, Qwen, Groq)"
     echo "    2) claude-code — Claude only (Agent SDK, simpler, cost control)"
     echo "    3) gocode      — Go + OpenAI-compatible (DeepSeek, GPT, Qwen, Groq, Ollama)"
@@ -108,7 +109,32 @@ cmd_new() {
         7) engine="codex"; bot_template="bot-service-codex" ;;
         8) engine="copilot-cli"; bot_template="bot-service-copilot-cli" ;;
         9) engine="codex-appserver"; bot_template="bot-service-codex-appserver" ;;
+        0) engine="v2"; bot_template="bot-service-v2" ;;
     esac
+
+    # V2 ไม่ผูก engine กับ template — ถาม runtime แยก เปลี่ยนทีหลังได้ที่ .env
+    local v2_runtime="opencode"
+    local v2_tenant="$project_name"
+    if [[ "$engine" == "v2" ]]; then
+        echo ""
+        echo "  Runtime (เปลี่ยนทีหลังได้ที่ .env):"
+        echo "    1) opencode  2) claude  3) codex  4) adkcode"
+        read -rp "  Select [1]: " rt_choice
+        case "${rt_choice:-1}" in
+            2) v2_runtime="claude" ;;
+            3) v2_runtime="codex" ;;
+            4) v2_runtime="adkcode" ;;
+            *) v2_runtime="opencode" ;;
+        esac
+        echo ""
+        echo "  Tenant = ลูกค้า (bot หลายตัวของลูกค้าเดียวกันใช้ tenant เดียวกัน)"
+        read -rp "  Tenant [$project_name]: " v2_tenant
+        v2_tenant="${v2_tenant:-$project_name}"
+        if [[ ! "$v2_tenant" =~ ^[a-z0-9][a-z0-9_-]{0,62}$ ]]; then
+            print_error "tenant ต้องตรง identity/v1 Id pattern"
+            exit 1
+        fi
+    fi
 
     echo ""
 
@@ -163,6 +189,8 @@ cmd_new() {
             -e "s|{{TUNNEL_NAME}}|${project_name}|g" \
             -e "s|{{DOMAIN}}|${domain}|g" \
             -e "s|{{GITHUB_ORG}}|${github_org}|g" \
+            -e "s|{{RUNTIME}}|${v2_runtime}|g" \
+            -e "s|{{TENANT}}|${v2_tenant}|g" \
         {} +
 
     print_success "done"
@@ -296,6 +324,7 @@ detect_engine() {
 engine_to_template() {
     local engine="$1"
     case "$engine" in
+        v2)          echo "bot-service-v2" ;;
         opencode)    echo "bot-service-opencode" ;;
         claude-code) echo "bot-service-claude-code" ;;
         gocode)      echo "bot-service-gocode" ;;

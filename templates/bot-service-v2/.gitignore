@@ -1,0 +1,4 @@
+.env
+docker-compose.override.yml
+workspace/
+node_modules/
