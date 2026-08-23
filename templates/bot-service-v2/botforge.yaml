@@ -1,0 +1,19 @@
+# Botforge V2 project — ตัวบอกว่า project นี้ใช้ V2 ไม่ใช่ template แบบ copy โค้ด
+#
+# botforge-deploy อ่านไฟล์นี้เพื่อรู้ว่าเป็น V2 และรู้ว่าใช้ runtime ไหน
+# ไม่มีไฟล์นี้ = project แบบ V1 ที่ copy โค้ดมาทั้งชุด
+
+version: 2
+project: "{{PROJECT_NAME}}"
+
+# runtime: opencode | codex | claude | adkcode
+# ต้องตรงกับ BOTFORGE_RUNTIME ใน .env
+runtime: "{{RUNTIME}}"
+
+# ตัวตนใน ecosystem ตาม identity/v1 — tenant คือลูกค้า workspace คือ bot หนึ่งตัว
+tenant: "{{TENANT}}"
+workspace: "{{PROJECT_NAME}}"
+
+# โค้ดไม่ได้อยู่ใน project นี้ — อยู่ใน image
+# อัปเดต = pull image ใหม่ ไม่ใช่ botforge sync --full ทับไฟล์
+image: "botforge/line-bot:v2"

@@ -63,7 +63,12 @@ resolve_targets() {
 detect_engine() {
     local name="$1"
     local dir="$PROJECTS_DIR/$name/bot-service"
-    if [[ -f "$dir/server/api.py" ]]; then
+    # V2 ประกาศตัวเองด้วย botforge.yaml — ไม่มีโค้ดให้ sniff เพราะโค้ดอยู่ใน image
+    if [[ -f "$dir/botforge.yaml" ]]; then
+        local rt
+        rt=$(grep -oE '^runtime:[[:space:]]*"?[a-z-]+' "$dir/botforge.yaml" 2>/dev/null | grep -oE '[a-z-]+$')
+        echo "v2:${rt:-unknown}"
+    elif [[ -f "$dir/server/api.py" ]]; then
         echo "adkcode"
     elif [[ -f "$dir/server/go.mod" ]]; then
         echo "gocode"
