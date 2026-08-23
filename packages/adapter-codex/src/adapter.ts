@@ -35,6 +35,13 @@ export class CodexAdapter implements RuntimePort {
   readonly #threads = new Map<string, ThreadState>()
   readonly #pendingModel = new Map<string, string>()
   readonly #activeTurn = new Map<string, { threadId: string; turnId: string }>()
+  /**
+   * turn ที่เรา interrupt ไปแล้ว — app-server จะส่ง `turn/completed` ของมันตามมาทีหลัง
+   * ซึ่งอาจมาถึงตอนเทิร์นใหม่เริ่มไปแล้ว ต้องจำไว้เพื่อทิ้งใบนั้น
+   * กรองด้วย "เป็น turn ของเราไหม" อย่างเดียวไม่พอ เพราะตอนใบเก่ามาถึง
+   * เทิร์นใหม่ยังไม่ได้รับ `turn/started` จึงยังไม่รู้ id ของตัวเอง
+   */
+  readonly #abandonedTurns = new Set<string>()
   readonly #model: string
   readonly #cwd: string
   readonly #timeout: number
@@ -100,8 +107,18 @@ export class CodexAdapter implements RuntimePort {
   abort(sessionKey: string): boolean {
     const active = this.#activeTurn.get(sessionKey)
     if (!active) return false
+    this.#abandon(active.turnId)
     this.connection.rpc.notify("turn/interrupt", active)
     return true
+  }
+
+  #abandon(turnId: string): void {
+    if (!turnId) return
+    this.#abandonedTurns.add(turnId)
+    // กันโตไม่หยุด — เก็บเท่าที่จำเป็นสำหรับใบที่ยังเดินทางอยู่
+    if (this.#abandonedTurns.size > 64) {
+      this.#abandonedTurns.delete(this.#abandonedTurns.values().next().value as string)
+    }
   }
 
   async #ensureThread(sessionKey: string): Promise<ThreadState> {
@@ -142,7 +159,8 @@ export class CodexAdapter implements RuntimePort {
     const unsubs: Array<() => void> = []
 
     unsubs.push(this.connection.rpc.on("turn/started", (p: any) => {
-      if (p?.turn?.id) {
+      // รับเฉพาะตัวแรก — turn ของคนอื่นบน connection เดียวกันต้องไม่มาทับ id ของเรา
+      if (p?.turn?.id && !turnId) {
         turnId = p.turn.id
         this.#activeTurn.set(input.sessionKey, { threadId: thread.threadId, turnId })
       }
@@ -152,7 +170,30 @@ export class CodexAdapter implements RuntimePort {
       if (typeof p?.text === "string") text += p.text
     }))
 
+    /**
+     * ⚠️ ต้องเช็คว่า event เป็นของ turn ตัวเองก่อน
+     *
+     * `turn/interrupt` ของเทิร์นก่อนหน้าทำให้ app-server ส่ง `turn/completed`
+     * ของ turn เก่าตามมาทีหลัง ซึ่งอาจมาถึงตอนที่เทิร์นใหม่เริ่มไปแล้ว
+     * ถ้าไม่กรอง เทิร์นใหม่จะถูกปิดทันทีด้วยผลของเทิร์นเก่า
+     * — เจอจริงตอนรัน scripts/scenarios/codex-turns.ts (เทิร์นหลัง SLOW จบใน 1 ms)
+     *
+     * ยังไม่รู้ turnId ของตัวเอง (turn/started ยังไม่มา) ให้รับไว้ก่อน
+     * เพราะแยกไม่ออกและการค้างแย่กว่าการรับผิด
+     */
+    const isMine = (id: unknown): boolean => {
+      if (typeof id === "string" && this.#abandonedTurns.has(id)) {
+        this.#abandonedTurns.delete(id)   // ใบค้างของ turn นั้นมาแล้ว ไม่ต้องจำต่อ
+        return false
+      }
+      return !turnId || !id || id === turnId
+    }
+
     unsubs.push(this.connection.rpc.on("turn/completed", (p: any) => {
+      if (!isMine(p?.turn?.id)) {
+        this.#log("ข้าม turn/completed ของ turn เก่า:", p?.turn?.id)
+        return
+      }
       // delta อาจไม่มาเลย — ดึงข้อความสุดท้ายจาก items แทน
       if (!text && Array.isArray(p?.turn?.items)) text = textFromItems(p.turn.items)
       if (p?.turn?.status === "error") {
@@ -162,6 +203,7 @@ export class CodexAdapter implements RuntimePort {
     }))
 
     unsubs.push(this.connection.rpc.on("turn/failed", (p: any) => {
+      if (!isMine(p?.turn?.id ?? p?.turnId)) return
       errorMessage = p?.error?.message ?? "turn ล้มเหลว"
       resolve()
     }))
@@ -169,7 +211,10 @@ export class CodexAdapter implements RuntimePort {
     let timedOut = false
     const timer = setTimeout(() => {
       timedOut = true
-      if (turnId) this.connection.rpc.notify("turn/interrupt", { threadId: thread.threadId, turnId })
+      if (turnId) {
+        this.#abandon(turnId)
+        this.connection.rpc.notify("turn/interrupt", { threadId: thread.threadId, turnId })
+      }
       resolve()
     }, this.#timeout)
 

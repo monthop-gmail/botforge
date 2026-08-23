@@ -21,6 +21,16 @@ function make(over: Record<string, unknown> = {}) {
   })
 }
 
+/** รอจนเงื่อนไขเป็นจริง — กัน test เปราะจากเวลา spawn process ที่ไม่แน่นอน */
+async function waitUntil(fn: () => boolean, timeoutMs = 3000): Promise<void> {
+  const deadline = Date.now() + timeoutMs
+  while (Date.now() < deadline) {
+    if (fn()) return
+    await new Promise((r) => setTimeout(r, 10))
+  }
+  throw new Error("รอเงื่อนไขไม่สำเร็จภายในเวลาที่กำหนด")
+}
+
 const prompt = (over: Record<string, unknown> = {}) => ({
   sessionKey: "line-c1", userId: "U1", text: "สวัสดี", isGroup: false, ...over,
 }) as any
@@ -118,8 +128,7 @@ test("/abort ส่ง turn/interrupt โดยไม่ทำลาย thread",
     const before = a.sessionInfo("line-c1")!.threadId
     assert.equal(a.abort("line-c1"), false, "ไม่มี turn เดินอยู่")
     const slow = a.sendPrompt(prompt({ text: "SLOW" }))
-    await new Promise((r) => setTimeout(r, 60))
-    assert.equal(a.abort("line-c1"), true)
+    await waitUntil(() => a.abort("line-c1"))
     await slow
     assert.equal(a.sessionInfo("line-c1")!.threadId, before, "thread ต้องยังอยู่")
   } finally { a.connection.close() }
@@ -158,4 +167,31 @@ test("prompt prefix ตรงกับ v1 ของ codex — ไม่ใช่
 test("1:1 ไม่มี GROUP CHAT และไม่มี [Group:]", () => {
   const p = buildPrefix({ isGroup: false, now: new Date("2026-08-23T07:30:05Z") })
   assert.equal(p, "[Time: 2026-08-23 14:30:05+07:00]\n\n")
+})
+
+test("turn/completed ของ turn เก่าไม่ปิดเทิร์นถัดไป — regression", async () => {
+  // เจอจริงตอนรัน scripts/scenarios/codex-turns.ts:
+  //   เทิร์น SLOW หมดเวลา → ส่ง turn/interrupt → app-server ตอบ turn/completed ของ turn เก่า
+  //   ใบนั้นมาถึงตอนเทิร์นถัดไปเริ่มแล้ว ทำให้เทิร์นใหม่จบใน 1 ms ได้ "Done. (no text output)"
+  const a = make({ promptTimeoutMs: 120 })
+  try {
+    const slow = await a.sendPrompt(prompt({ text: "SLOW" }))
+    assert.equal(slow.timedOut, true)
+
+    const next = await a.sendPrompt(prompt({ text: "ถามใหม่" }))
+    assert.equal(next.result, "สวัสดีครับ", "เทิร์นใหม่ต้องได้คำตอบของตัวเอง ไม่ใช่ผลค้างของเทิร์นเก่า")
+    assert.equal(next.timedOut, undefined)
+  } finally { a.connection.close() }
+})
+
+test("interrupt แล้วยิงต่อได้ทันที ไม่ต้องรอ", async () => {
+  const a = make({ promptTimeoutMs: 2000 })
+  try {
+    const slow = a.sendPrompt(prompt({ text: "SLOW" }))
+    // รอจน turn เริ่มจริง — spawn process + handshake + thread/start ใช้เวลาไม่แน่นอน
+    // หน่วงตายตัวทำให้ test เปราะ ไม่ใช่เพราะโค้ดผิด
+    await waitUntil(() => a.abort("line-c1"))
+    await slow
+    assert.equal((await a.sendPrompt(prompt())).result, "สวัสดีครับ")
+  } finally { a.connection.close() }
 })
