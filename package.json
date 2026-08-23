@@ -5,7 +5,10 @@
   "type": "module",
   "license": "MIT",
   "description": "Agent Bot Factory — V2 workspace",
-  "workspaces": ["packages/*"],
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
   "scripts": {
     "test": "npm test --workspaces --if-present",
     "typecheck": "npm run typecheck --workspaces --if-present",

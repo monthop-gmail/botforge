@@ -1,0 +1,26 @@
+{
+  "name": "@botforge/line-bot",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "description": "LINE bot ที่ deploy ได้ — ประกอบ core + channel-line + adapter ตาม env",
+  "scripts": {
+    "start": "node --experimental-strip-types src/main.ts",
+    "test": "node --experimental-strip-types --test 'src/**/*.test.ts'",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@botforge/core": "^0.0.1",
+    "@botforge/channel-line": "^0.0.1",
+    "@botforge/adapter-opencode": "^0.0.1",
+    "@botforge/adapter-codex": "^0.0.1",
+    "@botforge/adapter-claude": "^0.0.1",
+    "@botforge/adapter-adkcode": "^0.0.1",
+    "@line/bot-sdk": "^9.6.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22",
+    "typescript": "^5.7.0"
+  }
+}
