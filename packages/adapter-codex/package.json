@@ -1,0 +1,14 @@
+{
+  "name": "@botforge/adapter-codex",
+  "version": "0.0.1",
+  "type": "module",
+  "license": "MIT",
+  "description": "RuntimePort adapter สำหรับ codex app-server — stdio JSON-RPC transport ที่ upstream รับประกัน",
+  "exports": { ".": "./src/index.ts" },
+  "scripts": {
+    "test": "node --experimental-strip-types --test 'src/**/*.test.ts'",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": { "@botforge/core": "^0.0.1" },
+  "devDependencies": { "@types/node": "^22", "typescript": "^5.7.0" }
+}
