@@ -66,7 +66,8 @@ codex app-server --listen "ws://0.0.0.0:$PORT" &
 | `codex` + `codex-appserver` | **ยุบเป็นตัวเดียว** บน app-server/stdio | ✅ [`adapter-codex`](../../packages/adapter-codex/) |
 | `claude-code` | SDK อยู่ใน process แล้ว — ห่อเป็น adapter | ✅ [`adapter-claude`](../../packages/adapter-claude/) |
 | `copilot-cli` | ต่างจาก `claude-code` แค่ 41 diff-lines — น่าจะได้เกือบฟรี | ⬜ |
-| `gocode` · `adkcode` | server ของเราเอง — ห่อเป็น adapter | ⬜ |
+| `adkcode` | server ของเราเอง (FastAPI + ADK) — **multi-agent ตัวเดียวใน 9** | ✅ [`adapter-adkcode`](../../packages/adapter-adkcode/) |
+| `gocode` | server ของเราเอง (Go + chi) · ไม่มี project ใช้ | ⬜ |
 | `qwen-code` | รอ `qwen serve` ออกจาก experimental (Stage 2 ทำ WebSocket/OpenAPI) | ⬜ |
 | `gemini-cli` | ยังไม่มีทางเลือก — spawn ต่อไปจนกว่า PR merge | ⬜ |
 

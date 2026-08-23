@@ -26,6 +26,7 @@ const RAW_ERRORS: string[] = [
   "ECONNREFUSED 127.0.0.1:4096",
   "Unexpected end of JSON input",
   "401 model has reached daily limit for this key",
+  "session line-c1 กำลังทำงานอยู่ (409 conflict)",
   "auth failed for sk-proj-AbCdEf1234567890XyZ",
   "Bearer eyJhbGciOiJIUzI1NiJ9abcdefghijklmnop rejected",
 ]
