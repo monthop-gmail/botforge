@@ -402,10 +402,26 @@ EOF
 
 # Get server port for an engine type
 get_server_port() {
-    local engine="$1"
+    local engine="${1#v2:}"          # v2:adkcode → adkcode
     case "$engine" in
         adkcode) echo "8000" ;;
         *)       echo "4096" ;;
+    esac
+}
+
+# มี container ของ engine ให้เปิด UI ผ่าน tunnel ไหม
+#
+# ⚠️ ตัดเฉพาะ V2 เท่านั้น — V1 ทุก engine มี service `server` อยู่จริง
+#    (codex/claude-code/copilot-cli ใช้ Hono ห่อ CLI ไว้ใน container `server`)
+#    ถ้าตัด route ของ V1 ด้วยจะทำให้ bot ที่รันอยู่เสีย
+#
+# V2 มีเฉพาะ opencode กับ adkcode ที่มี container แยก
+# ส่วน codex spawn app-server เป็น child process และ claude เรียก SDK ใน process เดียวกัน
+engine_has_ui() {
+    case "$1" in
+        v2:opencode|v2:adkcode) return 0 ;;   # V2 ที่มี container ของ engine
+        v2:*)                   return 1 ;;   # V2 ที่เหลือไม่มี
+        *)                      return 0 ;;   # V1 ทุกตัวมี service server
     esac
 }
 
@@ -490,8 +506,16 @@ cmd_tunnel_setup() {
         local host_server="${name}-server.${CF_DOMAIN}"
 
         echo -e "  ${BOLD}$name${NC} ${DIM}($engine)${NC}"
+        # route ของ UI มีเฉพาะ engine ที่มี container แยก
+        # codex/claude ของ V2 ไม่มี — ใส่ route ไปก็ 502
+        local ingress_rules="{\"hostname\":\"$host_bot\",\"service\":\"http://${name}-line-bot:3000\"},"
         echo "    $host_bot → http://${name}-line-bot:3000"
-        echo "    $host_server → http://${name}-server:${server_port}"
+        if engine_has_ui "$engine"; then
+            ingress_rules+="{\"hostname\":\"$host_server\",\"service\":\"http://${name}-server:${server_port}\"},"
+            echo "    $host_server → http://${name}-server:${server_port}   (UI ของ engine)"
+        else
+            echo "    (ข้าม route UI — $engine ไม่มี container ของ engine แยก)"
+        fi
 
         # Check if tunnel already exists
         local existing
@@ -508,14 +532,14 @@ cmd_tunnel_setup() {
             echo -n "    Updating ingress... "
             local config_resp
             config_resp=$(cf_api PUT "/accounts/$CF_ACCOUNT_ID/cfd_tunnel/$existing_id/configurations" \
-                "{\"config\":{\"ingress\":[{\"hostname\":\"$host_bot\",\"service\":\"http://${name}-line-bot:3000\"},{\"hostname\":\"$host_server\",\"service\":\"http://${name}-server:${server_port}\"},{\"service\":\"http_status:404\"}]}}")
+                "{\"config\":{\"ingress\":[${ingress_rules}{\"service\":\"http_status:404\"}]}}")
             local config_ok
             config_ok=$(echo "$config_resp" | python3 -c "import sys,json; print(json.load(sys.stdin).get('success',False))" 2>/dev/null)
             [[ "$config_ok" == "True" ]] && print_success "ok" || print_error "FAILED"
 
             # Upsert DNS records
             _upsert_dns "$host_bot" "$name" "$existing_id"
-            _upsert_dns "$host_server" "${name}-server" "$existing_id"
+            engine_has_ui "$engine" && _upsert_dns "$host_server" "${name}-server" "$existing_id"
 
             # Get token and update .env
             echo -n "    Getting token... "
@@ -554,10 +578,10 @@ cmd_tunnel_setup() {
         print_success "ok ($tunnel_id)"
 
         # 2. Configure tunnel ingress — 2 hostnames per project
-        echo -n "    Configuring ingress (2 routes)... "
+        echo -n "    Configuring ingress... "
         local config_resp
         config_resp=$(cf_api PUT "/accounts/$CF_ACCOUNT_ID/cfd_tunnel/$tunnel_id/configurations" \
-            "{\"config\":{\"ingress\":[{\"hostname\":\"$host_bot\",\"service\":\"http://${name}-line-bot:3000\"},{\"hostname\":\"$host_server\",\"service\":\"http://${name}-server:${server_port}\"},{\"service\":\"http_status:404\"}]}}")
+            "{\"config\":{\"ingress\":[${ingress_rules}{\"service\":\"http_status:404\"}]}}")
 
         local config_ok
         config_ok=$(echo "$config_resp" | python3 -c "import sys,json; print(json.load(sys.stdin).get('success',False))" 2>/dev/null)
@@ -565,7 +589,7 @@ cmd_tunnel_setup() {
 
         # 3. Create DNS CNAME records (2 records)
         _upsert_dns "$host_bot" "$name" "$tunnel_id"
-        _upsert_dns "$host_server" "${name}-server" "$tunnel_id"
+        engine_has_ui "$engine" && _upsert_dns "$host_server" "${name}-server" "$tunnel_id"
 
         # 4. Get tunnel token and save to .env
         echo -n "    Getting tunnel token... "

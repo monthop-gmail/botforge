@@ -51,6 +51,31 @@ docker compose pull && docker compose up -d
 
 image build จาก repo ของ botforge (`npm run image` ที่ root ของ repo นั้น)
 
+## UI ของ engine (opencode / adkcode)
+
+LINE ต้อง reply เร็ว งานที่กินเวลานาน ๆ จึงสั่งผ่าน LINE ไม่ไหว — ให้เปิด UI ของ engine แทน
+
+`botforge-deploy tunnel setup` เปิด 2 hostname ให้ project นี้:
+
+```
+https://{{DOMAIN}}/webhook          → line-bot  (LINE webhook)
+https://{{PROJECT_NAME}}-server.<domain>/   → UI ของ engine
+```
+
+| runtime | UI | port |
+| --- | --- | --- |
+| `opencode` | ✅ | 4096 |
+| `adkcode` | ✅ | 8000 |
+| `codex` · `claude` | ❌ ไม่มี container ของ engine แยก | — |
+
+ไม่ต้อง publish port ออกเครื่อง — `cloudflared` อยู่ในเครือข่าย compose เดียวกัน
+
+> ⚠️ container ของ engine **ต้องชื่อ `{{CONTAINER_PREFIX}}-server`** เพราะ ingress ของ tunnel
+> ชี้ไปที่ชื่อนี้ตายตัว เปลี่ยนชื่อแล้ว UI จะ 502
+
+> ⚠️ **ตั้ง `OPENCODE_PASSWORD` ด้วย** — โดยค่าเริ่มต้น server ของ opencode ไม่มีรหัสผ่าน
+> ใครเดา hostname ถูกก็เข้าถึง workspace ได้
+
 ## credential จาก host
 
 `~/.claude` · `~/.codex` · `~/.config/gcloud` ใส่ใน `docker-compose.override.yml`

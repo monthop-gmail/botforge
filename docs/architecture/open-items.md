@@ -105,6 +105,46 @@ adapter ที่เขียนไปแล้ว 4 ตัวได้อ่า
 verify ราย field แล้วเฉพาะ `error/v1` · `event/v1` · `identity/v1` (ที่ประกาศใน manifest)
 ที่เหลือ 12 ตระกูลยังไม่ได้ลงราย field
 
+### 6. UI ของ engine เปิดโล่งบนอินเทอร์เน็ต 🟠
+
+`botforge-deploy tunnel setup` เปิด `<name>-server.<domain>` ให้ UI ของ engine
+(ใช้ตอนงานยาว ๆ ที่ LINE รอไม่ไหว — ดู [`runtime-matrix.md` §8](runtime-matrix.md))
+
+ตรวจกับ container จริงแล้ว: opencode server **ไม่มี auth** เมื่อไม่ตั้ง `OPENCODE_SERVER_PASSWORD`
+`/global/health` ตอบ 200 โดยไม่ต้องยืนยันตัวตน และ `/doc` เสิร์ฟ OpenAPI 3.1 ทั้งชุด
+เท่ากับ **workspace ของลูกค้าเปิดให้ใครที่เดา hostname ถูก**
+
+**auth เป็น opt-in ทุก engine** — อ่านโค้ดของ V1 แล้ว ทั้งสามตัวใช้รูปเดียวกัน:
+ถ้าตัวแปรว่าง จะ **ไม่ติดตั้ง middleware เลย** ไม่ใช่ปฏิเสธ request
+
+| engine | จุดที่ตัดสิน | ว่างแล้วเป็นอะไร |
+| --- | --- | --- |
+| claude-code · copilot-cli | `server/src/index.ts:29` `if (apiPassword) {` | ไม่มี middleware — ทุก route เปิด |
+| adkcode | `server/api.py:78` `if API_PASSWORD:` | log ว่า `Auth: disabled` |
+| opencode | `OPENCODE_SERVER_PASSWORD` (upstream) | ยืนยันกับ container จริงแล้ว — `/global/health` 200 |
+
+### ผลตรวจ 14 project (2026-08-24 · ไม่ได้อ่านค่ารหัสออกมา)
+
+| | จำนวน | |
+| --- | :-: | --- |
+| ✅ ตั้งรหัสแล้ว | 9 | opencode ทุกตัว — 8 ตัวอักษร (nst 12) |
+| 🔴 มี key แต่ว่าง | 3 | `cowork-claudecode` · `legal-claudecode` · `legal-copilot` |
+| ⚪ ไม่มี key เลย | 2 | `legal-adkcode` · `legal-services` (ทั้งคู่เป็น adkcode) |
+
+**ตอนนี้ยังไม่ถูกเปิดออกอินเทอร์เน็ตจริง** — ไม่มี container `cloudflared` ของ botforge
+รันอยู่สักตัว (ตรวจ `docker ps` แล้ว) ที่รันอยู่มีแค่ `legal-adkcode` ·
+`legal-services-line-bot` · `legal-services-server` ซึ่งเข้าถึงได้เฉพาะในเครือข่าย docker
+ทั้ง 5 ตัวมี `CLOUDFLARE_TUNNEL_TOKEN` อยู่ใน `.env` — **ยกสวิตช์ tunnel ขึ้นเมื่อไหร่ก็เปิดโล่งทันที**
+
+### ยังไม่ได้ทำ
+
+- 5 project ข้างบนต้องตั้งรหัสก่อนเปิด tunnel ครั้งถัดไป
+- V2 ค่าเริ่มต้นยังว่าง — ควรให้ `botforge new` / `botforge-migrate` **สุ่มรหัสให้เลย**
+  แทนที่จะปล่อยเป็น opt-in (ผลตรวจข้างบนคือหลักฐานว่า opt-in ไม่ได้ผล 5 ใน 14)
+- 8 ตัวอักษรสั้นเกินไปสำหรับ endpoint ที่เปิดอินเทอร์เน็ต
+
+---
+
 ---
 
 ## ค้างในแต่ละ package

@@ -100,6 +100,41 @@ POST /webhook -> 200 OK (78 ms)
 
 `line-bot` **ไม่ publish port** เหมือน v1 — เข้าจากภายนอกผ่าน `cloudflared` เท่านั้น
 
+## UI ของ engine — ทางออกสำหรับงานยาว
+
+LINE บังคับให้ reply เร็ว (`replyToken` หมดอายุ และผู้ใช้รอไม่ไหว) งานที่กินเวลานาน ๆ
+จึงคุยผ่าน LINE ไม่ไหว — ให้ไปเปิด **UI ของ engine** แทน แล้วกลับมาสั่งงานสั้น ๆ ทาง LINE
+
+`botforge-deploy tunnel setup` เปิดให้ **2 hostname ต่อ 1 project**:
+
+| hostname | ไปที่ | ใช้ทำอะไร |
+| --- | --- | --- |
+| `<name>.<domain>` | `http://<name>-line-bot:3000` | LINE webhook |
+| `<name>-server.<domain>` | `http://<name>-server:<port>` | UI ของ engine |
+
+ทั้งคู่ไม่ต้อง publish port ออกเครื่อง — `cloudflared` อยู่ในเครือข่าย compose เดียวกัน
+เรียก service name ตรง ๆ ได้เลย
+
+engine ที่มี UI:
+
+| runtime | container | port | UI |
+| --- | --- | --- | --- |
+| `opencode` | `<prefix>-server` | 4096 | ✅ เว็บของ OpenCode |
+| `adkcode` | `<prefix>-server` | 8000 | ✅ FastAPI + ADK dev UI |
+| `codex` | — | — | ❌ spawn app-server เป็น child process |
+| `claude` | — | — | ❌ เรียก SDK ใน process เดียวกับ bot |
+
+`codex`/`claude` ไม่มี container ของ engine แยก `tunnel setup` เลยข้าม route ตัวที่สองให้เอง
+
+> ⚠️ **ชื่อ container ต้องเป็น `<prefix>-server`**
+> ingress ของ tunnel ชี้ไปที่ `http://<name>-server:<port>` ตายตัว
+> ถ้าตั้งชื่อ container เป็น `<prefix>-opencode` route UI จะ 502
+> (ยืนยันแล้วด้วย stack จริง: `http://uitest-server:4096/` → `200 text/html` title `OpenCode`)
+
+> ⚠️ **UI ของ opencode ไม่มีรหัสผ่านโดยค่าเริ่มต้น**
+> ตรวจแล้วกับ container จริง — `/global/health` ตอบ 200 โดยไม่ต้อง auth
+> ใครเดา hostname ถูกก็เข้าถึง workspace ได้ ตั้ง `OPENCODE_PASSWORD` ใน `.env` ด้วย
+
 ## audit event
 
 เขียนลง **stdout เป็น JSON บรรทัดละใบ** ตาม `event/v1`
@@ -115,5 +150,6 @@ POST /webhook -> 200 OK (78 ms)
 ## ยังไม่ได้ทำ
 
 - ยังไม่ได้ยิงกับ LINE channel จริง — ต้องมี channel secret/token ของจริง
-- `botforge new` ยังสร้าง project แบบ V2 ไม่ได้ — ยังไม่มี template ที่ใช้ `packages/`
-- ยังไม่มีเส้นทางย้าย 14 bot จาก V1 มา V2
+- ยังไม่ได้ย้าย bot จริงสักตัว — `botforge-migrate` ทดสอบกับ fixture เท่านั้น
+  (`botforge-migrate check all` → 13 พร้อม / 1 ติด `legal-copilot` ที่รอ `adapter-copilot`)
+- UI ของ engine ยังไม่เคยเปิดผ่าน tunnel จริง — ยืนยันแค่ในเครือข่าย compose

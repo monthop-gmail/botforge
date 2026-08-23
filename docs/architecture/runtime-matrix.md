@@ -143,6 +143,49 @@ claude --channels plugin:telegram@claude-plugins-official
 
 ---
 
+## 8. UI ของ engine — สำรวจเมื่อ 2026-08-24
+
+**ทำไมต้องมี:** LINE บังคับให้ reply เร็ว (`replyToken` มีอายุจำกัด) งานที่กินเวลานาน ๆ
+สั่งผ่าน LINE ไม่ไหว ต้องมีทางเข้าอีกทางที่ไม่ติดข้อจำกัดนั้น — UI ของ engine คือทางนั้น
+
+| runtime | container ของ engine | port | UI |
+| --- | --- | --- | --- |
+| `opencode` | ✅ `<prefix>-server` | 4096 | เว็บของ OpenCode |
+| `adkcode` | ✅ `<prefix>-server` | 8000 | FastAPI + ADK dev UI |
+| `codex` | ❌ spawn app-server เป็น child process ของ bot | — | ไม่มี |
+| `claude` | ❌ เรียก SDK ใน process เดียวกับ bot | — | ไม่มี |
+
+เส้นทางเข้า — `botforge-deploy tunnel setup` สร้าง ingress 2 เส้นต่อ project:
+
+```
+<name>.<domain>          → http://<name>-line-bot:3000   (LINE webhook)
+<name>-server.<domain>   → http://<name>-server:<port>   (UI ของ engine)
+```
+
+`cloudflared` อยู่ในเครือข่าย compose เดียวกัน เลยเรียก service name ได้ตรง ๆ
+**ไม่ต้อง publish port ออกเครื่อง** — ทั้ง webhook และ UI ไม่มี port โผล่บน host
+
+### ข้อผูกมัดที่เกิดจากตรงนี้
+
+1. **container ของ engine ต้องชื่อ `<prefix>-server`**
+   ingress ชี้ไปที่ชื่อนี้ตายตัว V2 เคยตั้งเป็น `<prefix>-opencode` ทำให้ UI 502
+   แก้แล้วใน `apps/line-bot/docker-compose.yml` และ `templates/bot-service-v2/`
+   ยืนยันกับ stack จริง: `http://uitest-server:4096/` → `200 text/html` · title `OpenCode`
+
+2. **`tunnel setup` ต้องข้าม route UI สำหรับ V2 codex/claude**
+   ไม่มี container ให้ชี้ ถ้าสร้าง route ไว้จะได้ DNS record ที่ 502 ตลอด
+   `engine_has_ui()` ใน `botforge-deploy` ตัดเฉพาะ `v2:*` ที่ไม่มี container
+   **V1 ทุก engine มี service `server` อยู่จริง** (codex/claude-code/copilot-cli ใช้ Hono
+   ห่อ CLI) จึงห้ามตัด — ตรวจ `docker-compose.yml` ของทั้ง 4 template แล้ว
+
+3. ⚠️ **opencode server ไม่มี auth โดยค่าเริ่มต้น**
+   ตรวจกับ container จริง: `OPENCODE_SERVER_PASSWORD` ไม่ได้ตั้ง → `/global/health` ตอบ 200
+   โดยไม่ต้อง auth และ `/doc` เสิร์ฟ OpenAPI 3.1 เต็ม ๆ
+   เมื่อ UI เข้าถึงได้จากอินเทอร์เน็ตผ่าน tunnel นี่คือ **workspace ที่เปิดโล่ง**
+   `.env.example` ทั้งสองไฟล์เตือนไว้แล้ว แต่ค่าเริ่มต้นยังเป็นว่าง — ดู `open-items.md`
+
+---
+
 ## 7. ที่มา
 
 - [OpenAI — Unlocking the Codex harness](https://openai.com/index/unlocking-the-codex-harness/)
