@@ -194,6 +194,16 @@ claude-code · copilot-cli ไม่มีปัญหานี้ — server �
 Cloudflare Access หน้า `<name>-server.<domain>` เพราะ LINE bot ไม่ได้วิ่งผ่าน tunnel
 (คุยกันในเครือข่าย docker) จึงไม่กระทบ **ยังไม่ได้ทำและยังไม่ได้ตรวจว่า plan รองรับ**
 
+### แก้ที่เคยพูดผิด — tunnel รันอยู่จริง แค่ DNS ตาย
+
+ตอนตั้งรหัสผมสรุปว่า "ไม่มี `cloudflared` ของ botforge รันอยู่สักตัว" — จริงเฉพาะ
+**เครื่องนี้** ถาม Cloudflare API ตรง ๆ แล้ว **tunnel ทั้ง 14 ยังอยู่ และ 7 ตัว healthy
+มี connection จริง** รันอยู่บนเครื่องอื่น รวม `legal-claudecode` · `legal-copilot` ·
+`legal-adkcode` ซึ่งเป็น 3 ใน 5 ตัวที่เพิ่งตั้งรหัส
+
+ที่เข้าไม่ถึงตอนนี้เพราะ **domain หมดอายุ DNS ตาย** ไม่ใช่เพราะ tunnel ไม่ได้รัน
+ชี้ domain ใหม่เมื่อไหร่ก็เปิดทันที — ดู [`domain-change.md`](domain-change.md)
+
 ### ยังไม่ได้ทำ
 
 - restart 5 ตัวเพื่อให้รหัสมีผล — 2 ตัวที่เป็น adkcode ต้องตัดสินใจเรื่อง UI ก่อน

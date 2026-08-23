@@ -27,6 +27,11 @@ Botforge — CLI tool that generates LINE Bot + AI projects from templates. Each
 ./botforge-deploy tunnel list             # List all tunnels
 ./botforge-deploy tunnel delete <name>    # Delete tunnel + DNS
 
+# ย้าย domain (ดู docs/architecture/domain-change.md)
+./botforge-deploy domain show             # domain + webhook ที่ LINE ถืออยู่จริง
+./botforge-deploy domain change <new> --dry-run
+./botforge-deploy domain change <new>     # config + สคริปต์ + ingress/DNS + LINE + เอกสาร
+
 # Fetch AI provider model lists
 ./botforge-models                         # Fetch all providers
 ./botforge-models groq google             # Fetch specific providers
