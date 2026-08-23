@@ -6,9 +6,9 @@ ADR-0006 ของ `agent-platform` กำหนดว่า consumer ต้อ�
 
 | # | ข้อกำหนด | ที่นี่ | สถานะ |
 | :-: | --- | --- | :-: |
-| 1 | manifest | [`docs/architecture/platform-contract.draft.yaml`](../docs/architecture/platform-contract.draft.yaml) | 🚧 ยังเป็นร่าง ยังไม่ขึ้น root |
+| 1 | manifest | [`platform-contract.yaml`](../platform-contract.yaml) | ✅ |
 | 2 | conformance test ที่ validate **payload จริง** | `payload_check.py` — `error/v1` 14 ใบ · `channel-event/v1` 17 ใบ | ✅ |
-| 3 | release gate — CI ไม่ผ่าน = merge ไม่ได้ | [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) | 🚧 ต้องตั้ง required check ใน repo settings |
+| 3 | release gate — CI ไม่ผ่าน = merge ไม่ได้ | ruleset `V1 freeze — main` + [`ci.yml`](../.github/workflows/ci.yml) | ✅ |
 
 ## รัน
 
@@ -60,4 +60,5 @@ LINE id คือ hex 32 ตัวโดยธรรมชาติ (`line-ca56f
 
 - `drift_check.py` ตอน dev เทียบกับ working tree ของ sibling ซึ่งไม่รับประกันว่าอยู่ที่ commit ที่ pin
   (มีคำเตือนบอกตอนรัน) · ตอน CI ดึงจาก GitHub ที่ commit ที่ pin จริง
-- CI ยังไม่เคยรันจริง — branch `v2` ยังไม่ถูก push
+- `v2` ยังไม่มี required check โดยตั้งใจ — gate อยู่ที่ `main` ซึ่งเป็นสายที่ปล่อยของจริง
+  ใส่ที่ `v2` แล้วจะ push ตรงไม่ได้ทั้งที่ยังเป็น repo คนเดียว · จะใส่ตอนมีผู้ร่วมพัฒนา

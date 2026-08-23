@@ -1,18 +1,20 @@
 # ─────────────────────────────────────────────────────────────────────────────
-# ร่าง — ยังไม่ใช่ manifest จริง
+# Consumer manifest — ประกาศว่า repo นี้ยึด contract อะไรของ agent-platform
 #
-# ไฟล์นี้อยู่ใน docs/architecture/ โดยเจตนา ไม่ได้อยู่ที่ root ของ repo
-# เพราะ platform-contract.yaml ที่ root คือ "คำประกาศว่า conform แล้ว"
-# ตาม ADR-0006 ของ agent-platform ซึ่ง Botforge ยังไม่ครบสักข้อ
+# รูปแบบตาม ADR-0006 ของ agent-platform:
+#   https://github.com/monthop-gmail/agent-platform/blob/main/decisions/0006-contract-versioning.md
+# commit ของ contract ที่ pin ไว้ และรายการ schema ที่ vendor:
+#   conformance/pinned.yaml
 #
-# ย้ายขึ้น root เมื่อครบ 3 ข้อของ ADR-0006:
-#   1. manifest              ← ไฟล์นี้
-#   2. conformance test ที่ validate payload จริงใน CI
-#   3. release gate — CI ไม่ผ่าน = merge ไม่ได้
+# ⚠️ ไฟล์นี้อยู่บน branch `v2` ไม่ใช่ `main`
+#    `main` คือ Botforge V1 ที่ freeze ไว้ที่ tag `v1-final` — bot 14 ตัวที่ deploy อยู่
+#    ยึด commit นั้นเป็นฐาน และ main รับเฉพาะ security/credential fix ไม่รับ feature
+#    งาน V2 ทั้งหมดรวมทั้ง conformance อยู่บน `v2`
+#    manifest จะย้ายไป main เมื่อ v2 กลายเป็นสายหลัก
 #
-# อ้างอิง: docs/architecture/contract-mapping.md
-# แบบที่ลอกโครงมา: ../care-agent-platform/platform-contract.yaml
+# ที่มาของการตัดสินใจ: docs/architecture/contract-mapping.md
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 platform_contract_version: "0.1"
 
@@ -79,12 +81,24 @@ not_yet:
   - artifact/v1     # ไม่ผลิต artifact
 
 conformance:
-  # ครบข้อ 1 และ 2 ของ ADR-0006 แล้ว · เหลือข้อ 3 (release gate)
-  # ยังไม่ใช่ passing เพราะ CI ยังไม่เคยรันจริงบน GitHub — branch v2 ยังไม่ถูก push
-  # และยังไม่ได้ตั้ง required check · "passing" ต้องหมายถึง CI ผ่านจริง ไม่ใช่รันผ่านในเครื่อง
-  status: unknown
+  # ครบทั้ง 3 ข้อของ ADR-0006 — 2026-08-23
+  #   1. manifest       ไฟล์นี้
+  #   2. payload จริง    conformance/payload_check.py รัน core จริงแล้ว validate ผลลัพธ์
+  #   3. release gate   ruleset "V1 freeze — main" บังคับ PR + สอง check นี้ ไม่มี bypass
+  status: passing
   last_verified: "2026-08-23"
-  verified_locally: true
+
+  # ขอบเขตของ gate — เขียนไว้ให้ตรงตามจริง
+  #   บังคับที่ `main` (สายที่ปล่อยของจริง) · `v2` เป็นสายพัฒนา ยังไม่ใส่ required check
+  #   โดยตั้งใจ เพราะจะทำให้ push ตรงไม่ได้ทั้งที่ยังเป็น repo คนเดียว
+  #   จะใส่ตอน v2 เริ่มมีผู้ร่วมพัฒนา
+  release_gate:
+    ruleset: "V1 freeze — main"
+    branch: main
+    bypass_actors: 0
+    required_checks:
+      - "packages — test + typecheck"
+      - "conformance — ADR-0006"
 
   checks:
     - name: drift_check
@@ -92,33 +106,28 @@ conformance:
       status: passing
       scope: >-
         schema ที่ vendor ไว้ 8 ไฟล์ยังตรงกับ agent-platform ที่ commit ที่ pin
-        (local checkout ตอน dev · GitHub raw ตอน CI)
+        บน CI ไม่มี local checkout จึงดึงจาก GitHub raw ที่ commit นั้นจริง
         4 ไฟล์ท้ายไม่ได้ประกาศใน contracts: แต่ต้อง vendor เพราะ event/v1 $ref ไปหา
 
     - name: payload_check
       command: python3 conformance/payload_check.py
       status: passing
       scope: >-
-        error/v1 — 14 payload จริงจาก classify() ครอบคลุม 6 category
+        error/v1 — 15 payload จริงจาก classify() ครอบคลุม 7 category
+        (rate_limited · timeout · authentication · provider_error · validation
+        · budget_exceeded · internal)
         channel-event/v1 (allOf event/v1) — 17 event จริงจาก scenario LINE webhook เต็มรอบ
-        (bot เข้ากลุ่ม · เทิร์นสำเร็จมี cost · เทิร์นสำเร็จไม่มี cost · ล้มเพราะ provider
-        · timeout · /abort · [SKIP] ในกลุ่ม · /new ปิด session · bot ออกจากกลุ่ม)
         ทั้งหมดมาจาก @botforge/core จริง ไม่มี fixture ที่เขียนขึ้นเพื่อให้ผ่าน
         + ตรวจ guarantee ที่ JSON Schema ตรวจไม่ได้ — ห้าม credential · ห้าม reply_token
         · ห้าม chain-of-thought · ห้าม job_id ปลอม · sequence เพิ่มขึ้นเสมอต่อ subject
 
     - name: core_test
-      command: npm test --prefix packages/core
+      command: npm test --workspaces
       status: passing
       scope: >-
-        78 test — รวม characterization test ที่ยืนยันว่าโค้ดที่ยกมาจาก v1
-        ให้ผลตรงกับต้นฉบับ verbatim ทุกตัวอักษร (getErrorHint · chunkText · getTimeContext)
-
-  # ที่ยังขาดก่อนย้าย manifest ขึ้น root
-  not_yet_checked:
-    - push branch v2 ขึ้น GitHub ให้ CI รันจริงสักรอบ
-    - ตั้ง required check ของ branch v2 ใน repo settings — ข้อ 3 ของ ADR-0006
-    - เปิด issue ที่ agent-platform ขอแถวใน architecture/consumers.md
+        149 test (core 111 + adapter-opencode 38) รวม characterization test
+        ที่ยืนยันว่าโค้ดที่ยกมาจาก V1 ให้ผลตรงกับต้นฉบับ verbatim ทุกตัวอักษร
+        (getErrorHint · chunkText · getTimeContext · extractResponse · stripStrayToolCalls)
 
 
 # ส่วนขยายที่ Botforge นิยามเองในโดเมนของตัวเอง — ไม่ได้ขอให้ platform รับไปดูแล
