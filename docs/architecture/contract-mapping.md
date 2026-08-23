@@ -18,7 +18,7 @@
 | **C. ไม่มีของเดิมเลย** | 4 contract | implement ใหม่ตาม contract ตั้งแต่ต้น (ง่ายกว่า migrate) |
 | **D. ไม่ควรเสนอเข้า platform** | 1 | ChannelContract — เหตุผลที่ §6 |
 
-**Blocker 2 ข้อที่ต้องตัดสินใจก่อนเขียนโค้ดบรรทัดแรก:** `identity` ของ LINE (§5.1) และ tenant ที่ยังไม่มี (§5.2)
+~~**Blocker 2 ข้อที่ต้องตัดสินใจก่อนเขียนโค้ดบรรทัดแรก**~~ — **ตัดสินแล้ว 2026-08-23 · ดู §5.1 และ §5.2**
 
 ---
 
@@ -179,7 +179,7 @@ schema นี้เขียนมาเพื่อกรณีนี้ตร�
 
 ## 5. ช่องว่างที่ต้องตัดสินใจ
 
-### 5.1 🔴 LINE id ใช้เป็น `identity/v1#Id` ไม่ได้
+### 5.1 ✅ LINE id ใช้เป็น `identity/v1#Id` ไม่ได้ — **ตัดสินแล้ว**
 
 `identity/v1#/$defs/Id` pattern: `^[a-z0-9][a-z0-9_-]{0,62}$`
 
@@ -211,9 +211,11 @@ LINE id ขึ้นต้นด้วยตัวพิมพ์ใหญ่ `U
 | b | prefix + lowercase `line-u4af...` | อ่านออกว่ามาจากไหน · ไม่ชนกับ channel อื่น | ยาวขึ้น (แต่ยังไม่เกิน 63) |
 | c | hash | ไม่รั่ว id ของ LINE | ตามรอยกลับไม่ได้ · debug ยาก |
 
-**เสนอ (b)** — `line-{lowercase}` ยาว 38 ตัวอักษร ผ่าน pattern สบาย ๆ และรองรับ multi-channel ใน Phase 5 ตั้งแต่ตอนนี้ (`telegram-...` `web-...`) โดยไม่ต้องแก้ทีหลัง
+**ตัดสิน: (b)** — `line-{lowercase}` ยาว 38 ตัวอักษร ผ่าน pattern สบาย ๆ และรองรับ multi-channel ใน Phase 5 ตั้งแต่ตอนนี้ (`telegram-...` `web-...`) โดยไม่ต้องแก้ทีหลัง
 
-### 5.2 🔴 Botforge ไม่มี tenant
+> implement แล้วที่ [`packages/core/src/identity.ts`](../../packages/core/src/identity.ts) `toChannelId()` — มี test ยืนยันว่า LINE id ทั้งสามแบบตกจริง และ id ที่ออกมาผ่าน pattern
+
+### 5.2 ✅ Botforge ไม่มี tenant — **ตัดสินแล้ว**
 
 `event/v1` `required` มี `tenant_id` และ guarantee เขียนชัดว่า:
 
@@ -231,9 +233,21 @@ Botforge ปัจจุบัน **ไม่มี concept ของ tenant เ
 | b | 1 องค์กรลูกค้า = 1 tenant · bot = workspace | ถ้าลูกค้ารายเดียวมีหลาย bot |
 | c | Botforge เอง = 1 tenant · bot = workspace | ผิดเจตนา — ข้อมูลลูกค้าคนละรายจะอยู่ tenant เดียวกัน |
 
-**เสนอ (a) เป็นค่าเริ่มต้น** — `tenant_id = ชื่อ project` (เช่น `legal-opencode`) ซึ่งผ่าน pattern `Id` อยู่แล้วเพราะเป็น lower-kebab · แล้ว `workspace_id` = `default` จนกว่าจะมีเหตุให้แยก
+**ตัดสิน: (b)** — **1 ลูกค้า = 1 tenant · 1 bot = 1 workspace**
 
-⚠️ ต้องยืนยันกับเจ้าของธุรกิจก่อน — ถ้าลูกค้ารายเดียวมีหลาย bot (สังเกตว่ามี `legal-opencode` `legal-claudecode` `legal-copilot` `legal-adkcode` `legal-services` = 5 ตัวที่ขึ้นต้นด้วย `legal`) ต้องเป็น (b)
+```
+tenant_id     = legal            ← ลูกค้า
+workspace_id  = legal-opencode   ← bot หนึ่งตัว
+```
+
+รองรับความจริงที่ลูกค้า `legal` มี bot 5 ตัว (`legal-opencode` `legal-claudecode` `legal-copilot` `legal-adkcode` `legal-services`) และ `cowork` มี 2 ตัว
+
+⚠️ **ห้าม derive tenant จากชื่อ project** — ชื่อจริงไม่ได้ตามรูปแบบ `{tenant}-{engine}` เสมอไป (`vithisa-49m` ไม่มีชื่อ engine · `legal-services` ลงท้ายด้วย `services` แต่เป็น engine `adkcode`) และ `event/v1` ห้ามเดา tenant ให้อยู่แล้ว จึงต้องประกาศผ่าน env ทั้งสองค่า
+
+> implement แล้วที่ `resolveScope()` — โยน `MissingScopeError` ถ้าขาด `BOTFORGE_TENANT_ID` หรือ `BOTFORGE_WORKSPACE_ID`
+> มี test ยืนยันว่าชื่อ project จริงทั้ง 14 ตัวใช้เป็น `workspace_id` ได้
+
+
 
 ### 5.3 🟡 `session` ของ Botforge หายเมื่อ restart
 
@@ -303,13 +317,12 @@ extensions:  ของที่ Botforge เป็นเจ้าของเอ
 ## 8. ลำดับที่แนะนำ
 
 ```
-1  ตัดสิน §5.1 (id mapping) และ §5.2 (tenant)      ← blocker ต้องคนตัดสิน
-2  @botforge/core: toError() → error/v1            ← Phase 1.5 เริ่มจากตรงนี้ได้เลย
-   + renderThai() ที่ channel layer
-3  core ปล่อย event/v1 ทุกจุดที่ state เปลี่ยน       ← ปิด "no silent state change"
-4  conformance/drift_check.py + payload_check.py    ← ก๊อปโครงจาก agent-platform
-5  CI ที่รันทั้งสองตัวทุก PR                          ← ครบ ADR-0006 ทั้ง 3 ข้อ
-6  ย้าย platform-contract.yaml ขึ้น root + เปิด issue ขอแถวใน consumers.md
+1  ✅ ตัดสิน §5.1 (id mapping) และ §5.2 (tenant)
+2  ✅ @botforge/core: classify() → error/v1 + renderThai() ที่ channel layer
+3  ⬜ core ปล่อย event/v1 ทุกจุดที่ state เปลี่ยน       ← ปิด "no silent state change"
+4  ✅ conformance/drift_check.py + payload_check.py
+5  🚧 CI ที่รันทั้งสองตัวทุก PR — มีไฟล์แล้ว ยังต้องตั้ง required check ใน repo settings
+6  ⬜ ย้าย platform-contract.yaml ขึ้น root + เปิด issue ขอแถวใน consumers.md
 ```
 
 ข้อ 2 กับ 3 คือ **งาน de-duplicate (Phase 1.5) ที่ทำไปพร้อมกัน** — ไม่ใช่งานเพิ่ม เพราะการดึง `getErrorHint()` ออกจาก 23 สำเนามาไว้ที่เดียว กับการทำให้มันคืน `error/v1` เป็นงานเดียวกัน

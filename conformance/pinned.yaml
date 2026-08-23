@@ -1,0 +1,16 @@
+# commit ของ agent-platform ที่ vendor ไว้ใน conformance/vendor/
+#
+# ตรวจ drift ด้วย conformance/drift_check.py — ถ้า upstream เปลี่ยนแล้ว vendor ไม่เปลี่ยน
+# ถือว่า out of conformance ไม่ว่า CHANGELOG จะเขียนว่าอะไร
+#
+# ⚠️ ตอนนี้ vendor มาจาก working tree ในเครื่อง (../poc-agent-platform)
+#    ยังไม่ได้ดึงจาก GitHub — ต้องเปลี่ยนเป็น fetch จาก remote ก่อนขึ้น CI
+
+repo: monthop-gmail/agent-platform
+commit: 776dd50e5a79860d1d0e43735182c0b691a1a9ab
+vendored_at: "2026-08-23"
+
+schemas:
+  - error/v1/error.schema.yaml
+  - identity/v1/identity.schema.yaml
+  - event/v1/event.schema.yaml       # vendor ไว้ล่วงหน้า ยังไม่มี payload ให้ตรวจ

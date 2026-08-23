@@ -20,3 +20,6 @@ Thumbs.db
 # Cloned reference repos (not part of botforge)
 oc-line-claude/
 workspace-cowork-opencode/
+
+# npm lockfile ของ package ภายใน — ยังไม่ตัดสินว่าจะ commit หรือไม่
+packages/*/package-lock.json

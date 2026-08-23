@@ -39,15 +39,17 @@ contracts:
 
 # contract ที่ยังไม่ได้ใช้ — จะเพิ่มเมื่อ implement จริง ไม่ประกาศล่วงหน้า
 not_yet:
-  - identity/v1     # 🔴 blocker 2 ข้อ ต้องคนตัดสินก่อน (contract-mapping.md §5.1, §5.2)
-                    #    1. LINE id (U.../C.../R...) ผิด pattern ^[a-z0-9][a-z0-9_-]{0,62}$
-                    #       เสนอ line-{lowercase} รองรับ multi-channel ตั้งแต่ต้น
-                    #    2. Botforge ไม่มี concept ของ tenant เลย — แยกด้วย Docker ไม่ใช่ id
-                    #       เสนอ 1 bot project = 1 tenant แต่ต้องยืนยันกับเจ้าของธุรกิจ
-                    #       (สังเกตว่ามี legal-* ถึง 5 ตัว อาจเป็นลูกค้ารายเดียวกัน)
+  - identity/v1     # ✅ blocker ทั้งสองข้อตัดสินแล้ว 2026-08-23 และ implement แล้วที่
+                    #    packages/core/src/identity.ts (10 test ผ่าน)
+                    #      1. id ของ channel = {channel}-{lowercase(rawId)}
+                    #         LINE id ขึ้นต้นด้วย U/C/R ตัวใหญ่ ผิด ID_PATTERN ทุกตัว
+                    #      2. tenant = ลูกค้า · workspace = bot หนึ่งตัว
+                    #         legal มี 5 bot · cowork มี 2 bot
+                    #         ห้าม derive จากชื่อ project (vithisa-49m · legal-services)
+                    #         ประกาศผ่าน BOTFORGE_TENANT_ID / BOTFORGE_WORKSPACE_ID
                     #
-                    #    ประกาศไม่ได้จนกว่าจะตัดสิน — event/v1 required tenant_id
-                    #    และ guarantee ห้ามเดา tenant ให้ ดังนั้นข้อนี้บล็อก event/v1 ด้วย
+                    #    ยังอยู่ใน not_yet เพราะ payload_check ยังตรวจแค่ error/v1
+                    #    identity จะมี payload ให้ตรวจเมื่อ core ปล่อย event/v1
 
   - execution/v1    # session ของ Botforge เป็น Map entry ไม่มี state machine
                     # transition ของ contract บังคับ pending -> authorizing เท่านั้น
@@ -77,22 +79,41 @@ not_yet:
   - artifact/v1     # ไม่ผลิต artifact
 
 conformance:
-  status: unknown       # ยังไม่เคยรัน — ไม่ใช่ passing และไม่ใช่ failing
-  last_verified: null
+  # error/v1 ผ่านแล้วจริง แต่ event/v1 ที่ประกาศไว้ยังไม่มี payload ให้ตรวจ
+  # จึงยังไม่ใช่ passing — จะเป็น passing เมื่อ core ปล่อย event จริง
+  status: unknown
+  last_verified: "2026-08-23"
 
-  # ยังไม่มี check สักตัว · ที่ต้องมีก่อนย้ายขึ้น root:
-  planned_checks:
+  checks:
     - name: drift_check
-      command: python conformance/drift_check.py
-      scope: contract ของ repo นี้ยัง $ref ตรงกับ agent-platform ที่ pin ไว้
-      source: ก๊อปโครงจาก ../poc-agent-platform/conformance/drift_check.py
+      command: python3 conformance/drift_check.py
+      status: passing
+      scope: >-
+        schema ที่ vendor ไว้ยังตรงกับ agent-platform ที่ commit ที่ pin
+        (local checkout ตอน dev · GitHub raw ตอน CI)
 
     - name: payload_check
-      command: python conformance/payload_check.py
+      command: python3 conformance/payload_check.py
+      status: passing
       scope: >-
-        event ที่ core ผลิตจริงจาก scenario LINE webhook (join · text · abort · error · leave)
-        validate กับ event/v1 และ error/v1 ที่ commit ที่ pin ไว้
-        — ต้องเป็น payload จริง ไม่ใช่ fixture ที่เขียนให้ผ่าน (ADR-0006 ข้อ 2)
+        error/v1 — 14 payload จริงที่ classify() ของ @botforge/core ผลิตออกมา
+        validate กับ schema ที่ commit ที่ pin ไว้ ครอบคลุม 6 category
+        (rate_limited · timeout · authentication · provider_error · validation · internal)
+        + ตรวจ guarantee ที่ JSON Schema ตรวจไม่ได้ — message ห้ามมี credential และยาวไม่เกิน 200
+        ไม่มี fixture ที่เขียนขึ้นเพื่อให้ผ่าน
+
+    - name: core_test
+      command: npm test --prefix packages/core
+      status: passing
+      scope: >-
+        19 test — รวม characterization test ที่ยืนยันว่า toUserMessage() ให้ผลตรงกับ
+        getErrorHint() ฉบับ verbatim จาก v1-final ทุกตัวอักษร บน corpus 27 แบบ
+
+  # ที่ยังขาดก่อนย้าย manifest ขึ้น root
+  not_yet_checked:
+    - event/v1 — vendor ไว้แล้วแต่ core ยังไม่ปล่อย event
+    - release gate — มี .github/workflows/ci.yml แล้ว ยังต้องตั้ง required check ใน repo settings
+
 
 # ส่วนขยายที่ Botforge นิยามเองในโดเมนของตัวเอง — ไม่ได้ขอให้ platform รับไปดูแล
 #

@@ -1,0 +1,47 @@
+name: CI
+
+on:
+  push:
+    branches: [v2, main]
+  pull_request:
+    branches: [v2, main]
+
+jobs:
+  core:
+    name: "@botforge/core — test + typecheck"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: npm install --prefix packages/core
+      - name: typecheck
+        run: npm run typecheck --prefix packages/core
+      - name: test
+        run: npm test --prefix packages/core
+
+  conformance:
+    name: "conformance — ADR-0006"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install pyyaml jsonschema referencing
+
+      # ข้อ 1 ของ ADR-0006 — schema ที่ vendor ไว้ยังตรงกับ commit ที่ pin
+      # ใน CI ไม่มี sibling checkout จึงดึงจาก GitHub ที่ commit ที่ pin ไว้จริง
+      - name: drift_check
+        run: python3 conformance/drift_check.py
+
+      # ข้อ 2 ของ ADR-0006 — payload ที่ core ผลิตจริง validate ผ่าน schema
+      - name: payload_check
+        run: python3 conformance/payload_check.py
+
+# job ทั้งสองเป็น required check ของ branch v2 — ข้อ 3 ของ ADR-0006 (release gate)
+# ต้องตั้งใน repo settings ด้วย ไม่ใช่แค่มีไฟล์นี้

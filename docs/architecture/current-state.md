@@ -199,7 +199,7 @@ Botforge นิ่งมา **4 เดือน** ขณะที่ contract �
 | # | เรื่อง | ผล |
 | --- | --- | --- |
 | R1 | ไม่มี test เลยทั้ง repo | refactor ใด ๆ ไม่มีตาข่ายรอง — ขัดกับข้อ "Preserve behavior" ของ doc V2 โดยตรง |
-| R2 | ไม่มี CI | ไม่มีอะไรกันไม่ให้ 23 สำเนาแยกจากกัน |
+| R2 | ไม่มี CI ที่ตรวจอะไรจริง | `server-botforge` เองไม่มี `.github/workflows/` เลย (มีแต่ ISSUE_TEMPLATE + PULL_REQUEST_TEMPLATE) · 4 template (`opencode` `claude-code` `gocode` `adkcode`) ship `ci.yml` ให้ project ที่ generate ออกไป แต่ workflow นั้นทำแค่เช็คว่า PR มี linked issue แล้ว `echo "CI passed!"` — **ไม่มี build ไม่มี test ไม่มี typecheck** ไม่มีอะไรกันไม่ให้ 23 สำเนาแยกจากกัน |
 | R3 | `codex` = `codex-appserver` ทุก byte | มี engine ปลอมอยู่ใน matrix — CLAUDE.md โฆษณา 9 engine แต่ของจริงแตกต่างกัน ~6 |
 | R4 | `bot-service-thaillm` ว่างเปล่า | `botforge new` เลือกได้แต่จะพัง |
 | R5 | 14 project เป็น git repo แยก | การอัป V2 = แตะ 15 repo ไม่ใช่ repo เดียว |
