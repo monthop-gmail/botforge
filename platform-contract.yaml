@@ -88,17 +88,26 @@ conformance:
   status: passing
   last_verified: "2026-08-23"
 
-  # ขอบเขตของ gate — เขียนไว้ให้ตรงตามจริง
-  #   บังคับที่ `main` (สายที่ปล่อยของจริง) · `v2` เป็นสายพัฒนา ยังไม่ใส่ required check
-  #   โดยตั้งใจ เพราะจะทำให้ push ตรงไม่ได้ทั้งที่ยังเป็น repo คนเดียว
-  #   จะใส่ตอน v2 เริ่มมีผู้ร่วมพัฒนา
+  # ขอบเขตของ gate — คุมทั้งสอง branch
+  #
+  #   main  สายที่ freeze ไว้ที่ tag v1-final — bot 14 ตัวที่ deploy อยู่ยึด commit นั้น
+  #   v2    สายที่ขยับจริง manifest และ conformance อยู่ที่นี่
+  #
+  #   ⚠️ เดิมคุมแค่ main ซึ่งผิด — ADR-0006 ข้อ 3 บังคับ release gate ไม่ใช่แค่ "CI ที่รัน"
+  #      gate ที่คุม branch ที่ freeze ไว้ ไม่ได้กันอะไรเลยบน branch ที่งานเดินอยู่
+  #      แก้ตามที่ agent-platform#43 ทักมา
   release_gate:
-    ruleset: "V1 freeze — main"
-    branch: main
     bypass_actors: 0
     required_checks:
       - "packages — test + typecheck"
       - "conformance — ADR-0006"
+    rulesets:
+      - name: "V1 freeze — main"
+        branch: main
+        rules: [deletion, non_fast_forward, pull_request, required_status_checks]
+      - name: "V2 release gate — v2"
+        branch: v2
+        rules: [non_fast_forward, pull_request, required_status_checks]
 
   checks:
     - name: drift_check
