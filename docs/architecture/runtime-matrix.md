@@ -31,6 +31,7 @@
 | **Codex** | `codex app-server` | JSON-RPC 2.0 · harness เดียวกับที่ขับ Codex ทุก surface (web · CLI · IDE · macOS) | ✅ |
 | **Qwen Code** | `qwen serve` | HTTP + SSE · ship ตั้งแต่ v0.16-alpha · Stage 1 merged พ.ค. 2026 · **experimental** | ⚠️ |
 | **Gemini CLI** | daemon mode | [PR #20700](https://github.com/google-gemini/gemini-cli/pull/20700) **ยังไม่ merge** (เปิดค้างตั้งแต่ มิ.ย. 2026 · unix socket) | ❌ |
+| **Claude Code** | *(ไม่มี HTTP API server)* | Agent SDK คือ surface ที่ถูกต้อง — ดู §6 | ✅ ผ่าน SDK |
 
 > ⚠️ ผลค้นหาเว็บสรุปว่า Gemini CLI *"has introduced daemon mode"* — **ไม่จริง** ต้องเปิด PR ดูเองถึงเห็นว่ายังไม่ merge ติด security review + CI แดง
 
@@ -75,9 +76,77 @@ codex app-server --listen "ws://0.0.0.0:$PORT" &
 
 ---
 
-## 5. ที่มา
+## 5. Claude Code — สำรวจเมื่อ 2026-08-23
+
+**ไม่มี HTTP server mode แบบที่ `opencode serve` หรือ `codex app-server` เป็น**
+
+| surface | เป็น server mode ให้ Botforge ไหม |
+| --- | --- |
+| `claude -p` (headless) | ❌ one-shot · รันจบแล้ว exit |
+| `claude -c` / `--resume` | ⚠️ session อุ่นข้าม invocation ได้ แต่ยัง one-shot ต่อครั้ง |
+| `claude --bg` + `claude daemon` | ⚠️ supervisor ของ background session — ไม่ใช่ API ให้ต่อ |
+| `claude remote-control` | ⚠️ HTTP จริง แต่ **ผูกกับ TTY** — ดูข้างล่าง |
+| `claude gateway` | ❌ SSO/policy proxy สำหรับองค์กร (Bedrock/Vertex/Foundry) ไม่ใช่ runtime API |
+| `claude mcp serve` | ❌ **ไม่มีแล้ว** — `claude mcp` เหลือแค่ config ฝั่งที่ Claude Code ไปต่อ |
+| **Claude Agent SDK** | ✅ **surface ที่ถูกต้อง — [`adapter-claude`](../../packages/adapter-claude/) ใช้อยู่แล้ว** |
+
+### `remote-control` ทำไมใช้ไม่ได้
+
+มีจริงและเป็น HTTP (ควบคุมจาก claude.ai หรือมือถือ) แต่ยังต้องมี TTY —
+[claude-code#30447](https://github.com/anthropics/claude-code/issues/30447) ขอ `--headless` **ยังเปิดค้าง**
+ตั้งแต่ 2026-03-03 · คอมเมนต์ล่าสุด 2026-08-06 มีคนแปะ systemd unit + log filter + watchdog
+ที่เขียนขึ้นมาเพราะ *"the TUI isn't daemon-friendly; a `--headless` mode would delete most of it"*
+
+รันใน container ไม่ได้จริง
+
+> **ข้อสรุป: ไม่ต้องเปลี่ยน `adapter-claude`** — ต่างจากเคส codex ที่ v1 เลือก transport ที่ upstream ไม่ซัพพอร์ต
+
+---
+
+## 6. ⚠️ Claude Code มี **channels** แล้ว — ทับกับสิ่งที่ Botforge ทำ
+
+[channels](https://code.claude.com/docs/en/channels) คือ MCP server ที่ **push ข้อความจากภายนอกเข้า session ที่รันอยู่**
+แล้ว Claude ตอบกลับทางเดิมได้ พร้อม pairing · sender allowlist · permission relay
+
+```bash
+claude --channels plugin:telegram@claude-plugins-official
+```
+
+**นี่คือสิ่งที่ Botforge ทำ** ในรูปแบบ first-party
+
+### ที่ยังต่างกัน
+
+| | Claude Code channels | Botforge |
+| --- | --- | --- |
+| **LINE** | ❌ ไม่มี — มีแต่ Telegram · Discord · iMessage · fakechat | ✅ 14 bot ที่รันจริง |
+| จำนวน session | **หนึ่ง session ที่รันอยู่** — event มาถึงเฉพาะตอนเปิดอยู่ | หลาย bot × หลาย group แยก session |
+| runtime | ผูกกับ Claude · ใช้บน Bedrock/Vertex/Foundry ไม่ได้ | 9 engine |
+| deployment | ผู้ใช้รัน terminal ค้างไว้เอง | Docker + Cloudflare tunnel + CLI จัดการหลาย bot |
+| สถานะ | **research preview** — flag/protocol เปลี่ยนได้ · ไม่โผล่ใน `claude --help` | — |
+
+> ตรวจรายการ plugin จริงที่ [`claude-plugins-official/external_plugins`](https://github.com/anthropics/claude-plugins-official/tree/main/external_plugins) แล้ว —
+> asana · context7 · discord · fakechat · firebase · github · gitlab · greptile · imessage ·
+> laravel-boost · linear · playwright · serena · telegram · terraform
+>
+> **ไม่มี LINE** (ตอนแรก grep `line` ไปจับ `linear` เข้า — false positive)
+
+### อ่านได้สองแบบ
+
+1. **ยืนยันว่าทิศทาง V2 ถูก** — Anthropic มองว่า channel → agent session เป็น pattern ที่ควรมี first-party
+2. **แต่เป็นสัญญาณด้วย** — ถ้า LINE plugin โผล่มาเมื่อไหร่ ส่วนที่ทับกันจะมากขึ้น
+   สิ่งที่ Botforge ถือไว้จริงคือ **multi-runtime · multi-bot · deployment** ไม่ใช่ตัว bridge เอง
+
+มี [`channels-reference`](https://code.claude.com/docs/en/channels-reference) ให้เขียน channel เอง —
+ทำ LINE channel เสียบเข้า Claude Code ได้ แต่เป็นคนละ product shape
+(session เดียวบนเครื่องผู้ใช้ vs. โรงงาน bot หลายตัวที่ deploy ให้ลูกค้า)
+
+---
+
+## 7. ที่มา
 
 - [OpenAI — Unlocking the Codex harness](https://openai.com/index/unlocking-the-codex-harness/)
 - [codex app-server developer guide](https://gist.github.com/oneryalcin/ee2c27e2d8aa040da8fbe7eebcc2ecea) — ที่มาของเรื่อง transport
 - [gemini-cli PR #20700](https://github.com/google-gemini/gemini-cli/pull/20700)
 - [Qwen Code — daemon mode (`qwen serve`)](https://qwenlm.github.io/qwen-code-docs/en/users/qwen-serve/)
+- [Claude Code — CLI reference](https://code.claude.com/docs/en/cli-reference) · [channels](https://code.claude.com/docs/en/channels) · [channels-reference](https://code.claude.com/docs/en/channels-reference)
+- [claude-code#30447](https://github.com/anthropics/claude-code/issues/30447) — `remote-control --headless` ยังเปิดค้าง
