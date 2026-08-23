@@ -24,3 +24,7 @@ workspace-cowork-opencode/
 # npm lockfile ของ package ภายใน — ยังไม่ตัดสินว่าจะ commit หรือไม่
 packages/*/package-lock.json
 package-lock.json
+
+# workspace ที่ mount เข้า container ตอนรัน
+apps/*/workspace/
+docker-compose.override.yml

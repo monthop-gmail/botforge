@@ -1,0 +1,95 @@
+# Botforge V2 — LINE bot
+#
+# ต่างจาก v1 ตรงที่ **ไฟล์เดียวรองรับทุก runtime** ผ่าน compose profiles
+# v1 มี docker-compose.yml แยกต่อ engine เพราะแต่ละ engine เป็นคนละ template
+#
+#   opencode / adkcode  ต้องมี container ของ engine แยก
+#   codex / claude      ไม่ต้องมี — codex spawn app-server เป็น child process
+#                       ส่วน claude เรียก SDK ใน process เดียวกับ bot
+#
+# รัน (จาก root ของ repo):
+#   COMPOSE_PROFILES=opencode,tunnel docker compose -f apps/line-bot/docker-compose.yml up -d --build
+#   COMPOSE_PROFILES=claude          docker compose -f apps/line-bot/docker-compose.yml up -d --build
+#
+# ตั้งค่าใน apps/line-bot/.env (ดู .env.example)
+# ของที่ต้อง mount จาก host เช่น credential หรือ opencode.json
+# ใส่ใน docker-compose.override.yml (ดู docker-compose.override.yml.example)
+# — ไม่ใส่ในไฟล์นี้เพราะ compose ไม่มีวิธีทำ mount แบบ optional ที่ไม่เปราะ
+
+name: ${CONTAINER_PREFIX:-botforge}
+
+services:
+  line-bot:
+    build:
+      context: ../..                      # ต้องเห็น packages/ ทั้งหมด
+      dockerfile: apps/line-bot/Dockerfile
+    container_name: ${CONTAINER_PREFIX:-botforge}-line-bot
+    env_file: [.env]
+    environment:
+      - PORT=3000
+      - WORKSPACE_DIR=/workspace
+      # ชี้ไปที่ service ใน network เดียวกัน — ทับค่าใน .env ที่เขียนไว้สำหรับรันนอก docker
+      - OPENCODE_URL=${OPENCODE_URL:-http://opencode:4096}
+      - ADKCODE_URL=${ADKCODE_URL:-http://adkcode:8000}
+    volumes:
+      - ${PROJECT_DIR:-./workspace}:/workspace
+      # credential ของ host (~/.claude, ~/.codex, ~/.config/gcloud) mount ผ่าน
+      # docker-compose.override.yml — ดู docker-compose.override.yml.example
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+  # ── engine ที่ต้องมี container แยก ─────────────────────────────────
+
+  opencode:
+    profiles: [opencode]
+    image: ${OPENCODE_IMAGE:-ghcr.io/anomalyco/opencode:latest}
+    container_name: ${CONTAINER_PREFIX:-botforge}-opencode
+    command: ["serve", "--hostname=0.0.0.0", "--port=4096"]
+    working_dir: /workspace
+    environment:
+      - OPENCODE_SERVER_PASSWORD=${OPENCODE_PASSWORD:-}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY:-}
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY:-}
+      - QWEN_API_KEY=${QWEN_API_KEY:-}
+      - GROQ_API_KEY=${GROQ_API_KEY:-}
+      - OKMD_API_KEY=${OKMD_API_KEY:-}
+      - THAILLM_API_KEY=${THAILLM_API_KEY:-}
+      - GITHUB_TOKEN=${GITHUB_TOKEN:-}
+    volumes:
+      - ${PROJECT_DIR:-./workspace}:/workspace
+      - opencode-data:/root/.local/share/opencode
+      - opencode-state:/root/.local/state/opencode
+    restart: unless-stopped
+
+  adkcode:
+    profiles: [adkcode]
+    build:
+      context: ${ADKCODE_CONTEXT:-../../templates/bot-service-adkcode/server}
+    container_name: ${CONTAINER_PREFIX:-botforge}-adkcode
+    environment:
+      - API_PASSWORD=${SERVER_PASSWORD:-}
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY:-}
+      - GOOGLE_GENAI_USE_VERTEXAI=${GOOGLE_GENAI_USE_VERTEXAI:-}
+    volumes:
+      - ${PROJECT_DIR:-./workspace}:/workspace
+    restart: unless-stopped
+
+  # ── ทางเข้าจากอินเทอร์เน็ต ────────────────────────────────────────
+
+  cloudflared:
+    profiles: [tunnel]
+    image: cloudflare/cloudflared:latest
+    container_name: ${CONTAINER_PREFIX:-botforge}-tunnel
+    command: tunnel --no-autoupdate run --token ${CLOUDFLARE_TUNNEL_TOKEN}
+    depends_on: [line-bot]
+    restart: unless-stopped
+
+volumes:
+  opencode-data:
+  opencode-state:
