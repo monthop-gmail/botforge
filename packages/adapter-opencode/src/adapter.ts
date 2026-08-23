@@ -13,7 +13,7 @@ import { isSessionExpired } from "@botforge/core/errors"
 import { OpenCodeClient, type OpenCodeConfig } from "./client.ts"
 import { extractResponse } from "./extract.ts"
 import { buildPrefix } from "./prompt.ts"
-import { MODELS, DEFAULT_MODEL, type ModelSpec } from "./models.ts"
+import { MODELS, DEFAULT_MODEL, modelSwitchedMessage, type ModelSpec } from "./models.ts"
 
 export interface OpenCodeAdapterOptions extends OpenCodeConfig {
   /** timeout ต่อ prompt — v1 ใช้ `PROMPT_TIMEOUT_MS` default 120,000 */
@@ -50,12 +50,14 @@ export class OpenCodeAdapter implements RuntimePort {
    * `/model` — เปลี่ยนแล้วปิด session เดิม เพื่อให้ session ใหม่ใช้ model ใหม่ (feature 2.12)
    * model ที่เลือกถูกพักไว้จนกว่าจะมีข้อความถัดไป ตอนนั้นค่อยสร้าง session ใหม่
    */
-  async setModel(sessionKey: string, modelKey: string): Promise<void> {
+  async setModel(sessionKey: string, modelKey: string): Promise<string> {
     if (!MODELS[modelKey]) throw new Error(`ไม่รู้จัก model "${modelKey}"`)
     const prev = this.#sessions.get(sessionKey)
     if (prev?.sessionId) await this.client.deleteSession(prev.sessionId).catch(() => {})
     this.#sessions.delete(sessionKey)
     this.#pendingModel.set(sessionKey, modelKey)
+    // คืนข้อความยืนยันให้ผู้เรียกส่งต่อ — ต่อ NO_TOOLS_NOTE ให้อัตโนมัติถ้าโมเดลนั้นไม่มี tool
+    return modelSwitchedMessage(modelKey)
   }
 
   /** `/new` — ปิด session แล้วเริ่มใหม่ครั้งถัดไปที่มีข้อความ */
@@ -130,7 +132,7 @@ export class OpenCodeAdapter implements RuntimePort {
         "POST", `/session/${session.sessionId}/message`, body, controller.signal,
       )
       clearTimeout(timer)
-      const { text, isError } = extractResponse(raw)
+      const { text, isError } = extractResponse(raw, { log: this.#log })
       return { result: text, isError, model: session.model, usage: usageOf(raw) }
     } catch (err) {
       clearTimeout(timer)
@@ -142,7 +144,7 @@ export class OpenCodeAdapter implements RuntimePort {
       await this.client.abortSession(session.sessionId)
       const partial = await this.client.lastAssistantMessage(session.sessionId)
       if (partial) {
-        const { text, isError } = extractResponse(partial)
+        const { text, isError } = extractResponse(partial, { log: this.#log })
         return { result: text, isError, truncated: true, model: session.model }
       }
       return { result: "", timedOut: true, model: session.model }

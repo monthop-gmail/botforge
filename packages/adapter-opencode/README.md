@@ -71,19 +71,37 @@ npm test --prefix packages/adapter-opencode
 - `e2e.test.ts` — **HTTP จริง** ผ่าน `node:http` ตั้งแต่ payload ของ LINE จนถึงข้อความที่ส่งกลับ
 
 
-## ⚠️ ช่องว่างที่รู้อยู่ — adapter ตามหลัง `v1-final`
+## พอร์ตครบถึง `v1-final` แล้ว
 
-adapter นี้ยกมาจาก `templates/bot-service-opencode` ที่ commit `e56e28e` (เม.ย.)
-แต่ `v1-final` จริงคือ `5d6d709` (ส.ค.) ซึ่งเพิ่มของที่ยัง **ไม่ได้พอร์ตมา**:
+adapter ยกมาจาก `templates/bot-service-opencode` ที่ `5d6d709` (2026-08-11) — ครบทุกอย่าง
 
-| ของที่ขาด | อยู่ใน v1 ที่ไหน |
-| --- | --- |
-| provider **OKMD** — 8 model ใน `MODELS` (`okmd/claude-sonnet-5` ฯลฯ) | `38a0ff1` |
-| flag `noTools` + `NO_TOOLS_NOTE` — เตือนว่าโมเดลนี้อ่าน/แก้ไฟล์ไม่ได้ | `9dd7cf4` |
-| `stripStrayToolCalls()` — Thai 8B ปิด tool call ด้วย `</think>` แทน `</tool_call>` ทำให้ JSON ดิบหลุดถึงผู้ใช้ | `5d6d709` |
-| ข้อความโควต้า OKMD หมด — OKMD ตอบ 401 ไม่ใช่ 429 ตอนโควต้ารายวันหมด | `38a0ff1` |
+| ของที่พอร์ตมา | มาจาก commit | อยู่ที่ไหนใน V2 |
+| --- | --- | --- |
+| provider **OKMD** — 8 model | `38a0ff1` | `models.ts` |
+| flag `noTools` + `NO_TOOLS_NOTE` | `9dd7cf4` | `models.ts` · `modelSwitchedMessage()` |
+| `stripStrayToolCalls()` + `cleanModelText()` | `5d6d709` | `extract.ts` |
+| ข้อความโควต้า OKMD หมด | `38a0ff1` | **`@botforge/core`** — ดูข้างล่าง |
 
-`extract.test.ts` จึงเทียบกับ oracle ของรุ่น เม.ย. — **ยังถูกต้องสำหรับรุ่นนั้น** แต่ไม่ครอบของใหม่
+ทะเบียนมี 18 model ครบทุก provider เท่ากับ v1-final — มี test ล็อกจำนวนต่อ provider ไว้
 
-สามข้อแรกเป็นการเติม config/ฟังก์ชัน ส่วนข้อสุดท้ายควรไปอยู่ใน `error/v1` ของ core
-(`runtime.quota_exhausted` → category `budget_exceeded` ซึ่งมีอยู่แล้วใน taxonomy)
+### ทำไมข้อความโควต้าหมดไปอยู่ที่ core ไม่ใช่ adapter
+
+v1 เขียนไว้ใน `extractResponse()` ของ `opencode` ตัวเดียว (opencode ไม่มี `getErrorHint` เลย)
+แต่ "โควต้าหมด" เป็นแนวคิดทั่วไป และ `error/v1` มี category `budget_exceeded` อยู่แล้ว
+จึงย้ายมาเป็น rule `runtime.quota_exhausted` ใน core — แบบเดียวกับ request queue และ error hints
+ที่ย้ายเข้า core แล้วทุก engine ได้ใช้
+
+rule นี้อยู่ **ก่อน** `authentication` ในลำดับการตรวจ เพราะ OKMD ตอบ **401 ไม่ใช่ 429**
+ตอนโควต้ารายวันหมด ถ้าตรวจตามลำดับเดิมจะได้ "มีปัญหาเรื่อง authentication ครับ กรุณาแจ้ง admin"
+ซึ่งพาผู้ใช้ไปผิดทาง — ของจริงแค่พิมพ์ `/model` เปลี่ยนโมเดลก็ใช้ได้ต่อ (โควต้าแยกกันแต่ละโมเดล)
+
+### `stripStrayToolCalls` แก้อะไร
+
+Thai LLM 8B บางตัวปิด tool call ด้วย `</think>` แทน `</tool_call>` ทำให้ vLLM parse ไม่ได้
+แล้วปล่อย **JSON ดิบ** ค้างใน text response ซึ่งจะหลุดถึงผู้ใช้
+
+ถ้าตัดแล้วไม่เหลืออะไรเลย = ทั้งก้อนคือ tool call ที่พัง → ตอบ `STRAY_TOOL_CALL_NOTE`
+บอกผู้ใช้ว่าเกิดอะไรขึ้นและให้ลอง `/model` **ไม่เงียบ**
+
+regex บังคับว่าต้องมี `"name"` ใน payload เพื่อไม่ให้ไปตัดข้อความธรรมดาที่บังเอิญพูดถึงแท็กนี้
+— มี test ยืนยัน (`"แท็ก <tool_call> ใช้ยังไงครับ"` ต้องไม่ถูกแตะ)

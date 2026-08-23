@@ -9,6 +9,9 @@
 
 export const EMPTY_RESPONSE = "เสร็จแล้วครับ (ไม่มีข้อความตอบกลับ)"
 
+export const STRAY_TOOL_CALL_NOTE =
+  "โมเดลพยายามเรียกใช้เครื่องมือแต่ไม่สำเร็จครับ ลองถามใหม่อีกครั้ง หรือพิมพ์ /model เพื่อเปลี่ยนโมเดล"
+
 /**
  * ตัด `<think>...</think>` ที่ reasoning model ฝังมาในคำตอบ
  * (Pathumma · THaLLE · OpenThaiGPT — Thai LLM 8B ที่ตั้งค่าไว้ใน opencode.json)
@@ -18,6 +21,29 @@ export function stripThinkTags(text: string): string {
     .replace(/<think>[\s\S]*?<\/think>\s*/g, "")
     .replace(/<think>[\s\S]*$/g, "")
     .trim()
+}
+
+/**
+ * ตัดบล็อก `<tool_call>` ที่ parser ฝั่ง server กินไม่หมด
+ *
+ * Thai LLM 8B บางตัวปิด tool call ด้วย `</think>` แทน `</tool_call>` ทำให้ vLLM
+ * parse ไม่ได้ แล้วปล่อย JSON ดิบค้างอยู่ใน text response — ซึ่งจะหลุดไปถึงผู้ใช้
+ *
+ * บังคับว่าต้องมี `"name"` อยู่ใน payload เพื่อไม่ให้ไปตัดข้อความธรรมดาที่บังเอิญ
+ * พูดถึงแท็กนี้
+ */
+export function stripStrayToolCalls(text: string): string {
+  return text
+    .replace(/<tool_call>\s*\{[\s\S]*?"name"[\s\S]*?(?:<\/tool_call>|<\/think>|$)\s*/g, "")
+    .replace(/<\/(?:think|tool_call)>\s*/g, "")
+    .trim()
+}
+
+/** คืนข้อความที่ผู้ใช้ควรเห็น พร้อมบอกว่าระหว่างทางมี tool call พังถูกทิ้งไปไหม */
+export function cleanModelText(text: string): { text: string; strayToolCall: boolean } {
+  const withoutThink = stripThinkTags(text)
+  const cleaned = stripStrayToolCalls(withoutThink)
+  return { text: cleaned, strayToolCall: cleaned !== withoutThink }
 }
 
 export interface ExtractOutcome {
@@ -34,7 +60,11 @@ export interface ExtractOutcome {
  *      `reasoning` (ใช้ต่อเมื่อไม่มี text part เลย)
  *   4. ต่อด้วย `\n\n` · ว่างทั้งหมด → ข้อความว่างมาตรฐาน
  */
-export function extractResponse(result: unknown): ExtractOutcome {
+export interface ExtractOptions {
+  log?: (...args: unknown[]) => void
+}
+
+export function extractResponse(result: unknown, options: ExtractOptions = {}): ExtractOutcome {
   const r = result as any
 
   if (r?.info?.error) {
@@ -50,8 +80,11 @@ export function extractResponse(result: unknown): ExtractOutcome {
 
   for (const p of r.parts) {
     if (p.type === "text" && p.text) {
-      const cleaned = stripThinkTags(p.text)
-      if (cleaned) parts.push(cleaned)
+      const { text, strayToolCall } = cleanModelText(p.text)
+      if (strayToolCall) options.log?.("Dropped unparsed <tool_call> block from model text response")
+      if (text) parts.push(text)
+      // ตัดแล้วไม่เหลืออะไรเลย = คำตอบทั้งก้อนคือ tool call ที่พัง ต้องบอกผู้ใช้ ไม่ใช่เงียบ
+      else if (strayToolCall) parts.push(STRAY_TOOL_CALL_NOTE)
     }
     if (p.type === "tool" && p.tool === "question" && p.state?.input?.questions) {
       for (const q of p.state.input.questions) {
@@ -67,7 +100,7 @@ export function extractResponse(result: unknown): ExtractOutcome {
       }
     }
     if (p.type === "reasoning" && p.text && !hasText) {
-      parts.push(stripThinkTags(p.text))
+      parts.push(cleanModelText(p.text).text)
     }
   }
 

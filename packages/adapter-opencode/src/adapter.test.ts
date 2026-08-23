@@ -232,3 +232,45 @@ test("กลุ่มกับ 1:1 ใช้ session คนละตัว", asy
   await a.sendPrompt(prompt({ sessionKey: "line-u1", isGroup: false }))
   assert.equal(made, 2)
 })
+
+test("setModel คืนข้อความยืนยัน และเตือนเมื่อโมเดลไม่มี tool calling", async () => {
+  const { fetchImpl } = fakeServer(() => ({ body: {} }))
+  const a = make(fetchImpl)
+  const withTools = await a.setModel("line-c1", "okmd/claude-sonnet-5")
+  assert.ok(withTools.includes("Claude Sonnet 5 (OKMD)"))
+  assert.equal(withTools.includes("อ่าน/แก้ไฟล์ไม่ได้"), false)
+
+  const noTools = await a.setModel("line-c2", "thaillm/pathumma-8b")
+  assert.ok(noTools.includes("Pathumma"))
+  assert.ok(noTools.includes("⚠️ โมเดลนี้ตอบข้อความอย่างเดียว อ่าน/แก้ไฟล์ไม่ได้"))
+})
+
+test("OKMD 8 model เลือกได้และ providerID ถูก", async () => {
+  let lastModel: any
+  const { fetchImpl } = fakeServer((r) => {
+    if (r.path === "/session" && r.method === "POST") return { body: { id: "s" + Math.random() } }
+    if (r.body?.model) lastModel = r.body.model
+    return { body: { parts: [{ type: "text", text: "ok" }] } }
+  })
+  const a = make(fetchImpl)
+  for (const key of ["okmd/gpt-5.4", "okmd/grok-4.3", "okmd/sonar-pro"]) {
+    await a.setModel("line-c1", key)
+    await a.sendPrompt(prompt())
+    assert.equal(lastModel.providerID, "okmd", key)
+    assert.equal(lastModel.modelID, key.split("/")[1], key)
+  }
+})
+
+test("โควต้า OKMD หมด → core แปลงเป็นข้อความไทยที่บอกทางออก", async () => {
+  const { fetchImpl } = fakeServer((r) =>
+    r.path === "/session" && r.method === "POST"
+      ? { body: { id: "s1" } }
+      : { body: { info: { error: { data: { message: "401 model has reached daily limit for this key" } } } } },
+  )
+  const out = await make(fetchImpl).sendPrompt(prompt())
+  assert.equal(out.isError, true)
+  // adapter ส่ง error ดิบ core เป็นคนแปลง
+  const { classify, toUserMessage } = await import("@botforge/core/errors")
+  assert.equal(classify(out.result).category, "budget_exceeded")
+  assert.ok(toUserMessage(out.result).includes("โควต้าของโมเดลนี้หมด"))
+})

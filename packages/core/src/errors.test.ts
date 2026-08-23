@@ -120,6 +120,21 @@ test("isSessionExpired แยกจาก RULES และไม่ไปกว�
   assert.equal(toUserMessage("Server 404: session not found"), getErrorHint_v1("Server 404: session not found"))
 })
 
+test("โควต้าหมดของ OKMD — เพิ่มจาก v1 โดยตั้งใจ", () => {
+  // OKMD ตอบ 401 ตอนโควต้ารายวันหมด ข้อความดิบจึงอ่านเหมือน auth error
+  const raw = "OpenCode API 401: model has reached daily limit for this key"
+  const e = classify(raw)
+  assert.equal(e.code, "runtime.quota_exhausted")
+  assert.equal(e.category, "budget_exceeded", "ไม่ใช่ authentication แม้ข้อความจะมี 401")
+  assert.equal(e.retryable, false)
+  assert.ok(toUserMessage(raw).includes("โควต้าของโมเดลนี้หมด"))
+  assert.ok(toUserMessage(raw).includes("/model"), "ต้องบอกทางออกให้ผู้ใช้")
+
+  // v1 ของ 8 engine จะได้ authentication เพราะเจอ "401" ก่อน — นี่คือการปรับปรุงโดยตั้งใจ
+  // ไม่กระทบ CORPUS เพราะไม่มีตัวไหนมีสตริงนี้ (test equivalence ข้างบนยังผ่าน)
+  assert.equal(classify("Server 401: unauthorized").category, "authentication")
+})
+
 test("renderThai รับ error/v1 object ที่ code ไม่รู้จักได้", () => {
   const foreign = { code: "odoo.sale.locked", category: "conflict" as const, message: "record locked", retryable: false }
   assert.equal(renderThai(foreign), "เกิดข้อผิดพลาดครับ: record locked")

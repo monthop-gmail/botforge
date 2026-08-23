@@ -56,6 +56,20 @@ const RULES: ReadonlyArray<{
   thai: string
 }> = [
   {
+    // ⚠️ ต้องอยู่ก่อน authentication — OKMD ตอบ 401 ไม่ใช่ 429 ตอนโควต้ารายวันหมด
+    //    ข้อความดิบจึงอ่านเหมือน auth error ทั้งที่เปลี่ยนโมเดลแล้วใช้ได้ต่อ
+    //
+    //    v1 มีเฉพาะใน extractResponse() ของ opencode (opencode ไม่มี getErrorHint เลย)
+    //    ย้ายมา core เพื่อให้ทุก engine ได้เหมือนกัน แบบเดียวกับ request queue และ error hints
+    needles: ["reached daily limit"],
+    code: "runtime.quota_exhausted",
+    category: "budget_exceeded",
+    retryable: false,
+    thai:
+      "🪫 โควต้าของโมเดลนี้หมดสำหรับวันนี้ครับ\n" +
+      "พิมพ์ /model เพื่อเปลี่ยนไปโมเดลอื่น (โควต้าแยกกันแต่ละโมเดล) หรือรอรีเซ็ตวันถัดไป",
+  },
+  {
     needles: ["429", "rate limit"],
     code: "runtime.rate_limited",
     category: "rate_limited",
