@@ -10,7 +10,7 @@
  */
 import type { LineTransport } from "../channel/send.ts"
 import { sendMessage } from "../channel/send.ts"
-import type { ProfileCache } from "../context/profile.ts"
+import { formatUserContext, type ProfileCache, type UserContextFormat } from "../context/profile.ts"
 import type { SessionQueue } from "../session/queue.ts"
 import type { BotforgeEvents, TurnContext } from "../events/vocabulary.ts"
 import { classify, toUserMessage, type PlatformError } from "../errors.ts"
@@ -21,14 +21,23 @@ import {
 
 /** สิ่งที่ core ต้องการจาก runtime — adapter ของแต่ละ engine เป็นคนต่อของจริง */
 export interface RuntimePort {
-  sendPrompt(input: {
-    sessionKey: string
-    text: string
-    isGroup: boolean
-    userId: string
-    groupName?: string
-    quotedMessageId?: string
-  }): Promise<RuntimeResult>
+  sendPrompt(input: PromptInput): Promise<RuntimeResult>
+}
+
+export interface PromptInput {
+  sessionKey: string
+  text: string
+  isGroup: boolean
+  userId: string
+  groupName?: string
+  quotedMessageId?: string
+  /**
+   * context ของผู้ใช้ที่ core ประกอบไว้แล้ว เช่น `[User: สมชาย]`
+   *
+   * core เป็นคนดึง profile และจัดรูป — adapter เป็นคนตัดสินว่าจะเอาไปวางตรงไหน
+   * ของ prompt เพราะแต่ละ runtime ประกอบ prompt ไม่เหมือนกัน
+   */
+  userContext?: string
 }
 
 export interface RuntimeResult {
@@ -55,6 +64,8 @@ export interface TurnDeps {
   log?: (...args: unknown[]) => void
   /** ต่อท้ายว่าโดนตัดเมื่อยาวเกิน — `opencode` ไม่ทำ อีก 8 engine ทำ */
   lengthTruncationNotice?: boolean
+  /** รูปแบบ `[User: ...]` — `"verbose"` คือของ `opencode` */
+  userContextFormat?: UserContextFormat
 }
 
 export interface TurnInput {
@@ -102,8 +113,9 @@ async function runTurnBody(deps: TurnDeps, input: TurnInput): Promise<TurnOutcom
 
   try {
     await events?.queued(ctx!)
-    await deps.profiles.getUser(input.userId, input.groupId)
+    const profile = await deps.profiles.getUser(input.userId, input.groupId)
     const groupName = input.groupId ? await deps.profiles.getGroupName(input.groupId) : null
+    const userContext = formatUserContext(profile, deps.userContextFormat)
 
     if (!input.isGroup && deps.showLoading) deps.showLoading(input.userId)
 
@@ -116,6 +128,7 @@ async function runTurnBody(deps: TurnDeps, input: TurnInput): Promise<TurnOutcom
       userId: input.userId,
       groupName: groupName ?? undefined,
       quotedMessageId: input.quotedMessageId,
+      userContext: userContext || undefined,
     })
 
     if (res.timedOut) {

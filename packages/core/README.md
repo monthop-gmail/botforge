@@ -60,6 +60,10 @@ npm run typecheck --prefix packages/core
 > เปลี่ยน Codex → Claude โดยไม่แก้ Channel ✅ — runtime อยู่หลัง `RuntimePort` ตัวเดียว
 > เปลี่ยน LINE → Web โดยไม่แก้ Runtime · ⬜ — `LineTransport` แยกแล้ว แต่ยังไม่มี channel ที่สอง
 
+adapter ตัวแรกอยู่ที่ [`@botforge/adapter-opencode`](../adapter-opencode/) —
+พิสูจน์แล้วด้วย `e2e.test.ts` ที่วิ่งผ่าน HTTP จริง และ `scripts/smoke-opencode.ts`
+ที่ยิง OpenCode server จริงได้ด้วย model ฟรี
+
 ## Preserve behavior พิสูจน์ยังไง
 
 เก็บโค้ด v1 ฉบับ **verbatim** ไว้เป็น oracle ในไฟล์ test แล้วเทียบผลทุกตัวอักษร:

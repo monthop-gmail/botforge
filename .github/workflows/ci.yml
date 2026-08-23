@@ -8,18 +8,18 @@ on:
 
 jobs:
   core:
-    name: "@botforge/core — test + typecheck"
+    name: "packages — test + typecheck"
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
-      - run: npm install --prefix packages/core
+      - run: npm install
       - name: typecheck
-        run: npm run typecheck --prefix packages/core
+        run: npm run typecheck
       - name: test
-        run: npm test --prefix packages/core
+        run: npm test
 
   conformance:
     name: "conformance — ADR-0006"
@@ -32,6 +32,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+      - run: npm install
       - run: pip install pyyaml jsonschema referencing
 
       # ข้อ 1 ของ ADR-0006 — schema ที่ vendor ไว้ยังตรงกับ commit ที่ pin

@@ -1,0 +1,21 @@
+{
+  "name": "@botforge/adapter-opencode",
+  "version": "0.0.1",
+  "type": "module",
+  "license": "MIT",
+  "description": "RuntimePort adapter สำหรับ OpenCode serve — engine ของ 9 ใน 14 bot ที่รันอยู่",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "test": "node --experimental-strip-types --test 'src/**/*.test.ts'",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "^22",
+    "typescript": "^5.7.0"
+  },
+  "dependencies": {
+    "@botforge/core": "^0.0.1"
+  }
+}
