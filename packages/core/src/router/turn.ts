@@ -38,6 +38,13 @@ export interface PromptInput {
    * ของ prompt เพราะแต่ละ runtime ประกอบ prompt ไม่เหมือนกัน
    */
   userContext?: string
+  /**
+   * memory ของกลุ่ม — `claude-code` และ `copilot-cli` ใช้ (feature 4.4)
+   *
+   * core แค่ดึงมาให้ · **adapter เป็นคนตัดสินว่าจะ inject เมื่อไหร่**
+   * เพราะ v1 inject เฉพาะตอนเปิด session ใหม่ ซึ่งมีแต่ adapter ที่รู้ว่ามี session อยู่ไหม
+   */
+  groupMemory?: string
 }
 
 export interface RuntimeResult {
@@ -61,6 +68,11 @@ export interface TurnDeps {
   events?: BotforgeEvents
   /** แสดง loading ใน 1:1 — v1 เรียกแบบ fire-and-forget ไม่รอผล */
   showLoading?: (chatId: string) => void
+  /**
+   * ดึง memory ของกลุ่ม — ไม่ใส่ก็ไม่ดึง
+   * v1 อ่านไฟล์ `memory-{groupId}.md` ทุกข้อความ แม้จะ inject เฉพาะ session ใหม่
+   */
+  groupMemory?: (groupId: string) => Promise<string | null>
   log?: (...args: unknown[]) => void
   /** ต่อท้ายว่าโดนตัดเมื่อยาวเกิน — `opencode` ไม่ทำ อีก 8 engine ทำ */
   lengthTruncationNotice?: boolean
@@ -116,6 +128,9 @@ async function runTurnBody(deps: TurnDeps, input: TurnInput): Promise<TurnOutcom
     const profile = await deps.profiles.getUser(input.userId, input.groupId)
     const groupName = input.groupId ? await deps.profiles.getGroupName(input.groupId) : null
     const userContext = formatUserContext(profile, deps.userContextFormat)
+    const groupMemory = input.isGroup && input.groupId && deps.groupMemory
+      ? await deps.groupMemory(input.groupId)
+      : null
 
     if (!input.isGroup && deps.showLoading) deps.showLoading(input.userId)
 
@@ -129,6 +144,7 @@ async function runTurnBody(deps: TurnDeps, input: TurnInput): Promise<TurnOutcom
       groupName: groupName ?? undefined,
       quotedMessageId: input.quotedMessageId,
       userContext: userContext || undefined,
+      groupMemory: groupMemory ?? undefined,
     })
 
     if (res.timedOut) {
