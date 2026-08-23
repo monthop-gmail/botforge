@@ -27,6 +27,11 @@ Botforge — CLI tool that generates LINE Bot + AI projects from templates. Each
 ./botforge-deploy tunnel list             # List all tunnels
 ./botforge-deploy tunnel delete <name>    # Delete tunnel + DNS
 
+# ย้าย domain (ดู docs/architecture/domain-change.md)
+./botforge-deploy domain show             # domain + webhook ที่ LINE ถืออยู่จริง
+./botforge-deploy domain change <new> --dry-run
+./botforge-deploy domain change <new>     # config + สคริปต์ + ingress/DNS + LINE + เอกสาร
+
 # Fetch AI provider model lists
 ./botforge-models                         # Fetch all providers
 ./botforge-models groq google             # Fetch specific providers
@@ -71,6 +76,7 @@ Templates use `{{PLACEHOLDER}}` syntax, replaced by `botforge new`:
 - **`botforge`** — Project generator CLI (Bash). Engine selection (lines ~86-101), template copy + sed replacement, git init.
 - **`botforge-deploy`** — Multi-bot manager (Bash). Uses `docker compose --project-name "$name"` for isolation. Cloudflare API integration for tunnel CRUD + DNS.
 - **`botforge-models`** — Fetches latest model lists from AI providers (Anthropic, OpenAI, Google, DeepSeek, Qwen, Groq, OKMD, ThaiLLM). Output: `models/<provider>.txt`. OKMD needs no API key — its `/models` endpoint is public. ThaiLLM is a drift check rather than a listing: its 4 endpoints are hardcoded (each reports the id `/model`), and it reports the served model version plus `max_model_len`, warning when that no longer matches the `limit.context` pinned in `opencode.json`.
+- **`lib/secret.sh`** — สุ่มรหัสของ server ที่เปิดออก tunnel `gen_password()` 32 ตัวอักษร base62 (openssl → python3 secrets → /dev/urandom, ห้าม `$RANDOM`) · `ensure_secret <file> <KEY>` เติมให้เฉพาะเมื่อว่าง · `secret_key_for <v1|v2> <name>` **ต้องระบุรุ่นเสมอ** เพราะ `codex`/`adkcode` มีทั้งสองรุ่นแต่คนละ key. source โดย `botforge`, `botforge-migrate`, `botforge-deploy`.
 - **`templates/bot-service-*/`** — Engine templates. Each has: `docker-compose.yml`, `Dockerfile`, `src/index.ts` (LINE bot), `server/` (AI backend), `.env.example`, `CLAUDE.md`.
 - **`templates/workspace/`** — Shared workspace template with `AGENTS.md` (bot instructions in Thai).
 - **`.botforge-deploy.env`** — Cloudflare credentials (`CF_API_TOKEN`, `CF_ACCOUNT_ID`, `CF_ZONE_ID`, `CF_DOMAIN`). Gitignored.

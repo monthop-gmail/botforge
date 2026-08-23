@@ -5,8 +5,9 @@ set -euo pipefail
 # Manage deployment of all LINE Bot projects
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECTS_DIR="$SCRIPT_DIR/projects"
-CONFIG_FILE="$SCRIPT_DIR/.botforge-deploy.env"
+PROJECTS_DIR="${PROJECTS_DIR:-$SCRIPT_DIR/projects}"
+. "$SCRIPT_DIR/lib/secret.sh"
+CONFIG_FILE="${CONFIG_FILE:-$SCRIPT_DIR/.botforge-deploy.env}"
 
 # Default domain suffix
 DEFAULT_DOMAIN_SUFFIX="sumana.online"
@@ -402,10 +403,26 @@ EOF
 
 # Get server port for an engine type
 get_server_port() {
-    local engine="$1"
+    local engine="${1#v2:}"          # v2:adkcode → adkcode
     case "$engine" in
         adkcode) echo "8000" ;;
         *)       echo "4096" ;;
+    esac
+}
+
+# มี container ของ engine ให้เปิด UI ผ่าน tunnel ไหม
+#
+# ⚠️ ตัดเฉพาะ V2 เท่านั้น — V1 ทุก engine มี service `server` อยู่จริง
+#    (codex/claude-code/copilot-cli ใช้ Hono ห่อ CLI ไว้ใน container `server`)
+#    ถ้าตัด route ของ V1 ด้วยจะทำให้ bot ที่รันอยู่เสีย
+#
+# V2 มีเฉพาะ opencode กับ adkcode ที่มี container แยก
+# ส่วน codex spawn app-server เป็น child process และ claude เรียก SDK ใน process เดียวกัน
+engine_has_ui() {
+    case "$1" in
+        v2:opencode|v2:adkcode) return 0 ;;   # V2 ที่มี container ของ engine
+        v2:*)                   return 1 ;;   # V2 ที่เหลือไม่มี
+        *)                      return 0 ;;   # V1 ทุกตัวมี service server
     esac
 }
 
@@ -490,8 +507,33 @@ cmd_tunnel_setup() {
         local host_server="${name}-server.${CF_DOMAIN}"
 
         echo -e "  ${BOLD}$name${NC} ${DIM}($engine)${NC}"
+        # route ของ UI มีเฉพาะ engine ที่มี container แยก
+        # codex/claude ของ V2 ไม่มี — ใส่ route ไปก็ 502
+        local ingress_rules="{\"hostname\":\"$host_bot\",\"service\":\"http://${name}-line-bot:3000\"},"
         echo "    $host_bot → http://${name}-line-bot:3000"
-        echo "    $host_server → http://${name}-server:${server_port}"
+        if engine_has_ui "$engine"; then
+            ingress_rules+="{\"hostname\":\"$host_server\",\"service\":\"http://${name}-server:${server_port}\"},"
+            echo "    $host_server → http://${name}-server:${server_port}   (UI ของ engine)"
+        else
+            echo "    (ข้าม route UI — $engine ไม่มี container ของ engine แยก)"
+        fi
+
+        # ⚠️ จังหวะนี้คือจังหวะที่ UI ถูกเปิดออกอินเทอร์เน็ตจริง — เตือนถ้ายังไม่มีรหัส
+        #    auth ของทุก engine เป็น opt-in และค่าว่าง = ไม่ติดตั้ง middleware เลย
+        #    ที่นี่ **เตือนอย่างเดียว ไม่แก้ .env ให้** เพราะ bot อาจกำลังรันอยู่
+        #    การเปลี่ยนรหัสใต้ตีนต้องเป็นการตัดสินใจของคนใช้ ไม่ใช่ผลข้างเคียงของ setup
+        if engine_has_ui "$engine" && [[ -f "$env_file" ]]; then
+            local gen skey cur
+            [[ "$engine" == v2:* ]] && gen=v2 || gen=v1
+            skey=$(secret_key_for "$gen" "${engine#v2:}")
+            if [[ -n "$skey" ]]; then
+                cur=$(grep -m1 -E "^${skey}=" "$env_file" 2>/dev/null | cut -d= -f2- | tr -d "\"' \r") || true
+                if [[ -z "$cur" ]]; then
+                    print_warn "    $skey ว่าง — UI จะเปิดให้ทุกคนที่รู้ hostname"
+                    echo -e "    ${DIM}ตั้งใน $env_file แล้ว restart ก่อนเปิด tunnel${NC}"
+                fi
+            fi
+        fi
 
         # Check if tunnel already exists
         local existing
@@ -508,14 +550,14 @@ cmd_tunnel_setup() {
             echo -n "    Updating ingress... "
             local config_resp
             config_resp=$(cf_api PUT "/accounts/$CF_ACCOUNT_ID/cfd_tunnel/$existing_id/configurations" \
-                "{\"config\":{\"ingress\":[{\"hostname\":\"$host_bot\",\"service\":\"http://${name}-line-bot:3000\"},{\"hostname\":\"$host_server\",\"service\":\"http://${name}-server:${server_port}\"},{\"service\":\"http_status:404\"}]}}")
+                "{\"config\":{\"ingress\":[${ingress_rules}{\"service\":\"http_status:404\"}]}}")
             local config_ok
             config_ok=$(echo "$config_resp" | python3 -c "import sys,json; print(json.load(sys.stdin).get('success',False))" 2>/dev/null)
             [[ "$config_ok" == "True" ]] && print_success "ok" || print_error "FAILED"
 
             # Upsert DNS records
             _upsert_dns "$host_bot" "$name" "$existing_id"
-            _upsert_dns "$host_server" "${name}-server" "$existing_id"
+            engine_has_ui "$engine" && _upsert_dns "$host_server" "${name}-server" "$existing_id"
 
             # Get token and update .env
             echo -n "    Getting token... "
@@ -554,10 +596,10 @@ cmd_tunnel_setup() {
         print_success "ok ($tunnel_id)"
 
         # 2. Configure tunnel ingress — 2 hostnames per project
-        echo -n "    Configuring ingress (2 routes)... "
+        echo -n "    Configuring ingress... "
         local config_resp
         config_resp=$(cf_api PUT "/accounts/$CF_ACCOUNT_ID/cfd_tunnel/$tunnel_id/configurations" \
-            "{\"config\":{\"ingress\":[{\"hostname\":\"$host_bot\",\"service\":\"http://${name}-line-bot:3000\"},{\"hostname\":\"$host_server\",\"service\":\"http://${name}-server:${server_port}\"},{\"service\":\"http_status:404\"}]}}")
+            "{\"config\":{\"ingress\":[${ingress_rules}{\"service\":\"http_status:404\"}]}}")
 
         local config_ok
         config_ok=$(echo "$config_resp" | python3 -c "import sys,json; print(json.load(sys.stdin).get('success',False))" 2>/dev/null)
@@ -565,7 +607,7 @@ cmd_tunnel_setup() {
 
         # 3. Create DNS CNAME records (2 records)
         _upsert_dns "$host_bot" "$name" "$tunnel_id"
-        _upsert_dns "$host_server" "${name}-server" "$tunnel_id"
+        engine_has_ui "$engine" && _upsert_dns "$host_server" "${name}-server" "$tunnel_id"
 
         # 4. Get tunnel token and save to .env
         echo -n "    Getting tunnel token... "
@@ -751,6 +793,356 @@ cmd_tunnel() {
 }
 
 # --- Command: help ---
+# =============================================================================
+# domain — ย้ายทั้งระบบไป domain ใหม่
+#
+# domain ไม่ได้ฝังอยู่ในไฟล์ที่รันจริงเลย (compose/.env/container ไม่มี) มันอยู่ที่:
+#   1. .botforge-deploy.env  → CF_ZONE_ID + CF_DOMAIN
+#   2. DEFAULT_DOMAIN_SUFFIX ใน botforge และ botforge-deploy
+#   3. Cloudflare: ingress ของ tunnel + DNS CNAME
+#   4. LINE: webhook URL ของแต่ละ channel
+#   5. เอกสารใน projects/ (ไม่กระทบการรัน)
+#
+# tunnel **ไม่ต้องสร้างใหม่** — token ผูกกับ account+tunnel ไม่ใช่ domain
+# และ cloudflared ดึง ingress จาก Cloudflare เอง เปลี่ยนแล้วรับเองไม่ต้อง restart
+# =============================================================================
+
+LINE_API="https://api.line.me"
+
+# อ่านค่าจาก .env โดยไม่พิมพ์ออกหน้าจอ
+_env_get() {
+    local file="$1" key="$2"
+    [[ -f "$file" ]] || return 1
+    grep -m1 -E "^${key}=" "$file" 2>/dev/null | cut -d= -f2- | tr -d "\"'\r" | sed 's/[[:space:]]*$//'
+}
+
+# ดึงค่าจาก JSON ทาง stdin ตาม key ทีละชั้น — ไม่มี key คืนค่าว่าง
+_json() {
+    python3 -c '
+import sys, json
+try: d = json.load(sys.stdin)
+except Exception: sys.exit(0)
+for k in sys.argv[1:]:
+    d = d.get(k) if isinstance(d, dict) else None
+    if d is None: break
+print("" if d is None else d)
+' "$@"
+}
+
+# เรียก LINE Messaging API ด้วย token ของ project ที่กำหนด
+#
+# ⚠️ ส่ง token ผ่าน --config บน stdin ไม่ใช่ -H บน argv
+#    argv ของ process มองเห็นได้จาก `ps` ของผู้ใช้อื่นบนเครื่องเดียวกัน
+#    (cf_api ข้างบนยังใช้ -H อยู่ — คนละเรื่องกับงานนี้ ยังไม่แก้)
+#
+# endpoint ทั้งสามยืนยันจาก @line/bot-sdk ไม่ได้เดา:
+#   PUT  /v2/bot/channel/webhook/endpoint  {"endpoint": "..."}
+#   GET  /v2/bot/channel/webhook/endpoint  → {endpoint, active}
+#   POST /v2/bot/channel/webhook/test      {"endpoint": "..."} → {success, ...}
+_line_api() {
+    local token="$1" method="$2" path="$3" data="${4:-}"
+    local args=(-s -X "$method" -H "Content-Type: application/json")
+    [[ -n "$data" ]] && args+=(-d "$data")
+    printf 'header = "Authorization: Bearer %s"\n' "$token" \
+        | curl --config - "${args[@]}" "${LINE_API}${path}"
+}
+
+_line_token_of() { _env_get "$PROJECTS_DIR/$1/bot-service/.env" LINE_CHANNEL_ACCESS_TOKEN; }
+
+# แทนที่ข้อความในไฟล์แบบ tmp+mv
+# ⚠️ ต้อง mv ไม่ใช่เขียนทับที่เดิม — สคริปต์นี้แก้ตัวเองด้วย และ bash อ่านไฟล์
+#    ทีละส่วนระหว่างรัน เขียนทับ inode เดิมจะทำให้มันรันขยะต่อ
+#    mv สร้าง inode ใหม่ ตัวที่กำลังรันยังถือ fd เก่าไว้จนจบ
+_replace_in_file() {
+    local file="$1" from="$2" to="$3" tmp
+    tmp=$(mktemp "${file}.XXXXXX") || return 1
+    sed "s|${from//./\\.}|${to}|g" "$file" > "$tmp" || { rm -f "$tmp"; return 1; }
+    chmod --reference="$file" "$tmp" 2>/dev/null || true
+    mv "$tmp" "$file"
+}
+
+cmd_domain_show() {
+    load_cf_config
+    print_header
+    echo -e "  ${BOLD}Domain ปัจจุบัน:${NC} $CF_DOMAIN"
+    echo ""
+
+    echo -n "  zone ใน Cloudflare... "
+    local z; z=$(cf_api GET "/zones/$CF_ZONE_ID")
+    if [[ "$(echo "$z" | _json success)" == "True" ]]; then
+        print_success "$(echo "$z" | _json result name) (status=$(echo "$z" | _json result status))"
+    else
+        print_error "เข้าถึงไม่ได้ — zone ถูกลบ หรือ CF_ZONE_ID ผิด"
+    fi
+
+    echo -n "  NS record... "
+    # เครื่องที่ไม่มี dig/host ก็เยอะ — อย่าให้ทั้งคำสั่งตายเพราะเช็คเสริม
+    local ns=""
+    if command -v dig >/dev/null 2>&1; then
+        ns=$(dig +short NS "$CF_DOMAIN" 2>/dev/null | tr '\n' ' ') || true
+    elif command -v host >/dev/null 2>&1; then
+        ns=$(host -t NS "$CF_DOMAIN" 2>/dev/null | awk '/name server/{print $NF}' | tr '\n' ' ') || true
+    else
+        print_warn "ไม่มี dig/host บนเครื่องนี้ — ข้าม"
+        ns="__skip__"
+    fi
+    if [[ "$ns" != "__skip__" ]]; then
+        [[ -n "${ns// /}" ]] && print_success "$ns" || print_error "ไม่มี — domain หลุดจาก DNS แล้ว"
+    fi
+
+    echo ""
+    echo -e "  ${BOLD}webhook ที่ LINE ถืออยู่จริง${NC} ${DIM}(อ่านอย่างเดียว)${NC}"
+    local name token resp
+    for name in $(get_projects); do
+        printf "    %-22s " "$name"
+        token=$(_line_token_of "$name") || true
+        if [[ -z "$token" ]]; then
+            echo -e "${DIM}ไม่มี LINE token ใน .env${NC}"; continue
+        fi
+        resp=$(_line_api "$token" GET /v2/bot/channel/webhook/endpoint)
+        local ep act msg
+        ep=$(echo "$resp" | _json endpoint); act=$(echo "$resp" | _json active)
+        msg=$(echo "$resp" | _json message)
+        if [[ -n "$ep" ]]; then
+            echo -e "$ep  ${DIM}active=$act${NC}"
+        else
+            print_error "${msg:-อ่านไม่ได้}"
+        fi
+    done
+    echo ""
+}
+
+cmd_domain_change() {
+    local new_domain="" dry=0 assume_yes=0 skip_line=0 skip_docs=0 skip_tunnel=0 force_line=0
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --dry-run)     dry=1 ;;
+            --yes|-y)      assume_yes=1 ;;
+            --skip-line)   skip_line=1 ;;
+            --force-line)  force_line=1 ;;
+            --skip-docs)   skip_docs=1 ;;
+            --skip-tunnel) skip_tunnel=1 ;;
+            -*)            print_error "ไม่รู้จัก flag: $1"; return 1 ;;
+            *)             new_domain="$1" ;;
+        esac
+        shift
+    done
+
+    if [[ -z "$new_domain" ]]; then
+        print_error "ต้องระบุ domain ใหม่"
+        echo "  ./botforge-deploy domain change <new-domain> [--dry-run]"
+        return 1
+    fi
+    if [[ ! "$new_domain" =~ ^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$ ]]; then
+        print_error "รูปแบบ domain ไม่ถูก: $new_domain"; return 1
+    fi
+
+    load_cf_config
+    local old_domain="$CF_DOMAIN"
+    if [[ "$new_domain" == "$old_domain" ]]; then
+        print_error "domain ใหม่เหมือนเดิม ($old_domain) — ไม่มีอะไรต้องทำ"; return 1
+    fi
+
+    local _domain_mismatch=""
+
+    print_header
+    echo -e "  ${BOLD}เปลี่ยน domain${NC}  $old_domain ${DIM}→${NC} ${BOLD}$new_domain${NC}"
+    [[ $dry -eq 1 ]] && echo -e "  ${YELLOW}DRY RUN — ไม่แก้อะไรทั้งนั้น${NC}"
+    echo ""
+
+    # --- preflight: zone ของ domain ใหม่ต้องมีอยู่ใน Cloudflare แล้ว ---
+    # หา zone id ให้เอง ผู้ใช้ไม่ต้องไปคัดลอกจาก dashboard
+    echo -n "  หา zone ของ $new_domain... "
+    local zresp zcount new_zone_id zstatus
+    zresp=$(cf_api GET "/zones?name=$new_domain")
+    zcount=$(echo "$zresp" | python3 -c "import sys,json; print(len(json.load(sys.stdin).get('result') or []))" 2>/dev/null)
+    if [[ "${zcount:-0}" -ne 1 ]]; then
+        print_error "ไม่เจอ (หรือเจอมากกว่า 1)"
+        echo ""
+        echo "  ต้องเพิ่ม $new_domain เข้า Cloudflare ก่อน แล้วชี้ NS ที่ registrar"
+        echo "  ขั้นตอนนี้ทำแทนไม่ได้ — https://dash.cloudflare.com → Add a site"
+        return 1
+    fi
+    new_zone_id=$(echo "$zresp" | python3 -c "import sys,json; print(json.load(sys.stdin)['result'][0]['id'])" 2>/dev/null)
+    zstatus=$(echo "$zresp" | python3 -c "import sys,json; print(json.load(sys.stdin)['result'][0].get('status',''))" 2>/dev/null)
+    print_success "เจอแล้ว (status=$zstatus)"
+    if [[ "$zstatus" != "active" ]]; then
+        print_warn "    zone ยังไม่ active — NS ที่ registrar ยังไม่ชี้มาที่ Cloudflare"
+        print_warn "    สร้าง record ได้ แต่ DNS จะยังไม่ตอบจนกว่า NS จะ propagate"
+    fi
+
+    # --- แผน ---
+    echo ""
+    echo -e "  ${BOLD}จะแตะอะไรบ้าง${NC}"
+    echo "    1. $CONFIG_FILE                    CF_ZONE_ID + CF_DOMAIN"
+    echo "    2. botforge, botforge-deploy       DEFAULT_DOMAIN_SUFFIX"
+    [[ $skip_tunnel -eq 1 ]] && echo "    3. (ข้าม) tunnel ingress + DNS" \
+                             || echo "    3. Cloudflare                      ingress + DNS ของทุก project"
+    [[ $skip_line   -eq 1 ]] && echo "    4. (ข้าม) LINE webhook" \
+                             || echo "    4. LINE                            webhook URL ของทุก channel"
+    [[ $skip_docs   -eq 1 ]] && echo "    5. (ข้าม) เอกสาร" \
+                             || echo "    5. projects/                       เอกสารที่อ้าง $old_domain"
+    echo ""
+
+    # ⚠️ อ่าน webhook ที่ LINE ถืออยู่จริงก่อน ไม่ใช่เดาจากชื่อ project
+    #    เจอมาแล้วว่า legal-services ชี้ไป legal.thaidirection.com/line/webhook
+    #    คนละ domain คนละ path — เขียนทับเป็น <name>.<new>/webhook คือทำ bot พัง
+    local name token cur curhost
+    echo -e "  ${BOLD}project${NC} ${DIM}(webhook ปัจจุบันอ่านจาก LINE จริง)${NC}"
+    printf "    %-22s %-40s %s\n" "project" "webhook ใหม่" "หมายเหตุ"
+    for name in $(get_projects); do
+        token=$(_line_token_of "$name") || true
+        if [[ -z "$token" ]]; then
+            printf "    %-22s %-40s %s\n" "$name" "—" "ไม่มี LINE token · ข้าม"
+            continue
+        fi
+        cur=$(_line_api "$token" GET /v2/bot/channel/webhook/endpoint | _json endpoint)
+        curhost="${cur#https://}"; curhost="${curhost%%/*}"
+        if [[ "$curhost" == "${name}.${old_domain}" ]]; then
+            printf "    %-22s %-40s %s\n" "$name" "https://${name}.${new_domain}/webhook" "ตรงกับ domain เดิม"
+        elif [[ -z "$cur" ]]; then
+            printf "    %-22s %-40s %s\n" "$name" "https://${name}.${new_domain}/webhook" "ยังไม่เคยตั้ง"
+        else
+            _domain_mismatch+=" $name"
+            printf "    %-22s %-40s %s\n" "$name" "$(if [[ $force_line -eq 1 ]]; then echo "https://${name}.${new_domain}/webhook"; else echo "— ไม่แตะ"; fi)" \
+                "⚠️ ตอนนี้ชี้ $cur"
+        fi
+    done
+    if [[ -n "${_domain_mismatch// /}" ]]; then
+        echo ""
+        if [[ $force_line -eq 1 ]]; then
+            print_warn "    --force-line: จะเขียนทับ${_domain_mismatch} ด้วย"
+        else
+            print_warn "    ข้าม${_domain_mismatch} เพราะ webhook ไม่ได้อยู่บน $old_domain"
+            echo -e "    ${DIM}ถ้าตั้งใจจะย้ายด้วย ใส่ --force-line${NC}"
+        fi
+    fi
+
+    local doc_files doc_count=0
+    doc_files=$(grep -rl "$old_domain" "$PROJECTS_DIR" --exclude-dir=.git --exclude-dir=node_modules --exclude='*.bak' 2>/dev/null || true)
+    [[ -n "$doc_files" ]] && doc_count=$(echo "$doc_files" | wc -l)
+    echo ""
+    echo "    ไฟล์ใน projects/ ที่อ้าง $old_domain: $doc_count ไฟล์"
+
+    if [[ $dry -eq 1 ]]; then
+        echo ""
+        echo -e "  ${YELLOW}จบ dry run — ยังไม่ได้แก้อะไร${NC}"
+        echo "  รันจริง: ./botforge-deploy domain change $new_domain"
+        return 0
+    fi
+
+    if [[ $assume_yes -ne 1 ]]; then
+        echo ""
+        read -rp "  ไปต่อ? [y/N]: " ok
+        [[ "${ok,,}" == "y" ]] || { echo "  ยกเลิก"; return 0; }
+    fi
+
+    local stamp; stamp=$(date +%Y%m%d-%H%M%S)
+
+    # --- 1. config ---
+    echo ""
+    echo -n "  1/5 $CONFIG_FILE... "
+    cp -p "$CONFIG_FILE" "$CONFIG_FILE.bak-$stamp" && chmod 600 "$CONFIG_FILE.bak-$stamp"
+    _replace_in_file "$CONFIG_FILE" "$CF_ZONE_ID" "$new_zone_id"
+    _replace_in_file "$CONFIG_FILE" "CF_DOMAIN=$old_domain" "CF_DOMAIN=$new_domain"
+    chmod 600 "$CONFIG_FILE"
+    print_success "ok (สำรอง .bak-$stamp)"
+
+    # ใช้ค่าใหม่ใน process นี้เลย ไม่งั้น cmd_tunnel_setup จะยังยิงไป zone เก่า
+    CF_ZONE_ID="$new_zone_id"
+    CF_DOMAIN="$new_domain"
+
+    # --- 2. สคริปต์ ---
+    echo -n "  2/5 DEFAULT_DOMAIN_SUFFIX... "
+    local f n=0
+    for f in "$SCRIPT_DIR/botforge" "$SCRIPT_DIR/botforge-deploy"; do
+        [[ -f "$f" ]] || continue
+        grep -q "DEFAULT_DOMAIN_SUFFIX=\"$old_domain\"" "$f" || continue
+        _replace_in_file "$f" "DEFAULT_DOMAIN_SUFFIX=\"$old_domain\"" "DEFAULT_DOMAIN_SUFFIX=\"$new_domain\"" && n=$((n+1))
+    done
+    print_success "แก้ $n ไฟล์"
+
+    # --- 3. tunnel ingress + DNS ---
+    if [[ $skip_tunnel -eq 1 ]]; then
+        echo "  3/5 tunnel... ข้าม"
+    else
+        echo "  3/5 tunnel ingress + DNS"
+        cmd_tunnel_setup all
+    fi
+
+    # --- 4. LINE webhook ---
+    if [[ $skip_line -eq 1 ]]; then
+        echo "  4/5 LINE webhook... ข้าม"
+    else
+        echo ""
+        echo "  4/5 LINE webhook"
+        local url resp ok_set test_ok cur curhost
+        for name in $(get_projects); do
+            printf "    %-22s " "$name"
+            token=$(_line_token_of "$name") || true
+            [[ -z "$token" ]] && { echo -e "${DIM}ไม่มี token ข้าม${NC}"; continue; }
+
+            cur=$(_line_api "$token" GET /v2/bot/channel/webhook/endpoint | _json endpoint)
+            curhost="${cur#https://}"; curhost="${curhost%%/*}"
+            if [[ -n "$cur" && "$curhost" != "${name}.${old_domain}" && $force_line -ne 1 ]]; then
+                print_warn "ข้าม — ชี้ $cur (ไม่ใช่ $old_domain)"
+                continue
+            fi
+
+            url="https://${name}.${new_domain}/webhook"
+            resp=$(_line_api "$token" PUT /v2/bot/channel/webhook/endpoint "{\"endpoint\":\"$url\"}")
+            # PUT สำเร็จ LINE คืน {} — ถือว่าพังเมื่อมี message กลับมา
+            ok_set=$(echo "$resp" | _json message)
+            if [[ -n "$ok_set" ]]; then
+                print_error "ตั้งไม่ได้: $ok_set"
+                continue
+            fi
+            # ยืนยันด้วยการให้ LINE ยิงจริง — บอกได้ว่า DNS+tunnel+bot พร้อมจริงไหม
+            test_ok=$(_line_api "$token" POST /v2/bot/channel/webhook/test "{\"endpoint\":\"$url\"}" | _json success)
+            if [[ "$test_ok" == "True" ]]; then
+                print_success "ok — LINE ยิงทดสอบผ่าน"
+            else
+                print_warn "ตั้งแล้ว แต่ LINE ยิงทดสอบไม่ผ่าน (bot อาจยังไม่ขึ้น / DNS ยังไม่ propagate)"
+            fi
+        done
+    fi
+
+    # --- 5. เอกสาร ---
+    if [[ $skip_docs -eq 1 ]]; then
+        echo "  5/5 เอกสาร... ข้าม"
+    else
+        echo -n "  5/5 เอกสารใน projects/... "
+        local c=0
+        if [[ -n "$doc_files" ]]; then
+            while IFS= read -r f; do
+                [[ -n "$f" ]] || continue
+                _replace_in_file "$f" "$old_domain" "$new_domain" && c=$((c+1))
+            done <<< "$doc_files"
+        fi
+        print_success "แก้ $c ไฟล์"
+    fi
+
+    echo ""
+    print_success "  เสร็จ — $old_domain → $new_domain"
+    echo ""
+    echo "  ตรวจต่อ:"
+    echo "    ./botforge-deploy domain show          # webhook ที่ LINE ถืออยู่จริง"
+    echo "    ./botforge-deploy tunnel list"
+    echo ""
+    echo -e "  ${DIM}ถอยกลับ config: cp $CONFIG_FILE.bak-$stamp $CONFIG_FILE${NC}"
+    echo ""
+}
+
+cmd_domain() {
+    local sub="${1:-show}"
+    shift || true
+    case "$sub" in
+        show)   cmd_domain_show "$@" ;;
+        change) cmd_domain_change "$@" ;;
+        *)      print_error "domain: ไม่รู้จัก '$sub' (show|change)"; return 1 ;;
+    esac
+}
+
 cmd_help() {
     print_header
     echo "  Usage:"
@@ -768,6 +1160,7 @@ cmd_help() {
     echo -e "    ${BOLD}ps${NC} [project|all]               Show running containers"
     echo -e "    ${BOLD}pull${NC} [project|all]             Pull latest images"
     echo -e "    ${BOLD}tunnel${NC} <init|setup|list|delete> Manage Cloudflare tunnels"
+    echo -e "    ${BOLD}domain${NC} <show|change>          ย้ายทั้งระบบไป domain ใหม่"
     echo -e "    ${BOLD}help${NC}                           Show this help"
     echo ""
     echo "  Examples:"
@@ -783,6 +1176,9 @@ cmd_help() {
     echo "    ./botforge-deploy logs dede-opencode server 50  # Last 50 lines of server"
     echo "    ./botforge-deploy tunnel init                 # Setup Cloudflare credentials"
     echo "    ./botforge-deploy tunnel setup all            # Create tunnels for all bots"
+    echo "    ./botforge-deploy domain show                 # domain + webhook ที่ LINE ถืออยู่จริง"
+    echo "    ./botforge-deploy domain change new.com --dry-run   # ดูก่อนว่าจะแตะอะไร"
+    echo "    ./botforge-deploy domain change new.com       # ย้ายจริง (ต้องเพิ่ม zone ใน CF ก่อน)"
     echo ""
     echo "  Projects:"
     echo ""
@@ -815,6 +1211,7 @@ main() {
         ps)       cmd_ps "$@" ;;
         pull)     cmd_pull "$@" ;;
         tunnel)   cmd_tunnel "$@" ;;
+        domain)   cmd_domain "$@" ;;
         help|--help|-h) cmd_help ;;
         *)
             print_error "Unknown command: $command"

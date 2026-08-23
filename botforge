@@ -6,7 +6,8 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TEMPLATES_DIR="$SCRIPT_DIR/templates"
-PROJECTS_DIR="$SCRIPT_DIR/projects"
+PROJECTS_DIR="${PROJECTS_DIR:-$SCRIPT_DIR/projects}"
+. "$SCRIPT_DIR/lib/secret.sh"
 
 # Defaults
 DEFAULT_GITHUB_ORG="monthop-gmail"
@@ -212,6 +213,27 @@ cmd_new() {
 
     print_success "done"
 
+    # --- .env + รหัสของ server ---
+    # ทำก่อน git init — `.gitignore` ของ template มี `.env` บรรทัดแรก `git add .` จึงข้ามให้
+    local env_generated=""
+    if [[ ! -f "$bot_dir/.env" ]]; then
+        echo -n "  Creating .env...          "
+        cp "$bot_dir/.env.example" "$bot_dir/.env"
+        chmod 600 "$bot_dir/.env"
+        # auth ของ server ทุก engine เป็น opt-in และค่าว่าง = ไม่ติดตั้ง middleware เลย
+        # ตรวจ 14 project ของ V1 แล้วพบว่าปล่อยว่างไว้ 5 ตัว — สุ่มให้เลยดีกว่า
+        local skey
+        if [[ "$engine" == "v2" ]]; then
+            skey=$(secret_key_for v2 "$v2_runtime")
+        else
+            skey=$(secret_key_for v1 "$engine")
+        fi
+        if [[ -n "$skey" ]] && ensure_secret "$bot_dir/.env" "$skey"; then
+            env_generated="$skey"
+        fi
+        print_success "done"
+    fi
+
     # --- Git init ---
     echo -n "  Git init (bot-service)... "
     (cd "$bot_dir" && git init -q && git add . && git commit -q -m "feat: initial commit — $project_name (bot-service)") 2>/dev/null
@@ -230,8 +252,14 @@ cmd_new() {
     echo ""
     echo -e "  ${BOLD}Next steps:${NC}"
     echo "    1. cd $bot_dir"
-    echo "    2. cp .env.example .env    # Set your credentials"
+    echo "    2. Edit .env               # LINE credentials, API keys"
     echo "    3. docker compose up -d --build"
+    if [[ -n "$env_generated" ]]; then
+        echo ""
+        echo -e "  ${GREEN}${BOLD}$env_generated สุ่มให้แล้ว${NC} (${BOTFORGE_PASSWORD_LEN} chars, in .env)"
+        echo -e "  ${BOLD}Why:${NC} the engine UI is exposed at https://${project_name}-server.${domain#*.}"
+        echo "       through the tunnel, and auth is off when this value is empty."
+    fi
     echo ""
     echo -e "  ${BOLD}Webhook URL:${NC} https://${domain}/webhook"
     echo ""

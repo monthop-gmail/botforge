@@ -36,7 +36,8 @@ services:
   opencode:
     profiles: [opencode]
     image: ${OPENCODE_IMAGE:-ghcr.io/anomalyco/opencode:latest}
-    container_name: {{CONTAINER_PREFIX}}-opencode
+    # ชื่อต้องเป็น -server เพราะ tunnel ingress ชี้ไปที่ http://<name>-server:<port>
+    container_name: {{CONTAINER_PREFIX}}-server
     command: ["serve", "--hostname=0.0.0.0", "--port=4096"]
     working_dir: /workspace
     environment:
@@ -58,7 +59,7 @@ services:
   adkcode:
     profiles: [adkcode]
     image: ${ADKCODE_IMAGE:-botforge/adkcode:v2}
-    container_name: {{CONTAINER_PREFIX}}-adkcode
+    container_name: {{CONTAINER_PREFIX}}-server
     environment:
       - API_PASSWORD=${SERVER_PASSWORD:-}
       - GOOGLE_API_KEY=${GOOGLE_API_KEY:-}

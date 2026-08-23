@@ -105,6 +105,149 @@ adapter ที่เขียนไปแล้ว 4 ตัวได้อ่า
 verify ราย field แล้วเฉพาะ `error/v1` · `event/v1` · `identity/v1` (ที่ประกาศใน manifest)
 ที่เหลือ 12 ตระกูลยังไม่ได้ลงราย field
 
+### 6. UI ของ engine เปิดโล่งบนอินเทอร์เน็ต 🟠
+
+`botforge-deploy tunnel setup` เปิด `<name>-server.<domain>` ให้ UI ของ engine
+(ใช้ตอนงานยาว ๆ ที่ LINE รอไม่ไหว — ดู [`runtime-matrix.md` §8](runtime-matrix.md))
+
+ตรวจกับ container จริงแล้ว: opencode server **ไม่มี auth** เมื่อไม่ตั้ง `OPENCODE_SERVER_PASSWORD`
+`/global/health` ตอบ 200 โดยไม่ต้องยืนยันตัวตน และ `/doc` เสิร์ฟ OpenAPI 3.1 ทั้งชุด
+เท่ากับ **workspace ของลูกค้าเปิดให้ใครที่เดา hostname ถูก**
+
+**auth เป็น opt-in ทุก engine** — อ่านโค้ดของ V1 แล้ว ทั้งสามตัวใช้รูปเดียวกัน:
+ถ้าตัวแปรว่าง จะ **ไม่ติดตั้ง middleware เลย** ไม่ใช่ปฏิเสธ request
+
+| engine | จุดที่ตัดสิน | ว่างแล้วเป็นอะไร |
+| --- | --- | --- |
+| claude-code · copilot-cli | `server/src/index.ts:29` `if (apiPassword) {` | ไม่มี middleware — ทุก route เปิด |
+| adkcode | `server/api.py:78` `if API_PASSWORD:` | log ว่า `Auth: disabled` |
+| opencode | `OPENCODE_SERVER_PASSWORD` (upstream) | ยืนยันกับ container จริงแล้ว — `/global/health` 200 |
+
+### ผลตรวจ 14 project (2026-08-24 · ไม่ได้อ่านค่ารหัสออกมา)
+
+| | จำนวน | |
+| --- | :-: | --- |
+| ✅ ตั้งรหัสแล้ว | 9 | opencode ทุกตัว — 8 ตัวอักษร (nst 12) |
+| 🔴 มี key แต่ว่าง | 3 | `cowork-claudecode` · `legal-claudecode` · `legal-copilot` |
+| ⚪ ไม่มี key เลย | 2 | `legal-adkcode` · `legal-services` (ทั้งคู่เป็น adkcode) |
+
+**ตอนนี้ยังไม่ถูกเปิดออกอินเทอร์เน็ตจริง** — ไม่มี container `cloudflared` ของ botforge
+รันอยู่สักตัว (ตรวจ `docker ps` แล้ว) ที่รันอยู่มีแค่ `legal-adkcode` ·
+`legal-services-line-bot` · `legal-services-server` ซึ่งเข้าถึงได้เฉพาะในเครือข่าย docker
+ทั้ง 5 ตัวมี `CLOUDFLARE_TUNNEL_TOKEN` อยู่ใน `.env` — **ยกสวิตช์ tunnel ขึ้นเมื่อไหร่ก็เปิดโล่งทันที**
+
+### แก้แล้ว — เลิกเป็น opt-in
+
+ผลตรวจข้างบนคือหลักฐานว่า "ให้คนไปตั้งเอง" ไม่ได้ผล (5 ใน 14) จึงย้ายมาสุ่มให้เลย
+[`lib/secret.sh`](../../lib/secret.sh) — 32 ตัวอักษร base62 (~190 bit) จาก
+`openssl rand` → `python3 secrets` → `/dev/urandom` **ห้าม fallback ไป `$RANDOM`**
+(LCG 15 bit ที่ seed จาก pid — รหัสที่เดาได้แย่กว่าไม่มีรหัส เพราะมันดูปลอดภัย)
+
+| ที่ | ทำอะไร |
+| --- | --- |
+| `botforge new` | สร้าง `.env` ให้เลย (เดิมบอกให้ `cp .env.example .env` เอง) + สุ่มรหัส + `chmod 600` |
+| `botforge-migrate run` | สุ่มให้**เฉพาะเมื่อของเดิมไม่มี** — ค่าที่ย้ายมาจาก V1 ไม่ถูกทับ |
+| `botforge-deploy tunnel setup` | **เตือนอย่างเดียว ไม่แก้ `.env` ให้** — bot อาจกำลังรันอยู่ การเปลี่ยนรหัสใต้ตีนต้องเป็นการตัดสินใจของคนใช้ |
+
+`secret_key_for <v1\|v2> <name>` บังคับให้ระบุรุ่นเสมอ ห้ามเดาจากชื่อ —
+`codex` กับ `adkcode` มีทั้งสองรุ่นแต่คนละความหมาย (V1 `adkcode` ใช้ `API_PASSWORD`
+V2 ใช้ `SERVER_PASSWORD` · V1 `codex` มี container `server` V2 ไม่มี)
+
+### ตั้งรหัสให้ 5 ตัวที่ค้างแล้ว 2026-08-24 — **14/14**
+
+สำรอง `.env.bak-20260824` (chmod 600) ไว้ข้าง ๆ ทุกไฟล์ก่อนแก้ ค่าใหม่ 32 ตัวอักษร
+ไม่ซ้ำกันสักคู่ · key อื่นไม่ถูกแตะ (diff ต่างแค่บรรทัดเดียว) · compose ยัง parse ได้
+
+ทั้ง 5 ใช้ `API_PASSWORD` ตัวเดียวส่งให้ทั้งสองฝั่ง จึงไม่ทำให้ bot คุยกับ server ไม่ได้:
+
+```yaml
+server:    API_PASSWORD=${API_PASSWORD:-}
+line-bot:  SERVER_PASSWORD=${API_PASSWORD:-}
+```
+
+**ยังไม่ได้ restart — ค่ายังไม่มีผล** container ที่รันอยู่ยังถือค่าว่าง
+ที่รันจริงมีแค่ `legal-services` (line-bot + server) และ **`cloudflared` ของมันไม่ได้รันอยู่**
+จึงยังไม่มีอะไรเปิดออกอินเทอร์เน็ต
+(`legal-adkcode` ที่เห็นใน `docker ps` เป็น compose project `odoo-legal-service` คนละตัวกัน)
+
+---
+
+## 🟠 adkcode: เปิด auth แล้ว UI พัง — auth กับ UI ทับกัน
+
+ตรวจกับ `legal-services-server` ที่รันอยู่จริง:
+
+```
+/            → 307 → /dev-ui/
+/dev-ui/     → 200 text/html    ← อยู่ใน skip list ของ middleware (เปิดตลอดแม้ตั้งรหัส)
+/list-apps   → 200 application/json  ← ไม่อยู่ใน skip list → 401 เมื่อเปิด auth
+```
+
+`server/api.py:85` ข้ามเฉพาะ `/health` · `/` · `/event` · `/dev-ui*`
+แต่ ADK dev UI เรียก API ที่ root level (`/list-apps`, `/run_sse`, `/apps/...`)
+ผลคือ **หน้า HTML ยังเปิดโล่ง แต่ UI ใช้งานไม่ได้** — ได้ทั้งสองอย่างที่ไม่ต้องการ
+และ ADK dev UI ไม่มีช่องให้ใส่รหัส เบราว์เซอร์จึงส่ง `Authorization` เองไม่ได้
+
+claude-code · copilot-cli ไม่มีปัญหานี้ — server เป็น JSON API ล้วน ไม่เสิร์ฟ UI เลย
+(`/` `/health` `/models` `/event` `/query` `/session*`) ตั้งรหัสได้เต็มที่
+
+ทางที่น่าจะถูกสำหรับ UI ที่คนเปิดผ่านเบราว์เซอร์คือ **กันที่ขอบ ไม่ใช่ในแอป** —
+Cloudflare Access หน้า `<name>-server.<domain>` เพราะ LINE bot ไม่ได้วิ่งผ่าน tunnel
+(คุยกันในเครือข่าย docker) จึงไม่กระทบ **ยังไม่ได้ทำและยังไม่ได้ตรวจว่า plan รองรับ**
+
+## 🔴 legal-services เปิดโล่งอยู่จริงตอนนี้ — ไม่เกี่ยวกับ domain ที่หมดอายุ
+
+ยิงจากภายนอกเมื่อ 2026-08-24:
+
+```
+https://legal-services-server.eformservice.com/dev-ui/   → 200 text/html
+https://legal-services-server.eformservice.com/list-apps → 200 application/json
+```
+
+**ไม่ต้อง auth เลย** มันไม่ได้ออกทาง tunnel ของ botforge แต่ออกทาง
+`central-proxy-caddy-1` บนเครื่องนี้ (`/opt/docker-test/central-proxy/Caddyfile`)
+
+```
+legal-services.eformservice.com        → legal-services-line-bot:3000
+legal-services-server.eformservice.com → legal-services-server:8000
+```
+
+LINE webhook ของมันชี้ hostname ที่สาม `https://legal.thaidirection.com/line/webhook`
+(คนละ Cloudflare account) — `domain change` ข้ามให้อัตโนมัติ ถูกต้องแล้ว
+
+`API_PASSWORD` ตั้งไว้ในไฟล์แล้วแต่ container ยังไม่ได้ restart — และถึง restart
+ก็ยังไม่พอเพราะ `api.py:85` ข้าม auth ให้ `/dev-ui*` อยู่แล้ว (ดูหัวข้อ adkcode ข้างบน)
+
+**ทางแก้ที่แนะนำ:** basic auth ที่ Caddy เฉพาะ hostname `-server` — UI ยังใช้ได้
+(เบราว์เซอร์ขึ้นกล่องให้กรอก) และไม่กระทบ LINE ที่ออกคนละ hostname
+**ยังไม่ได้ทำ** ต้องให้เจ้าของเคาะก่อน เพราะ Caddy ตัวนี้เสิร์ฟเว็บอื่นอีกหลายตัว
+
+---
+
+### แก้ที่เคยพูดผิดรอบสอง — "ไม่มี cloudflared รันอยู่ = ยังไม่เปิด" ผิด
+
+ทางออกอินเทอร์เน็ตของ bot มีมากกว่าทางเดียว `legal-services` ออกทาง Caddy มาตลอด
+บทเรียน: ตรวจ **ทุกทางออก** ไม่ใช่แค่ทางที่เครื่องมือของเราสร้าง
+
+### แก้ที่เคยพูดผิด — tunnel รันอยู่จริง แค่ DNS ตาย
+
+ตอนตั้งรหัสผมสรุปว่า "ไม่มี `cloudflared` ของ botforge รันอยู่สักตัว" — จริงเฉพาะ
+**เครื่องนี้** ถาม Cloudflare API ตรง ๆ แล้ว **tunnel ทั้ง 14 ยังอยู่ และ 7 ตัว healthy
+มี connection จริง** รันอยู่บนเครื่องอื่น รวม `legal-claudecode` · `legal-copilot` ·
+`legal-adkcode` ซึ่งเป็น 3 ใน 5 ตัวที่เพิ่งตั้งรหัส
+
+ที่เข้าไม่ถึงตอนนี้เพราะ **domain หมดอายุ DNS ตาย** ไม่ใช่เพราะ tunnel ไม่ได้รัน
+ชี้ domain ใหม่เมื่อไหร่ก็เปิดทันที — ดู [`domain-change.md`](domain-change.md)
+
+### ยังไม่ได้ทำ
+
+- restart 5 ตัวเพื่อให้รหัสมีผล — 2 ตัวที่เป็น adkcode ต้องตัดสินใจเรื่อง UI ก่อน
+- 9 ตัวที่ตั้งไว้เดิมใช้ 8 ตัวอักษร — สั้นเกินไปสำหรับ endpoint ที่ยิงได้ไม่จำกัดรอบ
+  ไม่มี rate limit ไม่มี lockout ความยาวคือการป้องกันเดียวที่มี
+- V2 สืบทอด skip list เดียวกันหรือเปล่ายังไม่ได้ตรวจ (`adapter-adkcode` คุยกับ API ตรง
+  ไม่ผ่าน UI จึงไม่เจอปัญหานี้ตอนเทสต์)
+
+---
+
 ---
 
 ## ค้างในแต่ละ package

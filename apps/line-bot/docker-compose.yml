@@ -29,7 +29,7 @@ services:
       - PORT=3000
       - WORKSPACE_DIR=/workspace
       # ชี้ไปที่ service ใน network เดียวกัน — ทับค่าใน .env ที่เขียนไว้สำหรับรันนอก docker
-      - OPENCODE_URL=${OPENCODE_URL:-http://opencode:4096}
+      - OPENCODE_URL=${OPENCODE_URL:-http://opencode:4096}   # service name ใช้ได้เหมือนเดิม
       - ADKCODE_URL=${ADKCODE_URL:-http://adkcode:8000}
     volumes:
       - ${PROJECT_DIR:-./workspace}:/workspace
@@ -48,7 +48,10 @@ services:
   opencode:
     profiles: [opencode]
     image: ${OPENCODE_IMAGE:-ghcr.io/anomalyco/opencode:latest}
-    container_name: ${CONTAINER_PREFIX:-botforge}-opencode
+    # ⚠️ ชื่อต้องเป็น -server เพราะ `botforge-deploy tunnel setup` ตั้ง ingress
+    #    ชี้ไปที่ http://<name>-server:<port> เพื่อเปิด UI ของ engine ผ่าน tunnel
+    #    (UI ใช้ตอนงานยาว ๆ ที่ LINE รอไม่ไหวเพราะต้อง reply เร็ว)
+    container_name: ${CONTAINER_PREFIX:-botforge}-server
     command: ["serve", "--hostname=0.0.0.0", "--port=4096"]
     working_dir: /workspace
     environment:
@@ -71,7 +74,7 @@ services:
     profiles: [adkcode]
     build:
       context: ${ADKCODE_CONTEXT:-../../templates/bot-service-adkcode/server}
-    container_name: ${CONTAINER_PREFIX:-botforge}-adkcode
+    container_name: ${CONTAINER_PREFIX:-botforge}-server
     environment:
       - API_PASSWORD=${SERVER_PASSWORD:-}
       - GOOGLE_API_KEY=${GOOGLE_API_KEY:-}
