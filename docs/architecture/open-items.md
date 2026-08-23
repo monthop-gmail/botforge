@@ -4,6 +4,21 @@
 
 ---
 
+## ✅ ปิดแล้ว 2026-08-23 — V2 ส่งมอบได้แล้ว
+
+~~ช่องว่างที่ใหญ่ที่สุด~~ — [`packages/channel-line`](../../packages/channel-line/) +
+[`apps/line-bot`](../../apps/line-bot/) ปิดข้อนี้แล้ว
+
+```
+POST /webhook → 200 OK (67 ms)  ·  signature ผิด → 403
+audit event 3 ใบ · model จริงตอบ · reply→push fallback ทำงานจริงตอน 401
+```
+
+**เหลือขั้นสุดท้ายที่ยังไม่ได้ยืนยัน:** ส่งถึง LINE จริง (ต้องมี channel token ของจริง)
+และยังไม่มี `docker-compose.yml` · ไม่มี template ให้ `botforge new` · ไม่มีเส้นทางย้าย 14 bot
+
+<details><summary>บันทึกเดิมก่อนแก้</summary>
+
 ## 🔴 ช่องว่างที่ใหญ่ที่สุด — V2 ยังส่งมอบอะไรไม่ได้
 
 มี library ครบแล้ว **แต่ไม่มีอะไรประกอบเป็น bot ที่ deploy ได้**
@@ -22,6 +37,8 @@
 งานที่ทำมาทั้งหมดยังไม่ถึงมือผู้ใช้จริงสักคน
 
 > ถ้าจะทำต่ออย่างเดียว ควรเป็นอันนี้ — `channel-line` แล้วต่อด้วย `apps/line-bot`
+
+</details>
 
 ---
 
@@ -122,6 +139,6 @@ verify ราย field แล้วเฉพาะ `error/v1` · `event/v1` · `
 | 2 จัดโครง repo | ✅ โดยพฤตินัย — `packages/` แทนโครง `core/ agents/ sessions/` ที่ doc เดิมวางไว้ |
 | 3 RuntimeAdapter | 🚧 4/9 · ที่เหลือพักไว้ |
 | 4 Agent Platform runtime | ⬜ ยังไม่เริ่ม — `agent-backend-os` ยังไม่มี repo |
-| 5 Multi-channel | 🚧 web ✅ · **line ยังไม่มี** · telegram/discord ⬜ |
+| 5 Multi-channel | 🚧 web ✅ · line ✅ · telegram/discord ⬜ |
 
-> **Phase 5 ย้อนแย้ง** — เรามี channel ที่สองก่อนมี channel ที่หนึ่ง
+> **Phase 5 เคยย้อนแย้ง** — มี channel ที่สองก่อนมี channel ที่หนึ่ง · แก้แล้ว 2026-08-23
