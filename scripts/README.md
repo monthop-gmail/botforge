@@ -43,3 +43,16 @@ docker rm -f botforge-v2-smoke      # เลิกใช้แล้วลบ
 
 `opencode/big-pickle` กับ `opencode/nemotron-3-super` ใช้ได้เลยโดยไม่ต้องมี API key
 ส่วน provider อื่นใน `opencode.json` ต้องมี key ของแต่ละเจ้า
+
+
+## `web-demo.ts` — Definition of Done ครึ่งหลัง
+
+```bash
+node --experimental-strip-types scripts/web-demo.ts
+# แล้วเปิด http://127.0.0.1:8788
+```
+
+ใช้ **`adapter-opencode` ตัวเดียวกับที่ LINE ใช้ โดยไม่แก้อะไรเลย** ต่อ Web channel แทน
+พิสูจน์ว่า *"เปลี่ยน LINE → Web โดยไม่แก้ Runtime"* ทำได้จริง
+
+ต้องมี OpenCode server รันอยู่ (ดูข้างบน) · `PORT` เปลี่ยนได้ · `BOTFORGE_MODEL` เลือก model ได้

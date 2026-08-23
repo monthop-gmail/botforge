@@ -8,7 +8,7 @@
  * runtime ถูกแยกเป็น port ตัวเดียว (`RuntimePort`) จึงเปลี่ยน Codex เป็น Claude
  * ได้โดยไม่ต้องแตะ channel ตาม Definition of Done ของ V2
  */
-import type { LineTransport } from "../channel/send.ts"
+import type { ChannelTransport } from "../channel/send.ts"
 import { sendMessage } from "../channel/send.ts"
 import { formatUserContext, type ProfileCache, type UserContextFormat } from "../context/profile.ts"
 import type { SessionQueue } from "../session/queue.ts"
@@ -62,7 +62,7 @@ export interface RuntimeResult {
 
 export interface TurnDeps {
   runtime: RuntimePort
-  transport: LineTransport
+  transport: ChannelTransport
   queue: SessionQueue
   profiles: ProfileCache
   events?: BotforgeEvents

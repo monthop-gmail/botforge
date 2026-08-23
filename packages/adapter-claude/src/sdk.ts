@@ -11,7 +11,7 @@
  * แยกเป็น port เพราะ:
  *   1. SDK เป็น optional peer dependency — ไม่บังคับให้คนที่ไม่ใช้ต้องลง
  *   2. test ฉีด fake ได้ ไม่ต้องมี API key และไม่ยิงเน็ตจริง
- *   3. เป็นรูปแบบเดียวกับ LineTransport / RpcTransport ของ adapter อื่น
+ *   3. เป็นรูปแบบเดียวกับ ChannelTransport / LineDelimitedTransport ของที่อื่น
  */
 
 /** option ที่ส่งเข้า `query()` — ชื่อตรงกับ SDK */

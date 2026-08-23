@@ -1,12 +1,12 @@
 import { test } from "node:test"
 import assert from "node:assert/strict"
-import { JsonRpcClient, RpcError, RpcClosedError, type LineTransport } from "./jsonrpc.ts"
+import { JsonRpcClient, RpcError, RpcClosedError, type LineDelimitedTransport } from "./jsonrpc.ts"
 
 function fake() {
   const sent: any[] = []
   let onLine: (l: string) => void = () => {}
   let onClose: (r?: string) => void = () => {}
-  const t: LineTransport = {
+  const t: LineDelimitedTransport = {
     send: (line) => sent.push(JSON.parse(line)),
     onLine: (h) => { onLine = h },
     onClose: (h) => { onClose = h },
