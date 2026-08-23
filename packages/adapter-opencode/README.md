@@ -69,3 +69,21 @@ npm test --prefix packages/adapter-opencode
 - `extract.test.ts` — characterization เทียบ `extractResponse()` ฉบับ verbatim จาก v1 บน corpus 22 แบบ
 - `adapter.test.ts` — fake OpenCode ที่เคารพ `AbortSignal` จริง · ครอบ 404 retry · timeout · `/new` `/model` `/abort` `/sessions`
 - `e2e.test.ts` — **HTTP จริง** ผ่าน `node:http` ตั้งแต่ payload ของ LINE จนถึงข้อความที่ส่งกลับ
+
+
+## ⚠️ ช่องว่างที่รู้อยู่ — adapter ตามหลัง `v1-final`
+
+adapter นี้ยกมาจาก `templates/bot-service-opencode` ที่ commit `e56e28e` (เม.ย.)
+แต่ `v1-final` จริงคือ `5d6d709` (ส.ค.) ซึ่งเพิ่มของที่ยัง **ไม่ได้พอร์ตมา**:
+
+| ของที่ขาด | อยู่ใน v1 ที่ไหน |
+| --- | --- |
+| provider **OKMD** — 8 model ใน `MODELS` (`okmd/claude-sonnet-5` ฯลฯ) | `38a0ff1` |
+| flag `noTools` + `NO_TOOLS_NOTE` — เตือนว่าโมเดลนี้อ่าน/แก้ไฟล์ไม่ได้ | `9dd7cf4` |
+| `stripStrayToolCalls()` — Thai 8B ปิด tool call ด้วย `</think>` แทน `</tool_call>` ทำให้ JSON ดิบหลุดถึงผู้ใช้ | `5d6d709` |
+| ข้อความโควต้า OKMD หมด — OKMD ตอบ 401 ไม่ใช่ 429 ตอนโควต้ารายวันหมด | `38a0ff1` |
+
+`extract.test.ts` จึงเทียบกับ oracle ของรุ่น เม.ย. — **ยังถูกต้องสำหรับรุ่นนั้น** แต่ไม่ครอบของใหม่
+
+สามข้อแรกเป็นการเติม config/ฟังก์ชัน ส่วนข้อสุดท้ายควรไปอยู่ใน `error/v1` ของ core
+(`runtime.quota_exhausted` → category `budget_exceeded` ซึ่งมีอยู่แล้วใน taxonomy)

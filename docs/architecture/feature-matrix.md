@@ -1,7 +1,10 @@
 # Botforge — Feature Matrix
 
 **A1 · Phase 0 Audit** · 2026-08-23
-**Source:** `../server-botforge` @ `v1-final` (`e56e28e`)
+**Source:** `../server-botforge` @ `e56e28e`
+**⚠️ baseline นี้ตามหลัง `v1-final` (`5d6d709`) อยู่ 4 commit** — ดู [`current-state.md`](current-state.md) §10
+ผลกระทบต่อตารางนี้: เฉพาะ `opencode` (900 → 941 บรรทัด · เพิ่ม OKMD provider · `stripStrayToolCalls`)
+อีก 8 engine ไม่ถูกแตะเลย · ข้อสรุปทุกข้อในตารางยังจริง
 **วิธี:** ตรวจ 81 ข้อของ [`bot-feature-checklist.md`](../../bot-feature-checklist.md) กับ source จริงทีละ engine ด้วย `grep` แล้ว**เปิดอ่าน context ทุกข้อที่ผลกำกวม** — ไม่ได้เชื่อ grep เปล่า ๆ
 
 > `bot-feature-checklist.md` ในrepo ยังเป็นแบบฟอร์มเปล่า ช่อง Status ว่างทั้ง 81 ช่อง ตารางนี้คือการกรอกครั้งแรก

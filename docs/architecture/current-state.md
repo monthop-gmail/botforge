@@ -1,7 +1,8 @@
 # Botforge — Current State
 
 **Phase 0 Audit** · 2026-08-23
-**Source:** `../server-botforge` @ `e56e28e` (main, working tree สะอาด, commit ล่าสุด 2026-04-18)
+**Source:** `../server-botforge` @ `e56e28e`
+**⚠️ แก้ 2026-08-23:** ตอน audit ใช้ checkout ในเครื่องที่ **ตามหลัง `origin/main` อยู่ 4 commit** ปลายจริงของ V1 คือ `5d6d709` (2026-08-11) ไม่ใช่ `e56e28e` (2026-04-18) — ดู §10
 **วิธี:** อ่าน source จริงทั้ง repo + วัดความซ้ำด้วย `diff` แบบ pairwise ทุกคู่ ไม่ได้อ่านจากเอกสาร
 
 ---
@@ -188,9 +189,9 @@ get_full_sync_files()  # --full — เพิ่ม src/index.ts + CLAUDE.md + s
 | `ecosystem-intelligence` | 2026-08-22 | ✓ passing | ✓ |
 | `care-agent-platform` | 2026-08-22 | ✓ passing | ✓ |
 | `enterprise-knowledge` | 2026-08-21 | ✗ | ✗ |
-| **`server-botforge`** | **2026-04-18** | **✗** | **✗** |
+| **`server-botforge`** | **2026-08-11** | **✗** | **✗** |
 
-Botforge นิ่งมา **4 เดือน** ขณะที่ contract ของ ecosystem เดินหน้าไปแล้วหลายรุ่น
+~~Botforge นิ่งมา **4 เดือน**~~ — **ผิด** · Botforge ขยับล่าสุด 2026-08-11 ห่างจาก repo อื่นแค่วันเดียว ข้อสรุปที่ยังจริงคือ **ยังไม่มี `platform-contract.yaml` และ conformance** ไม่ใช่ว่าไม่มีคนดูแล
 
 ---
 
@@ -227,3 +228,50 @@ Doc V2 Phase 2 วางโครง `core/ agents/ sessions/ workspace/ runtime
 ของจริงคือ template หนึ่งชุดกับสำเนาของมัน 23 ชุด **จึงต้องมีขั้น de-duplicate ก่อน** ไม่งั้น contract ที่เขียนจะเป็นเอกสารเฉย ๆ เพราะ Definition of Done ข้อ "เปลี่ยน Codex → Claude โดยไม่แก้ Channel" เป็นไปไม่ได้ตราบใดที่ Channel logic ถูก copy อยู่ 23 ที่
 
 รายละเอียดขอบเขตที่เสนอให้ดึงออกมา อยู่ที่ [`component-map.md`](component-map.md)
+
+
+---
+
+## 10. แก้ข้อมูลที่ผิด — 2026-08-23
+
+ตอนทำ Phase 0 ผมอ่านจาก checkout ในเครื่องที่ `git fetch` ค้างไว้ตั้งแต่ เม.ย. จึงพลาดไป 4 commit
+
+```
+audit baseline   e56e28e  2026-04-18
+v1-final จริง     5d6d709  2026-08-11   ← tag ชี้ที่นี่แล้ว
+```
+
+### 4 commit ที่พลาดไปทำอะไร
+
+| commit | เนื้อหา |
+| --- | --- |
+| `9dd7cf4` | เปิด tool calling ให้ Typhoon-S และ THaLLE |
+| `38a0ff1` | เพิ่ม provider **OKMD AI Playground** — 23 model ผ่าน key เดียว |
+| `eb42bca` | เพิ่ม okmd เข้า `botforge-models` |
+| `5d6d709` | thaillm drift check ใน `botforge-models` + fix anthropic fetch |
+
+แตะ `botforge-models` และ `templates/bot-service-opencode/` เท่านั้น — ไม่แตะ engine อื่นเลย
+
+### อะไรเปลี่ยน อะไรไม่เปลี่ยน
+
+| ข้อสรุปใน audit | สถานะ |
+| --- | :-: |
+| `codex` = `codex-appserver` เหมือนกันทุก byte | ✅ ยังจริง |
+| `bot-service-thaillm` ว่างเปล่า | ✅ ยังจริง |
+| `getErrorHint()` เหมือนกันทุก byte ทั้ง 8 engine | ✅ ยังจริง |
+| บรรทัดของ 8 engine (claude-code 831 · codex 662 · …) | ✅ ยังจริง |
+| **`opencode` 900 บรรทัด** | ❌ **ตอนนี้ 941** |
+| **"นิ่งมา 4 เดือน"** | ❌ **ผิด — ขยับล่าสุด 2026-08-11** |
+
+### สิ่งที่ค้นพบเพิ่มเพราะเรื่องนี้ — **14 bot ตามหลัง template แล้ว**
+
+```
+templates/bot-service-opencode   941 บรรทัด  (2026-08-11)
+projects/*/bot-service           900 บรรทัด  (รุ่น เม.ย.)  ต่างกัน 63 diff-lines
+```
+
+ตอน audit วัดได้ว่า project ต่างจาก template แค่ 1 บรรทัด — **ตอนนี้ 63** เพราะ template ขยับแต่ไม่มีใครรัน `botforge sync --full`
+
+นี่คือกลไกใน §3 ที่ทำงานตามที่คาดพอดี: default ของ `botforge sync` **ไม่ sync `src/index.ts`** bug fix และ feature ใหม่จึงไม่ไหลลง bot ที่รันอยู่ · 14 bot ยังไม่ได้ OKMD provider, ไม่ได้ตัว `stripStrayToolCalls()` และไม่ได้ข้อความแจ้งโควต้าหมดของ OKMD
+
+**ไม่กระทบข้อสรุปหลักของ V2** — ยิ่งยืนยันว่าการแจกจ่ายด้วยการ copy ทับคือปัญหาจริง
