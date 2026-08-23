@@ -194,7 +194,7 @@ claude-code · copilot-cli ไม่มีปัญหานี้ — server �
 Cloudflare Access หน้า `<name>-server.<domain>` เพราะ LINE bot ไม่ได้วิ่งผ่าน tunnel
 (คุยกันในเครือข่าย docker) จึงไม่กระทบ **ยังไม่ได้ทำและยังไม่ได้ตรวจว่า plan รองรับ**
 
-## 🔴 legal-services เปิดโล่งอยู่จริงตอนนี้ — ไม่เกี่ยวกับ domain ที่หมดอายุ
+## ✅ legal-services เคยเปิดโล่ง — ปิด route ที่ Caddy แล้ว 2026-08-24
 
 ยิงจากภายนอกเมื่อ 2026-08-24:
 
@@ -217,9 +217,22 @@ LINE webhook ของมันชี้ hostname ที่สาม `https://le
 `API_PASSWORD` ตั้งไว้ในไฟล์แล้วแต่ container ยังไม่ได้ restart — และถึง restart
 ก็ยังไม่พอเพราะ `api.py:85` ข้าม auth ให้ `/dev-ui*` อยู่แล้ว (ดูหัวข้อ adkcode ข้างบน)
 
-**ทางแก้ที่แนะนำ:** basic auth ที่ Caddy เฉพาะ hostname `-server` — UI ยังใช้ได้
-(เบราว์เซอร์ขึ้นกล่องให้กรอก) และไม่กระทบ LINE ที่ออกคนละ hostname
-**ยังไม่ได้ทำ** ต้องให้เจ้าของเคาะก่อน เพราะ Caddy ตัวนี้เสิร์ฟเว็บอื่นอีกหลายตัว
+### ที่ทำจริง — ปิด route ไปเลย
+
+เจ้าของเลือกปิดทิ้ง ไม่ใช่ใส่ basic auth บล็อก
+`legal-services-server.eformservice.com` ใน `/opt/docker-test/central-proxy/Caddyfile`
+ถูก comment ไว้พร้อมเหตุผล (สำรอง `Caddyfile.bak-20260824`) แล้ว `caddy reload` แบบ graceful
+
+ยืนยันหลังปิด: `/dev-ui/` และ `/list-apps` → **connection ไม่ติด** ·
+`legal-services.eformservice.com` ยัง 200 · `legal.eformservice.com` `pupanha` `watjan`
+`co-train` ยัง 200 · POST ปลอมไป `/webhook` ได้ 403 (signature validation ทำงาน) ·
+`legal.thaidirection.com/line/webhook` ซึ่งเป็นทางที่ LINE ใช้จริง ยัง 200
+
+`diff` ยืนยันว่าแตะบล็อกเดียว (`propspace-v15.eformservice.com` ที่ยิงไม่ติดคือ
+**ไม่มี DNS record มาแต่เดิม** ไม่เกี่ยวกับการแก้ครั้งนี้)
+
+**จะเปิดกลับ** ต้องใส่ `basicauth` ที่บล็อกนั้นก่อน — ตั้ง `API_PASSWORD` อย่างเดียวไม่พอ
+เพราะ `api.py:85` ข้าม auth ให้ `/dev-ui*` อยู่แล้ว
 
 ---
 

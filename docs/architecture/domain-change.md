@@ -150,5 +150,8 @@ tunnel ชื่อ `icbserv-ssh` ในบัญชีเดียวกัน�
 
 ## ที่ยังค้างอยู่ ไม่เกี่ยวกับการย้าย
 
-`legal-services-server.eformservice.com` เปิดโล่งอยู่ (ดู [`open-items.md`](open-items.md))
-ไม่เกี่ยวกับ domain ที่หมดอายุ และไม่หายไปเองหลังย้าย
+`legal-services-server.eformservice.com` **ปิดไปแล้ว 2026-08-24** — comment ไว้ใน
+`/opt/docker-test/central-proxy/Caddyfile` (สำรอง `.bak-20260824`) ดู [`open-items.md`](open-items.md)
+
+`legal-services.eformservice.com` ยังเปิดอยู่ตามเดิม และ LINE ยังใช้
+`legal.thaidirection.com/line/webhook` — ทั้งคู่ไม่ผูกกับ `sumana.*` การย้าย domain ไม่กระทบ
