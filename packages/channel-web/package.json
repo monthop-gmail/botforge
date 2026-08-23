@@ -1,0 +1,14 @@
+{
+  "name": "@botforge/channel-web",
+  "version": "0.0.1",
+  "type": "module",
+  "license": "MIT",
+  "description": "Channel ที่สอง — HTTP + SSE · พิสูจน์ว่าเปลี่ยน channel ได้โดยไม่แตะ runtime",
+  "exports": { ".": "./src/index.ts" },
+  "scripts": {
+    "test": "node --experimental-strip-types --test 'src/**/*.test.ts'",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": { "@botforge/core": "^0.0.1" },
+  "devDependencies": { "@types/node": "^22", "typescript": "^5.7.0" }
+}

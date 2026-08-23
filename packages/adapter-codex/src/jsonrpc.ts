@@ -10,8 +10,13 @@
  * v1 (`bot-service-codex-appserver`) ใช้ ws · adapter นี้ใช้ stdio เป็นค่าเริ่มต้น
  */
 
-/** สิ่งที่ client ต้องการจากช่องทางสื่อสาร — หนึ่งบรรทัดคือหนึ่ง message */
-export interface LineTransport {
+/**
+ * สิ่งที่ client ต้องการจากช่องทางสื่อสาร — หนึ่งบรรทัดคือหนึ่ง message
+ *
+ * ⚠️ "Line" ที่นี่คือ **บรรทัด** ไม่ใช่ LINE แชท — คนละเรื่องกับ
+ *    `ChannelTransport` ของ core ที่เป็นทางออกของข้อความไปหาผู้ใช้
+ */
+export interface LineDelimitedTransport {
   send(line: string): void
   onLine(handler: (line: string) => void): void
   onClose(handler: (reason?: string) => void): void
@@ -45,7 +50,7 @@ export interface RpcOptions {
 }
 
 export class JsonRpcClient {
-  readonly #transport: LineTransport
+  readonly #transport: LineDelimitedTransport
   readonly #pending = new Map<number, Pending>()
   readonly #handlers = new Map<string, Set<(params: any) => void>>()
   readonly #timeout: number
@@ -53,7 +58,7 @@ export class JsonRpcClient {
   #nextId = 0
   #closed = false
 
-  constructor(transport: LineTransport, options: RpcOptions = {}) {
+  constructor(transport: LineDelimitedTransport, options: RpcOptions = {}) {
     this.#transport = transport
     this.#timeout = options.requestTimeoutMs ?? 300_000
     this.#log = options.log ?? (() => {})

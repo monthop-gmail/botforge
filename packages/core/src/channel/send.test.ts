@@ -1,6 +1,6 @@
 import { test } from "node:test"
 import assert from "node:assert/strict"
-import { sendMessage, type LineTransport } from "./send.ts"
+import { sendMessage, type ChannelTransport } from "./send.ts"
 import { LINE_MAX_TEXT } from "./line.ts"
 
 interface Call { kind: "reply" | "push"; target: string; text: string }
@@ -11,7 +11,7 @@ function fakeTransport(opts: {
 } = {}) {
   const calls: Call[] = []
   let pushCount = 0
-  const transport: LineTransport = {
+  const transport: ChannelTransport = {
     async reply(replyToken, text) {
       calls.push({ kind: "reply", target: replyToken, text })
       if (opts.replyFails) throw new Error("Invalid reply token")

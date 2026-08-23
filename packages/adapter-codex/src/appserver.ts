@@ -5,7 +5,7 @@
  * app-server ตัวจริงได้ · ต่างกันที่ transport: ของเดิมใช้ WebSocket
  * ส่วนตัวนี้ใช้ stdio ซึ่งเป็นทางที่ upstream รับประกัน
  */
-import { JsonRpcClient, type LineTransport } from "./jsonrpc.ts"
+import { JsonRpcClient, type LineDelimitedTransport } from "./jsonrpc.ts"
 import { StdioTransport, type StdioOptions } from "./stdio.ts"
 
 /**
@@ -23,7 +23,7 @@ export const DEFAULT_SANDBOX_POLICY = { type: "dangerFullAccess" } as const
 
 export interface AppServerOptions extends StdioOptions {
   /** ใส่ transport เองได้ — ใช้ตอน test หรือถ้าจะลอง ws (ซึ่ง upstream ไม่ซัพพอร์ต) */
-  transport?: LineTransport
+  transport?: LineDelimitedTransport
   requestTimeoutMs?: number
   clientName?: string
   clientVersion?: string
@@ -34,7 +34,7 @@ export class AppServerConnection {
   readonly rpc: JsonRpcClient
   readonly #log: (...args: unknown[]) => void
   #ready: Promise<void> | undefined
-  #transport: LineTransport
+  #transport: LineDelimitedTransport
 
   constructor(options: AppServerOptions = {}) {
     this.#log = options.log ?? (() => {})

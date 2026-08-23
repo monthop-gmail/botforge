@@ -9,7 +9,7 @@
  * `bot-service-codex` ที่เรียก `spawn("codex", …)` ต่อหนึ่งข้อความ
  */
 import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process"
-import type { LineTransport } from "./jsonrpc.ts"
+import type { LineDelimitedTransport } from "./jsonrpc.ts"
 
 export interface StdioOptions {
   command?: string
@@ -21,7 +21,7 @@ export interface StdioOptions {
   onExit?: (code: number | null, signal: string | null) => void
 }
 
-export class StdioTransport implements LineTransport {
+export class StdioTransport implements LineDelimitedTransport {
   readonly child: ChildProcessWithoutNullStreams
   #buffer = ""
   #lineHandler: ((line: string) => void) | undefined

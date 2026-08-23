@@ -9,13 +9,29 @@
  */
 import { chunkText } from "./line.ts"
 
-/** สิ่งที่ core ต้องการจาก LINE SDK — ฝั่ง adapter เป็นคนต่อของจริง */
-export interface LineTransport {
+/**
+ * ทางออกของข้อความ — channel adapter เป็นคนต่อของจริง
+ *
+ * `reply` คือช่องทางที่ถูกกว่า/เร็วกว่าและใช้ได้ครั้งเดียว (LINE reply token)
+ * channel ที่ไม่มีแนวคิดนี้ (เช่น Web) ให้ `reply` ทำงานเหมือน `push` ได้เลย
+ * — `sendMessage()` จะ fallback ไป `push` เองอยู่แล้วถ้า reply โยน error
+ */
+export interface ChannelTransport {
   reply(replyToken: string, text: string): Promise<void>
   push(to: string, text: string): Promise<void>
 }
 
+/** @deprecated ชื่อเดิมสมัยที่มีแต่ LINE — ใช้ `ChannelTransport` แทน */
+export type LineTransport = ChannelTransport
+
 export interface SendOptions {
+  /**
+   * ลิมิตความยาวต่อ chunk — ค่าเริ่มต้นคือของ LINE (5000)
+   *
+   * channel อื่นมีลิมิตต่างกัน (Web แทบไม่มี · Telegram 4096)
+   * เพิ่มเข้ามาตอนทำ channel ที่สอง เพราะเดิม `sendMessage()` ผูกกับลิมิตของ LINE ตายตัว
+   */
+  chunkLimit?: number
   /** จำนวนครั้งที่ push ได้ต่อ chunk — v1 ใช้ 3 */
   maxAttempts?: number
   /** หน่วง backoff ต่อครั้ง — v1 ใช้ (attempt + 1) * 5000 ms */
@@ -47,7 +63,7 @@ function messageOf(err: unknown): string {
  * ผู้เรียกที่อยากรู้ว่าสำเร็จไหมให้ดูค่าที่คืน
  */
 export async function sendMessage(
-  transport: LineTransport,
+  transport: ChannelTransport,
   to: string,
   text: string,
   replyToken?: string,
@@ -59,7 +75,7 @@ export async function sendMessage(
   const log = options.log ?? (() => {})
   const error = options.error ?? (() => {})
 
-  const chunks = chunkText(text)
+  const chunks = chunkText(text, options.chunkLimit)
   let delivered = 0
   let failed = 0
 
