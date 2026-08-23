@@ -12,6 +12,33 @@ cp apps/line-bot/.env.example apps/line-bot/.env   # แล้วเติมค
 npm start --prefix apps/line-bot
 ```
 
+### docker compose (แนะนำ)
+
+**ไฟล์เดียวรองรับทุก runtime** ผ่าน compose profiles — v1 มี `docker-compose.yml` แยกต่อ engine
+เพราะแต่ละ engine เป็นคนละ template
+
+```bash
+# จาก root ของ repo
+COMPOSE_PROFILES=opencode,tunnel docker compose -f apps/line-bot/docker-compose.yml up -d --build
+COMPOSE_PROFILES=claude          docker compose -f apps/line-bot/docker-compose.yml up -d --build
+```
+
+| profile | service ที่ขึ้น |
+| --- | --- |
+| `opencode` | `line-bot` + `opencode` |
+| `adkcode` | `line-bot` + `adkcode` |
+| `claude` / ไม่ใส่ | `line-bot` อย่างเดียว |
+| `+ tunnel` | เพิ่ม `cloudflared` |
+
+**`codex` และ `claude` ไม่ต้องมี container ของ engine** — `codex` spawn `app-server` เป็น
+child process ส่วน `claude` เรียก SDK ใน process เดียวกับ bot
+
+ของที่ต้อง mount จาก host (credential, `opencode.json`) ใส่ใน `docker-compose.override.yml`
+— ดู [`docker-compose.override.yml.example`](docker-compose.override.yml.example)
+**ไม่ใส่ในไฟล์หลักเพราะ compose ไม่มีวิธีทำ mount แบบ optional ที่ไม่เปราะ**
+
+### docker แบบไม่ใช้ compose
+
 ```bash
 docker build -f apps/line-bot/Dockerfile -t botforge-line-bot .
 docker run --env-file apps/line-bot/.env -p 3000:3000 botforge-line-bot
@@ -55,6 +82,24 @@ audit event (event/v1)
 > ทดสอบด้วย LINE token ปลอม การส่งกลับจึงได้ 401 แล้ว **fallback จาก `reply` ไป `push` ทำงานจริง**
 > ซึ่งก่อนหน้านี้พิสูจน์ได้แค่ใน test · ขั้นสุดท้ายที่ยังไม่ได้ยืนยันคือส่งถึง LINE จริง ต้องมี token ของจริง
 
+## ยืนยัน compose แล้ว
+
+`COMPOSE_PROFILES=opencode` build + up จริง แล้วยิง webhook จากในเครือข่าย compose:
+
+```
+line-bot  Up (healthy)      ← healthcheck ทำงาน
+opencode  Up
+
+POST /webhook -> 200 OK (78 ms)
+   1 STATE_TRANSITION   pending→queued     channel=line
+   2 EXECUTION_STARTED                     channel=line
+   3 STATE_TRANSITION   running→succeeded  channel=line
+```
+
+**bot container คุยกับ opencode container ผ่าน service name ได้จริง** และ model จริงตอบ
+
+`line-bot` **ไม่ publish port** เหมือน v1 — เข้าจากภายนอกผ่าน `cloudflared` เท่านั้น
+
 ## audit event
 
 เขียนลง **stdout เป็น JSON บรรทัดละใบ** ตาม `event/v1`
@@ -70,6 +115,5 @@ audit event (event/v1)
 ## ยังไม่ได้ทำ
 
 - ยังไม่ได้ยิงกับ LINE channel จริง — ต้องมี channel secret/token ของจริง
-- ไม่มี `docker-compose.yml` — v1 มี 3 container (bot + server + tunnel) · ตัวนี้ยังเป็น container เดียว
 - `botforge new` ยังสร้าง project แบบ V2 ไม่ได้ — ยังไม่มี template ที่ใช้ `packages/`
 - ยังไม่มีเส้นทางย้าย 14 bot จาก V1 มา V2

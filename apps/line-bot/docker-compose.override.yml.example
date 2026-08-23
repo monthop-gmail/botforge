@@ -1,0 +1,22 @@
+# คัดลอกเป็น docker-compose.override.yml แล้วแก้ตามเครื่อง
+# compose อ่านไฟล์ override อัตโนมัติเมื่ออยู่โฟลเดอร์เดียวกับ docker-compose.yml
+#
+# ใส่เฉพาะ service ที่ต้องการ mount เพิ่ม — ส่วนที่ไม่เขียนถึงใช้ค่าจากไฟล์หลัก
+
+services:
+  line-bot:
+    volumes:
+      # claude — ใช้ OAuth จาก host แทน ANTHROPIC_API_KEY
+      - ${HOME}/.claude:/root/.claude
+      # codex — ใช้ ChatGPT login จาก host
+      - ${HOME}/.codex:/root/.codex
+
+  opencode:
+    volumes:
+      # ทับ provider config ของ opencode (Thai LLM, OKMD ฯลฯ)
+      - ../../templates/bot-service-opencode/opencode.json:/root/.config/opencode/opencode.json:ro
+
+  adkcode:
+    volumes:
+      # Google ADC
+      - ${HOME}/.config/gcloud:/root/.config/gcloud:ro

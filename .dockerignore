@@ -1,0 +1,14 @@
+node_modules
+**/node_modules
+.git
+templates
+projects
+models
+docs
+ref
+conformance/vendor
+scripts/scenarios
+**/*.test.ts
+**/fixtures
+.env
+**/.env
