@@ -9,11 +9,15 @@
 | module | มาแทน | สถานะ |
 | --- | --- | :-: |
 | `errors.ts` | `getErrorHint()` × 23 สำเนา | ✅ |
-| `identity.ts` | `getSessionKey()` ที่คืน LINE id ดิบ | ✅ |
-| channel (LINE) | `validateSignature` `sendMessage` `chunkText` `isBotMentioned` | ⬜ |
+| `identity.ts` | id ของ channel → `identity/v1` | ✅ |
+| `channel/line.ts` | `chunkText` `validateSignature` `getSessionKey` `isBotMentioned` × 23 สำเนา | ✅ |
+| `channel/send.ts` | `sendMessage` — reply-first + retry 429 × 23 สำเนา | ✅ |
 | session | `enqueueForSession` + `UserSession` | ⬜ |
 | context | `getUserContext` `getTimeContext` `getGroupName` | ⬜ |
 | command router | `handleTextMessage()` 240 บรรทัด | ⬜ |
+| event | ปล่อย `event/v1` ทุกจุดที่ state เปลี่ยน | ⬜ |
+
+**40 test ผ่าน** · typecheck สะอาด · ไม่มี runtime dependency
 
 ## รัน test
 
@@ -31,9 +35,20 @@ npm run typecheck --prefix packages/core
 
 ## Preserve behavior พิสูจน์ยังไง
 
-`errors.test.ts` เก็บ `getErrorHint()` ฉบับ **verbatim จาก v1-final** ไว้เป็น oracle
-แล้วยืนยันว่า `toUserMessage(x) === getErrorHint_v1(x)` ทุกตัวอักษร บน corpus 27 แบบ
-ที่ครอบคลุมทุก branch รวมเคสที่ลำดับการตรวจสำคัญ (`"429 timeout"` · `"timeout during authentication"`)
+เก็บโค้ด v1 ฉบับ **verbatim** ไว้เป็น oracle ในไฟล์ test แล้วเทียบผลทุกตัวอักษร:
+
+| oracle | corpus | ที่มา |
+| --- | --- | --- |
+| `getErrorHint_v1()` | 27 แบบ รวมเคสที่ลำดับสำคัญ (`"429 timeout"` · `"timeout during authentication"`) | `bot-service-codex/src/index.ts:219` |
+| `chunkText_v1()` | 13 แบบ × limit 14/20/50/100/999/5000 | `bot-service-opencode/src/index.ts:401` |
+
+ตรวจแล้วว่าโค้ดที่ยกมา **เหมือนกันเชิงความหมายทั้ง 9 engine**:
+`chunkText` ต่างกันแค่ comment บรรทัดเดียว · `validateSignature` เหมือนทุก byte ·
+`getSessionKey` และ `sendMessage` ต่างแค่การจัดบรรทัดกับ `console.log` vs `log()` ·
+`isBotMentioned` ต่างแค่ชื่อ engine ใน trigger จึงทำเป็น parameter (`triggersFor()`)
+
+`getErrorHint` ไม่มีใน `opencode` — ส่ง error ดิบให้ผู้ใช้แทน
+ดู [`feature-matrix.md`](../../docs/architecture/feature-matrix.md) §6
 
 ตรวจแล้วว่า `getErrorHint()` **เหมือนกันทุก byte ทั้ง 8 engine** ที่มีฟังก์ชันนี้
 (`opencode` ไม่มี — ส่ง error ดิบให้ผู้ใช้แทน ดู [`feature-matrix.md`](../../docs/architecture/feature-matrix.md) §6)
@@ -49,3 +64,20 @@ renderThai(e)    → ข้อความไทย         ← ไปที่�
 
 ที่ต้องแยกเพราะ `error/v1` เขียนไว้ว่า `message` **ห้ามมี credential, PII หรือเนื้อหา prompt**
 แต่ข้อความที่ผู้ใช้เห็นของเดิมเอา error ดิบมาต่อท้าย — สองอย่างนี้ไปด้วยกันไม่ได้ในฟิลด์เดียว
+
+
+## ที่ต่างจาก v1 โดยตั้งใจ — มีสองจุด
+
+**1. `classify()` / `renderThai()` แยกจากกัน** (อธิบายข้างบน)
+
+**2. `chunkText()` มี progress guard**
+
+v1 **วนไม่จบ** เมื่อ `limit` เล็กพอที่จุดตัดจะสั้นกว่า 4 ตัวอักษร และ chunk นั้นมี
+code fence เป็นเลขคี่ — เพราะเติม `` "```\n" `` (4 ตัว) กลับเข้า `remaining`
+มากกว่าที่ตัดออกไป · ยืนยันแล้วว่า `limit=10` กับข้อความที่มี fence ค้าง
+วนเกิน 5,000 รอบโดยไม่จบ ส่วน `limit=50` ขึ้นไปจบปกติ
+
+production ใช้ `limit=5000` ซึ่งจุดตัดสั้นสุดคือ 1,500 ตัว จึงไม่เคยเจอของจริง
+แต่ `limit` เป็น parameter ที่เรียกด้วยค่าอะไรก็ได้ และการวนไม่จบไม่ใช่พฤติกรรมที่ควรรักษา
+
+ผลลัพธ์ยัง **เท่ากับ v1 ทุกตัวอักษรเมื่อ `limit >= 14`** — มี test ยืนยัน

@@ -60,16 +60,16 @@ line-bot   server   cloudflared
 
 ### 3.1 ไม่ผูกกับ runtime → `@botforge/core`
 
-| กลุ่ม | Function | มีในทุก template |
-| --- | --- | :---: |
-| Channel — LINE transport | `validateSignature()` `sendMessage()` `chunkText()` | ✓ |
-| Channel — routing | `getSessionKey()` `isBotMentioned()` | ✓ |
-| Channel — events | `handleJoinEvent()` `handleLeaveEvent()` `handleImageMessage()` | ✓ |
-| Session | `enqueueForSession()` · `interface UserSession` | ✓ (8/9) |
-| Context | `getUserProfile()` `getUserContext()` `getTimeContext()` `getGroupName()` | ✓ |
-| Context — memory | `getGroupMemory()` | claude-code, copilot-cli |
-| Error | `getErrorHint()` | ✓ (8/9) |
-| Logging | `log()` (Bangkok TZ) | ✓ |
+| กลุ่ม | Function | มีในทุก template | เข้า core แล้ว |
+| --- | --- | :---: | :---: |
+| Channel — LINE transport | `validateSignature()` `sendMessage()` `chunkText()` | ✓ | ✅ ยกแล้ว |
+| Channel — routing | `getSessionKey()` `isBotMentioned()` | ✓ | ✅ ยกแล้ว |
+| Channel — events | `handleJoinEvent()` `handleLeaveEvent()` `handleImageMessage()` | ✓ | ⬜ |
+| Session | `enqueueForSession()` · `interface UserSession` | ✓ (8/9) | ⬜ |
+| Context | `getUserProfile()` `getUserContext()` `getTimeContext()` `getGroupName()` | ✓ | ⬜ |
+| Context — memory | `getGroupMemory()` | claude-code, copilot-cli | ⬜ |
+| Error | `getErrorHint()` | ✓ (8/9) | ✅ ยกแล้ว |
+| Logging | `log()` (Bangkok TZ) | ✓ | ⬜ |
 
 > `chunkText()` มี code-block balancing (ปิด ``` ที่ค้าง) อยู่ในทุกไฟล์ — logic แบบนี้แหละที่ไม่ควรมี 23 สำเนา
 

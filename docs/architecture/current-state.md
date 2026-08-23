@@ -203,6 +203,7 @@ Botforge นิ่งมา **4 เดือน** ขณะที่ contract �
 | R3 | `codex` = `codex-appserver` ทุก byte | มี engine ปลอมอยู่ใน matrix — CLAUDE.md โฆษณา 9 engine แต่ของจริงแตกต่างกัน ~6 |
 | R4 | `bot-service-thaillm` ว่างเปล่า | `botforge new` เลือกได้แต่จะพัง |
 | R5 | 14 project เป็น git repo แยก | การอัป V2 = แตะ 15 repo ไม่ใช่ repo เดียว |
+| R7 | `chunkText()` วนไม่จบได้ | เมื่อ `limit` เล็กพอที่จุดตัดสั้นกว่า 4 ตัวอักษร และ chunk มี code fence เป็นเลขคี่ — เติม `"```\n"` กลับเข้า `remaining` มากกว่าที่ตัดออก · **production ใช้ `limit=5000` จึงไม่เคยเจอ** (จุดตัดสั้นสุด 1,500 ตัว) แต่ `limit` เป็น parameter · แก้แล้วใน `@botforge/core` ด้วย progress guard |
 | R6 | secret อยู่ใน `.env` ต่อ project | ยังไม่ได้ audit ว่ามี credential รั่วใน git history ของ 14 repo ไหม — **ควรตรวจก่อนเปิด repo ใด ๆ เป็น public** |
 
 ---
