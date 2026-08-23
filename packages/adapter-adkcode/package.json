@@ -1,0 +1,14 @@
+{
+  "name": "@botforge/adapter-adkcode",
+  "version": "0.0.1",
+  "type": "module",
+  "license": "MIT",
+  "description": "RuntimePort สำหรับ adkcode — Google ADK multi-agent หลัง FastAPI",
+  "exports": { ".": "./src/index.ts" },
+  "scripts": {
+    "test": "node --experimental-strip-types --test 'src/**/*.test.ts'",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": { "@botforge/core": "^0.0.1" },
+  "devDependencies": { "@types/node": "^22", "typescript": "^5.7.0" }
+}

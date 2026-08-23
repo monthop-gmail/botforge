@@ -135,6 +135,19 @@ test("โควต้าหมดของ OKMD — เพิ่มจาก v1 
   assert.equal(classify("Server 401: unauthorized").category, "authentication")
 })
 
+test("session busy → conflict ไม่ใช่ internal", () => {
+  const e = classify("ADKcode API 409: Session is busy")
+  assert.equal(e.code, "runtime.session_busy")
+  assert.equal(e.category, "conflict")
+  assert.equal(e.retryable, true, "รอแล้วส่งใหม่ได้")
+  assert.ok(toUserMessage("session line-c1 กำลังทำงานอยู่ (409 conflict)").includes("รอสักครู่"))
+  // ไม่ไปทับ rate limit
+  assert.equal(classify("Server 429: rate limit").category, "rate_limited")
+  // regression — เคยใช้ "409" เป็น needle แล้วไปจับเลข port ของ opencode เข้า
+  assert.equal(classify("ECONNREFUSED 127.0.0.1:4096").code, "runtime.unknown",
+    "เลข port ที่มี 409 อยู่ข้างในต้องไม่ถูกจับเป็น session busy")
+})
+
 test("renderThai รับ error/v1 object ที่ code ไม่รู้จักได้", () => {
   const foreign = { code: "odoo.sale.locked", category: "conflict" as const, message: "record locked", retryable: false }
   assert.equal(renderThai(foreign), "เกิดข้อผิดพลาดครับ: record locked")

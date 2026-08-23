@@ -84,6 +84,20 @@ const RULES: ReadonlyArray<{
     thai: "AI ใช้เวลานานเกินไปครับ ลองพิมพ์ /new แล้วถามใหม่",
   },
   {
+    // runtime กำลังทำงานอยู่กับ session นี้ — เป็นสถานะ ไม่ใช่ความผิดพลาดถาวร
+    // adkcode ตอบ 409 ตรง ๆ · engine อื่นใช้คิวของ core กันไว้แล้วจึงไม่ค่อยเจอ
+    // `conflict` มีอยู่ใน error/v1 Category อยู่แล้ว — เพิ่มตอนทำ adapter-adkcode
+    //
+    // ⚠️ **ห้ามใช้ `"409"` เป็น needle** — characterization test จับได้ว่ามันไปตรงกับ
+    //    `ECONNREFUSED 127.0.0.1:4096` (เลข port ของ opencode มี `409` อยู่ข้างใน)
+    //    ต้องจับด้วยข้อความที่ระบุความหมายจริงเท่านั้น
+    needles: ["session is busy", "กำลังทำงานอยู่"],
+    code: "runtime.session_busy",
+    category: "conflict",
+    retryable: true,
+    thai: "กำลังตอบข้อความก่อนหน้าอยู่ครับ รอสักครู่แล้วส่งใหม่",
+  },
+  {
     needles: ["401", "403", "auth", "unauthorized"],
     code: "runtime.unauthenticated",
     category: "authentication",
