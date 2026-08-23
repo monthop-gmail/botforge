@@ -148,9 +148,14 @@ opencode  claude   codex-family  gocode     adkcode
 | WorkspaceContract | `profile/v1` | workspace ปัจจุบันมีแค่ `AGENTS.md` — ห่างจาก `profile/v1` พอสมควร |
 | Model registry | `model/v1` · `provider/v1/model-provider` | `botforge-models` ทำ fetch อยู่แล้ว แต่ไม่มี schema |
 | Error | `error/v1` | ตอนนี้ `getErrorHint()` คืน string ไทย ไม่ใช่ object |
-| **ChannelContract** | **ไม่มีใครเป็นเจ้าของ** | **อันเดียวที่เป็นของ Botforge จริง** |
+| **ChannelContract** | **ไม่มีใครเป็นเจ้าของ** | เป็นของ Botforge จริง — แต่ทำเป็น **extension ของ repo เอง ไม่เสนอเข้า platform** ดู [`contract-mapping.md`](contract-mapping.md) §6 |
 
 > ข้อสรุป: Phase 1 ควรเป็น **mapping** ไม่ใช่ **authoring** — สิ่งที่ต้องเขียนใหม่จริง ๆ มีแค่ ChannelContract
+>
+> **แก้เพิ่ม 2026-08-23 (Phase 1):** ตาราง mapping นี้ยืนยันแล้วราย field ที่ [`contract-mapping.md`](contract-mapping.md)
+> — แต่ข้อสรุปเรื่อง ChannelContract **เปลี่ยน**: มันตกเกณฑ์รับ contract ใหม่ของ `agent-platform`
+> ข้อ 2 (ต้องมี consumer 2 ราย) และข้อ 4 (platform ต้องเข้าใจ semantics)
+> จึงต้องเป็น **extension ของ Botforge เอง** แบบ `care-event/v1` ไม่ใช่ contract ของ ecosystem
 
 ---
 

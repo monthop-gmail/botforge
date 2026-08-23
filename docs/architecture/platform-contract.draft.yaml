@@ -1,0 +1,111 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# ร่าง — ยังไม่ใช่ manifest จริง
+#
+# ไฟล์นี้อยู่ใน docs/architecture/ โดยเจตนา ไม่ได้อยู่ที่ root ของ repo
+# เพราะ platform-contract.yaml ที่ root คือ "คำประกาศว่า conform แล้ว"
+# ตาม ADR-0006 ของ agent-platform ซึ่ง Botforge ยังไม่ครบสักข้อ
+#
+# ย้ายขึ้น root เมื่อครบ 3 ข้อของ ADR-0006:
+#   1. manifest              ← ไฟล์นี้
+#   2. conformance test ที่ validate payload จริงใน CI
+#   3. release gate — CI ไม่ผ่าน = merge ไม่ได้
+#
+# อ้างอิง: docs/architecture/contract-mapping.md
+# แบบที่ลอกโครงมา: ../care-agent-platform/platform-contract.yaml
+# ─────────────────────────────────────────────────────────────────────────────
+
+platform_contract_version: "0.1"
+
+# ประกาศเฉพาะที่ "ใช้จริงและมี payload ให้ตรวจ" — ไม่ประกาศล่วงหน้า
+contracts:
+  - error/v1        # getErrorHint() เดิมมี taxonomy 5 แบบที่ map เข้า Category ได้เกือบครบ
+                    # (rate_limited · timeout · authentication/authorization · provider_error)
+                    # ยกเว้น "context ยาวเกิน" ที่ยังไม่มี category ตรง — ใช้ validation
+                    # + code: runtime.context_exhausted ไปก่อน · ดู contract-mapping.md §4.1
+                    #
+                    # ⚠️ message ห้ามมี credential/PII/prompt — ของเดิมใน opencode ส่ง
+                    #    error ดิบจาก provider ให้ผู้ใช้เห็น ต้องตรวจก่อนประกาศข้อนี้
+
+  - event/v1        # Botforge ยังไม่ผลิต event เลย แต่นี่เป็นทางเดียวที่ payload_check
+                    # จะมีของจริงให้ตรวจ · เป็นผู้ผลิต event ไม่ใช่ผู้บริโภค
+                    # แบบเดียวกับ ecosystem-intelligence (agent-platform#40)
+                    #
+                    # 🔒 guarantee ที่ต้องบังคับเอง JSON Schema ตรวจให้ไม่ได้:
+                    #    · append-only
+                    #    · no silent state change — ของเดิม sessions.delete() เกิด 3-4 จุด
+                    #      ต่อไฟล์โดยไม่มีบันทึก ต้องปิดช่องนี้ก่อน
+                    #    · ห้ามสร้าง job_id ปลอม — Botforge ไม่มี job ก็ไม่ต้องใส่
+                    #    · ห้ามเก็บ chain-of-thought เป็น audit record
+
+# contract ที่ยังไม่ได้ใช้ — จะเพิ่มเมื่อ implement จริง ไม่ประกาศล่วงหน้า
+not_yet:
+  - identity/v1     # 🔴 blocker 2 ข้อ ต้องคนตัดสินก่อน (contract-mapping.md §5.1, §5.2)
+                    #    1. LINE id (U.../C.../R...) ผิด pattern ^[a-z0-9][a-z0-9_-]{0,62}$
+                    #       เสนอ line-{lowercase} รองรับ multi-channel ตั้งแต่ต้น
+                    #    2. Botforge ไม่มี concept ของ tenant เลย — แยกด้วย Docker ไม่ใช่ id
+                    #       เสนอ 1 bot project = 1 tenant แต่ต้องยืนยันกับเจ้าของธุรกิจ
+                    #       (สังเกตว่ามี legal-* ถึง 5 ตัว อาจเป็นลูกค้ารายเดียวกัน)
+                    #
+                    #    ประกาศไม่ได้จนกว่าจะตัดสิน — event/v1 required tenant_id
+                    #    และ guarantee ห้ามเดา tenant ให้ ดังนั้นข้อนี้บล็อก event/v1 ด้วย
+
+  - execution/v1    # session ของ Botforge เป็น Map entry ไม่มี state machine
+                    # transition ของ contract บังคับ pending -> authorizing เท่านั้น
+                    # แต่ Botforge ไม่มี policy layer จึงไม่มี authorizing ให้ผ่าน
+
+  - provider/v1     # agent-provider เข้ากับ RuntimeAdapter ดีที่สุดในทั้งหมด
+                    # (schema ระบุชื่อ OpenCode, Claude Code, Codex CLI, Copilot CLI ตรง ๆ)
+                    # แต่ยังไม่มี RuntimeAdapter จริง — รอ Phase 1.5/3
+                    # หมายเหตุที่พร้อมประกาศแล้ว: is_native=false, session.resumable=false,
+                    # observability_depth=turn ทั้ง 9 · cancellation ไม่เท่ากัน:
+                    # gocode เป็น kill_only (DELETE session) ที่เหลือ graceful
+
+  - model/v1        # Usage.cost_usd ชื่อตรงกับของเดิมเป๊ะ แต่มีแค่ 2 ใน 9 engine
+                    # (claude-code, copilot-cli) รอ core รวม cost tracking ให้ครบก่อน
+
+  - tool/v1         # ไม่มีของเดิม — Botforge ไม่ได้ประกาศ tool เอง runtime จัดการ
+  - mcp/v1          # ไม่มีของเดิมเลย ไม่มีไฟล์ .mcp.json ในrepo สักไฟล์
+                    # (feature-matrix.md §11) · auth.credential_ref ต้องมี secret store ก่อน
+                    # ของเดิม mount ~/.claude ~/.config/gh ~/.config/gcloud เข้า container ตรง ๆ
+  - agent/v1        # workspace มีแค่ AGENTS.md + README.md ยังไม่เป็น agent definition
+  - profile/v1      # ยังห่างจาก AGENTS.md มาก
+
+  - policy/v1       # Botforge ไม่ตัดสิน policy เอง
+  - capability/v1   # ยังไม่มี capability routing
+  - approval/v1     # ไม่มี approval flow
+  - consent/v1      # ไม่ได้จัดการ PII ที่ต้องขอความยินยอม
+  - artifact/v1     # ไม่ผลิต artifact
+
+conformance:
+  status: unknown       # ยังไม่เคยรัน — ไม่ใช่ passing และไม่ใช่ failing
+  last_verified: null
+
+  # ยังไม่มี check สักตัว · ที่ต้องมีก่อนย้ายขึ้น root:
+  planned_checks:
+    - name: drift_check
+      command: python conformance/drift_check.py
+      scope: contract ของ repo นี้ยัง $ref ตรงกับ agent-platform ที่ pin ไว้
+      source: ก๊อปโครงจาก ../poc-agent-platform/conformance/drift_check.py
+
+    - name: payload_check
+      command: python conformance/payload_check.py
+      scope: >-
+        event ที่ core ผลิตจริงจาก scenario LINE webhook (join · text · abort · error · leave)
+        validate กับ event/v1 และ error/v1 ที่ commit ที่ pin ไว้
+        — ต้องเป็น payload จริง ไม่ใช่ fixture ที่เขียนให้ผ่าน (ADR-0006 ข้อ 2)
+
+# ส่วนขยายที่ Botforge นิยามเองในโดเมนของตัวเอง — ไม่ได้ขอให้ platform รับไปดูแล
+#
+# ChannelContract ตกเกณฑ์รับ contract ใหม่ของ agent-platform ข้อ 2 (ต้องมี consumer 2 ราย)
+# และข้อ 4 (platform ต้องเข้าใจ semantics) — ซึ่งข้อ 4 ตรงกับที่ architecture doc ของ V2
+# เขียนไว้เองว่า "Agent Platform ไม่ควรรู้รายละเอียดของ LINE Bot"
+# จึงทำเป็น extension แบบเดียวกับ care-event/v1 ของ care-agent-platform
+extensions:
+  - id: channel-event/v1
+    path: contracts/event/v1/channel-event.schema.yaml    # ยังไม่ได้เขียน
+    extends: event/v1
+    detail: >-
+      เพิ่ม channel_type (line · telegram · web · discord) · channel_id · message_id
+      · reply_token — additive ตาม RFC-0009 ไม่ลดทอน guarantee ข้อใดของ event/v1
+      รองรับ event ที่ไม่มีใน vocabulary กลาง: CHANNEL_JOINED · CHANNEL_LEFT
+      · MESSAGE_SKIPPED (กรณี [SKIP] ในกลุ่ม)
