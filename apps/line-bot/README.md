@@ -131,6 +131,18 @@ engine ที่มี UI:
 > ถ้าตั้งชื่อ container เป็น `<prefix>-opencode` route UI จะ 502
 > (ยืนยันแล้วด้วย stack จริง: `http://uitest-server:4096/` → `200 text/html` title `OpenCode`)
 
+### ล็อกอิน UI ของ opencode
+
+**Basic auth · username คือ `opencode`** (ตายตัว) · password คือ `OPENCODE_PASSWORD`
+
+```bash
+curl -u "opencode:$OPENCODE_PASSWORD" https://<name>-server.<domain>/global/health
+```
+
+เบราว์เซอร์จะขึ้นกล่องให้กรอก — ใส่ `opencode` เป็นชื่อผู้ใช้
+ทั้ง V1 (`src/index.ts:61`) และ V2 (`adapter-opencode/src/client.ts:27`) ประกอบ header
+แบบเดียวกัน ใส่ username อื่นจะได้ 401
+
 > ⚠️ **auth ของ server เป็น opt-in และค่าว่าง = ไม่ติดตั้ง middleware เลย**
 > ตรวจแล้วกับ container จริง — `/global/health` ตอบ 200 โดยไม่ต้อง auth
 >

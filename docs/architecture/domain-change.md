@@ -155,3 +155,26 @@ tunnel ชื่อ `icbserv-ssh` ในบัญชีเดียวกัน�
 
 `legal-services.eformservice.com` ยังเปิดอยู่ตามเดิม และ LINE ยังใช้
 `legal.thaidirection.com/line/webhook` — ทั้งคู่ไม่ผูกกับ `sumana.*` การย้าย domain ไม่กระทบ
+
+---
+
+# ผลการย้ายจริง 2026-08-24
+
+ย้าย `sumana.online` → `sumana.org` สำเร็จ · 13 webhook ย้ายแล้ว ·
+`legal-services` ถูกข้ามอัตโนมัติตามที่ออกแบบไว้ · DNS 40 record (14 เดิม + 28 − 2)
+
+## bot ตัวแรกที่ยกขึ้นเครื่องนี้ — `nst-opencode`
+
+```
+docker: server + line-bot + tunnel      ✅ ขึ้นครบ
+tunnel → Cloudflare                      ✅ 3 connection (sin07/sin13/sin17)
+bot ดึง userId จาก LINE                  ✅ credential ใช้ได้
+https://nst-opencode.sumana.org/         200
+  └ POST /webhook ลายเซ็นปลอม            403  ← signature validation ทำงาน
+https://nst-opencode-server.sumana.org/  401 เมื่อไม่ใส่รหัส · 200 เมื่อใส่ถูก
+LINE POST /webhook/test                  {"success": true, "statusCode": 200}
+```
+
+**UI ของ opencode ล็อกอินด้วย Basic auth · username `opencode` ตายตัว**
+password คือ `OPENCODE_PASSWORD` — ใส่ username อื่นได้ 401
+(V1 `src/index.ts:61` · V2 `adapter-opencode/src/client.ts:27` ประกอบเหมือนกัน)
