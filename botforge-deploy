@@ -10,7 +10,7 @@ PROJECTS_DIR="${PROJECTS_DIR:-$SCRIPT_DIR/projects}"
 CONFIG_FILE="${CONFIG_FILE:-$SCRIPT_DIR/.botforge-deploy.env}"
 
 # Default domain suffix
-DEFAULT_DOMAIN_SUFFIX="sumana.online"
+DEFAULT_DOMAIN_SUFFIX="sumana.org"
 
 # --- Colors ---
 RED='\033[0;31m'
@@ -855,6 +855,10 @@ _line_token_of() { _env_get "$PROJECTS_DIR/$1/bot-service/.env" LINE_CHANNEL_ACC
 #    mv สร้าง inode ใหม่ ตัวที่กำลังรันยังถือ fd เก่าไว้จนจบ
 _replace_in_file() {
     local file="$1" from="$2" to="$3" tmp
+    # ⚠️ ถ้า $file เป็น symlink ต้องตามไปแก้ไฟล์จริง ไม่งั้น mv ข้างล่างจะเอาไฟล์ธรรมดา
+    #    ไปทับตัว symlink ทิ้ง แล้วของจริงยังเป็นค่าเก่า (เจอมาแล้วกับ .botforge-deploy.env
+    #    ตอน worktree v2 symlink ไปหา checkout หลัก)
+    [[ -L "$file" ]] && file=$(readlink -f "$file")
     tmp=$(mktemp "${file}.XXXXXX") || return 1
     sed "s|${from//./\\.}|${to}|g" "$file" > "$tmp" || { rm -f "$tmp"; return 1; }
     chmod --reference="$file" "$tmp" 2>/dev/null || true

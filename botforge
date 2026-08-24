@@ -11,7 +11,7 @@ PROJECTS_DIR="${PROJECTS_DIR:-$SCRIPT_DIR/projects}"
 
 # Defaults
 DEFAULT_GITHUB_ORG="monthop-gmail"
-DEFAULT_DOMAIN_SUFFIX="sumana.online"
+DEFAULT_DOMAIN_SUFFIX="sumana.org"
 
 # --- Colors ---
 RED='\033[0;31m'
