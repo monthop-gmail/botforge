@@ -194,6 +194,23 @@ claude-code · copilot-cli ไม่มีปัญหานี้ — server �
 Cloudflare Access หน้า `<name>-server.<domain>` เพราะ LINE bot ไม่ได้วิ่งผ่าน tunnel
 (คุยกันในเครือข่าย docker) จึงไม่กระทบ **ยังไม่ได้ทำและยังไม่ได้ตรวจว่า plan รองรับ**
 
+## ✅ adkcode ไม่เปิด route UI ให้แล้วโดยค่าเริ่มต้น 2026-08-24
+
+`engine_has_ui()` ตอบ **ไม่** สำหรับ `adkcode` ทั้ง V1 และ V2 — เปิดได้ด้วย
+`BOTFORGE_EXPOSE_ADKCODE_UI=1` เมื่อกันที่ขอบไว้แล้ว (Cloudflare Access / basicauth)
+
+เหตุผล: ADK dev UI กัน auth ไม่ได้ `server/api.py:85` ข้าม auth ให้ `/dev-ui*` เสมอ
+ส่วน API ที่ UI เรียก (`/list-apps`, `/run_sse`, `/apps/...`) อยู่ root level จึงโดน 401
+ตั้ง `API_PASSWORD` แล้วได้ผลคือ **หน้ายังเปิดโล่ง แต่ UI ใช้งานไม่ได้** แย่กว่าทั้งสองทาง
+
+ลบของที่ `tunnel setup all` สร้างไว้แล้ว: ingress ของ `legal-adkcode` · `legal-services`
+เหลือ route เดียว และลบ DNS `legal-adkcode-server` · `legal-services-server`
+ยืนยันจาก Cloudflare API: 14 เดิม + 28 สร้าง − 2 ลบ = **40 record ตรงเป๊ะ** ·
+record เดิมของโซน (เว็บ · MX×5 · SPF/DKIM/DMARC · `llm`) ครบทุกตัว ·
+hostname `-server` เหลือ 12 = opencode 9 + claude/copilot 3
+
+---
+
 ## ✅ legal-services เคยเปิดโล่ง — ปิด route ที่ Caddy แล้ว 2026-08-24
 
 ยิงจากภายนอกเมื่อ 2026-08-24:
