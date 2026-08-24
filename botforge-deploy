@@ -419,10 +419,21 @@ get_server_port() {
 # V2 มีเฉพาะ opencode กับ adkcode ที่มี container แยก
 # ส่วน codex spawn app-server เป็น child process และ claude เรียก SDK ใน process เดียวกัน
 engine_has_ui() {
+    # ⚠️ adkcode ไม่เปิด route UI ให้โดยค่าเริ่มต้น — auth ของมันกันไม่ได้
+    #    `server/api.py:85` ข้าม auth ให้ `/dev-ui*` เสมอ ส่วน API ที่ UI เรียก
+    #    (`/list-apps`, `/run_sse`, `/apps/...`) อยู่ root level จึงโดน 401
+    #    ตั้ง API_PASSWORD แล้วได้ผลคือ "หน้ายังเปิดโล่ง แต่ UI ใช้งานไม่ได้"
+    #    ซึ่งแย่กว่าทั้งสองทาง — ตรวจกับ legal-services-server ตัวจริงเมื่อ 2026-08-24
+    #
+    #    ถ้าจะเปิดจริง ๆ ต้องกันที่ขอบ (Cloudflare Access / basicauth ที่ reverse proxy)
+    #    แล้วค่อยตั้ง BOTFORGE_EXPOSE_ADKCODE_UI=1
+    case "${1#v2:}" in
+        adkcode) [[ "${BOTFORGE_EXPOSE_ADKCODE_UI:-0}" == "1" ]] && return 0 || return 1 ;;
+    esac
     case "$1" in
-        v2:opencode|v2:adkcode) return 0 ;;   # V2 ที่มี container ของ engine
-        v2:*)                   return 1 ;;   # V2 ที่เหลือไม่มี
-        *)                      return 0 ;;   # V1 ทุกตัวมี service server
+        v2:opencode) return 0 ;;   # V2 ที่มี container ของ engine
+        v2:*)        return 1 ;;   # V2 ที่เหลือไม่มี
+        *)           return 0 ;;   # V1 ที่เหลือมี service server
     esac
 }
 
@@ -515,7 +526,11 @@ cmd_tunnel_setup() {
             ingress_rules+="{\"hostname\":\"$host_server\",\"service\":\"http://${name}-server:${server_port}\"},"
             echo "    $host_server → http://${name}-server:${server_port}   (UI ของ engine)"
         else
-            echo "    (ข้าม route UI — $engine ไม่มี container ของ engine แยก)"
+            if [[ "${engine#v2:}" == "adkcode" ]]; then
+                echo "    (ข้าม route UI — ADK dev UI กัน auth ไม่ได้ · BOTFORGE_EXPOSE_ADKCODE_UI=1 ถ้าจะเปิด)"
+            else
+                echo "    (ข้าม route UI — $engine ไม่มี container ของ engine แยก)"
+            fi
         fi
 
         # ⚠️ จังหวะนี้คือจังหวะที่ UI ถูกเปิดออกอินเทอร์เน็ตจริง — เตือนถ้ายังไม่มีรหัส
