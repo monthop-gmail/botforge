@@ -182,11 +182,24 @@ platform_toolsets:
 # ไม่ใช่ type: exec — exec คือรัน shell ซึ่งไม่ใช่สิ่งที่ต้องการตรงนี้
 #
 # พิมพ์ /model <ชื่อ> ตรง ๆ ก็ยังได้ ทางลัดนี้ไว้ให้จำง่ายตอนคุยใน LINE
+# ⚠️ ชื่อ quick command ต้องไม่ชนกับคำสั่ง built-in ของ Hermes
+#    ถ้าชน alias จะ "ไม่ทำงานเลย" แบบเงียบ ๆ เพราะ gateway/run.py:14855 เช็ค
+#    `_cmd_def is None` ก่อน — เจอ built-in แล้วจะไม่มองหา alias เลย
+#    เคยตั้ง `fast` แล้วชนกับ /fast (สลับ Priority Processing) จึงเปลี่ยนเป็น turbo
+#
+#    เช็คก่อนตั้งชื่อใหม่:
+#      docker exec <container> /opt/hermes/.venv/bin/python -c \
+#        "import sys;sys.path.insert(0,'/opt/hermes');\
+#         from hermes_cli.commands import is_gateway_known_command as k;print(k('ชื่อ'))"
 quick_commands:
-  fast:
+  turbo:
     type: alias
     target: model oc/minimax-m3          # 2.6s — ตัวเร็วสุดที่ตอบไทยนิ่ง
     description: สลับไปโมเดลเร็ว (oc/minimax-m3)
+  minimax:
+    type: alias
+    target: model oc/minimax-m3          # ชื่อที่อ่านแล้วรู้เลยว่าโมเดลอะไร
+    description: สลับไป minimax (Ollama Cloud)
   big:
     type: alias
     target: model or/ox-alpha            # context 1M แต่ ~19s

@@ -433,9 +433,12 @@ engine_has_ui() {
     #    แล้วค่อยตั้ง BOTFORGE_EXPOSE_ADKCODE_UI=1
     case "${1#v2:}" in
         adkcode) [[ "${BOTFORGE_EXPOSE_ADKCODE_UI:-0}" == "1" ]] && return 0 || return 1 ;;
-        # hermes ไม่มี container `<name>-server` — ทั้ง service คือตัว hermes เอง
-        # dashboard ปิดไว้โดย default (HERMES_DASHBOARD=0) ใส่ route ไปก็ 502
-        # จะเปิดต้องตั้ง HERMES_DASHBOARD=1 + DASHBOARD_PASS แล้ว BOTFORGE_EXPOSE_HERMES_UI=1
+        # hermes ไม่มี container `<name>-server` แยก — ทั้ง service คือตัว hermes เอง
+        # เทมเพลตจึงใส่ network alias `<prefix>-server` ให้ route ชี้ถูก
+        # ปิดไว้โดย default เพราะ dashboard เองก็ปิด (HERMES_DASHBOARD=0) และมันแก้
+        # env/config ได้จากหน้าเว็บ (เห็น LINE token / API key) — เปิดเมื่อจงใจเท่านั้น
+        # เปิด: HERMES_DASHBOARD=1 + DASHBOARD_PASS + HERMES_DASHBOARD_PORT=4096
+        #       แล้ว BOTFORGE_EXPOSE_HERMES_UI=1 ./botforge-deploy tunnel setup <name>
         hermes)  [[ "${BOTFORGE_EXPOSE_HERMES_UI:-0}" == "1" ]] && return 0 || return 1 ;;
     esac
     case "$1" in

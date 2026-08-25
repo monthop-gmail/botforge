@@ -60,7 +60,14 @@ services:
       # image รันด้วย user hermes UID 10000 — ต้อง map ให้ตรง owner ของ ./data
       PUID: ${PUID:-1001}
       PGID: ${PGID:-1001}
+      # web dashboard 19 หน้า: Chat, Sessions (เห็นบทสนทนา LINE), Logs, Models,
+      # Config, Env, Skills, Cron, Channels, Pairing, Webhooks ฯลฯ
+      # ⚠️ แก้ env/config ได้จากหน้าเว็บ = คนที่เข้าได้เห็น LINE token / LiteLLM key
       HERMES_DASHBOARD: ${HERMES_DASHBOARD:-0}
+      # botforge tunnel เปิด route ที่สองไปที่ http://{name}-server:{port ของ engine}
+      # ตั้ง port ให้ตรงกับที่ ingress ชี้ (opencode ใช้ 4096) จะได้ไม่ต้องแก้ Cloudflare
+      HERMES_DASHBOARD_PORT: ${HERMES_DASHBOARD_PORT:-9119}
+      HERMES_DASHBOARD_HOST: 0.0.0.0
       HERMES_DASHBOARD_BASIC_AUTH_USERNAME: ${DASHBOARD_USER:-}
       HERMES_DASHBOARD_BASIC_AUTH_PASSWORD: ${DASHBOARD_PASS:-}
       TZ: ${TZ:-Asia/Bangkok}
@@ -72,11 +79,17 @@ services:
     # browser tool ต้องใช้ shm — ไม่ใส่แล้ว chrome crash (ถ้าปิด toolset browser ตัดได้)
     shm_size: ${SHM_SIZE:-1g}
     networks:
-      - default
+      default:
+        aliases:
+          # route ที่สองของ tunnel ชี้ไปที่ {name}-server ตายตัว แต่ hermes ไม่มี
+          # container แยกชื่อนั้น (ทั้ง service คือตัว hermes เอง) — alias นี้ทำให้
+          # BOTFORGE_EXPOSE_HERMES_UI=1 + tunnel setup ใช้ได้จริง ไม่ 502
+          - {{CONTAINER_PREFIX}}-server
       # LiteLLM อยู่บนเน็ตเวิร์กนี้ — สร้างครั้งเดียวต่อเครื่อง:
       #   docker network create llm-clients
       #   docker network connect llm-clients llm-litellm
-      - llm-clients
+      # (mapping ไม่ใช่ list เพราะ default ข้างบนมี aliases — ปนกันไม่ได้)
+      llm-clients:
     restart: unless-stopped
     deploy:
       resources:
