@@ -103,12 +103,11 @@ platforms:
       port: ${LINE_PORT}
       host: "0.0.0.0"
       # path นี้ต้องตรงกับ Webhook URL ที่ตั้งใน LINE Console
-      #   https://<โดเมนของ project>/webhook
-      # ค่า default ของ Hermes adapter คือ /line/webhook แต่ botforge ใช้ /webhook
-      # เหมือนกันทุก engine — ตั้งตามนั้นเพื่อให้คู่มือใช้ร่วมกันได้
-      # ถ้าแก้ตรงนี้ ต้องแก้ LINE_WEBHOOK_PATH ใน .env ให้ตรงด้วย
-      # (scripts/smoke-webhook.sh อ่านจากตรงนั้น)
-      webhook_path: /webhook
+      #   https://<โดเมนของ project><path>
+      # อ่านจาก LINE_WEBHOOK_PATH ใน .env ที่เดียว — scripts/smoke-webhook.sh
+      # ก็อ่านจากตรงนั้น จะได้ไม่หลุดคนละค่ากันสองที่
+      # ค่า default ของ Hermes adapter เองคือ /line/webhook
+      webhook_path: ${LINE_WEBHOOK_PATH}
       # 🔴 อนุญาต "ทุกคนในกลุ่มนี้" — ไม่ใช่แค่ id ที่อยู่ใน LINE_ALLOWED_USERS
       #
       # ทำไมต้องมีทั้งที่ LINE_ALLOWED_GROUPS ก็ตั้งไว้แล้ว: มันคนละด่านกัน
@@ -120,7 +119,9 @@ platforms:
       # group_allowed_chats ถูกเช็คใน authz_mixin.py:478 ก่อนถึง user allowlist
       # และเป็นทางที่ platform-agnostic (ไม่ต้องรอ Hermes ใส่ LINE ในตาราง hardcode)
       # ใส่ "*" = ทุกกลุ่มที่ผ่านด่าน 1 (ยังคุมด้วย LINE_ALLOWED_GROUPS อยู่)
-      group_allowed_chats: ${LINE_GROUP_ALLOWED_CHATS}
+      # ต้องมี quote — ค่า * ล้วน ๆ YAML อ่านเป็น alias แล้ว parse พัง
+      # (hermes config check ไม่จับให้ ต้อง parse เองถึงจะเห็น)
+      group_allowed_chats: "${LINE_GROUP_ALLOWED_CHATS}"
     # ปิด ping "♻️ Gateway online" ทุกครั้งที่ restart — ผู้ใช้ปลายทางไม่ได้อยากรู้
     gateway_restart_notification: false
     # LINE มี loading indicator ของตัวเอง (chat/loading/start) เปิดไว้

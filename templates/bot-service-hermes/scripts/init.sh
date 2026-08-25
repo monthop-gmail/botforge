@@ -46,6 +46,7 @@ fi
 : "${HERMES_MODEL:=oc/gpt-oss-120b}"
 : "${HERMES_MAX_TURNS:=60}"
 : "${LINE_PORT:=8646}"
+: "${LINE_WEBHOOK_PATH:=/line/webhook}"
 : "${TZ:=Asia/Bangkok}"
 : "${PUID:=$(id -u)}"
 : "${PGID:=$(id -g)}"
@@ -114,15 +115,15 @@ else
   # แทนเฉพาะตัวแปรที่ตั้งใจ — ไม่ใช้ envsubst เปล่า ๆ กัน ${...} อื่นโดนกินไปด้วย
   # ถ้าไม่ตั้ง = ยกกลุ่มที่ผ่าน LINE_ALLOWED_GROUPS ให้ทั้งกลุ่ม (ตรงกับที่คนคาดหวัง
   # เวลาเชิญบอทเข้ากลุ่มทีม) ตั้งเป็นรายการ group id ถ้าอยากแคบกว่านั้น
-  : "${LINE_GROUP_ALLOWED_CHATS:=${LINE_ALLOWED_GROUPS:-\"*\"}}"
-  [ -n "$LINE_GROUP_ALLOWED_CHATS" ] || LINE_GROUP_ALLOWED_CHATS='"*"'
+  : "${LINE_GROUP_ALLOWED_CHATS:=${LINE_ALLOWED_GROUPS:-*}}"
+  [ -n "$LINE_GROUP_ALLOWED_CHATS" ] || LINE_GROUP_ALLOWED_CHATS="*"
   LITELLM_BASE_URL="$LITELLM_BASE_URL" HERMES_MODEL="$HERMES_MODEL" \
-  HERMES_MAX_TURNS="$HERMES_MAX_TURNS" LINE_PORT="$LINE_PORT" TZ="$TZ" \
+  HERMES_MAX_TURNS="$HERMES_MAX_TURNS" LINE_PORT="$LINE_PORT" LINE_WEBHOOK_PATH="$LINE_WEBHOOK_PATH" TZ="$TZ" \
   LINE_GROUP_ALLOWED_CHATS="$LINE_GROUP_ALLOWED_CHATS" \
   python3 -c '
 import os, re, sys
 allowed = ("LITELLM_BASE_URL", "HERMES_MODEL", "HERMES_MAX_TURNS", "LINE_PORT", "TZ",
-           "LINE_GROUP_ALLOWED_CHATS")
+           "LINE_GROUP_ALLOWED_CHATS", "LINE_WEBHOOK_PATH")
 src = open(sys.argv[1], encoding="utf-8").read()
 out = re.sub(r"\$\{(\w+)\}", lambda m: os.environ[m.group(1)] if m.group(1) in allowed else m.group(0), src)
 open(sys.argv[2], "w", encoding="utf-8").write(out)
