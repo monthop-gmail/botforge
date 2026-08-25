@@ -122,6 +122,79 @@ webfetch  {"url": "https://news.google.com/rss?hl=th&gl=TH&ceid=TH:th", "format"
 เป็น "ยื่น tool ให้ตรง ๆ" แบบเดียวกับที่ `opencode/*` 7 ตัวทำได้ 7/7 เพราะมี `websearch` ในตัว
 **ยังไม่ได้ทดลอง**
 
+## ทดลองแล้ว — MCP search **ได้ผลชัดเจน** แต่ยังไม่เอาเข้า production (2026-08-25)
+
+หลังพบว่าแก้ `AGENTS.md` ไม่ได้ผล จึงลองทางที่ตรงเหตุกว่า — **ยื่น tool ให้ตรง ๆ**
+แทนที่จะหวังว่า model จะคิดออกเองว่าต้องยิง RSS ไหนแล้ว parse XML ยังไง
+
+ใช้ `duckduckgo-mcp-server` (ฟรี ไม่ต้องมี API key) ต่อผ่าน `opencode.json`:
+
+```json
+"mcp": { "ddg": { "type": "local", "command": ["duckduckgo-mcp-server"], "enabled": true } }
+```
+
+### ผล — เทียบสามทางบน 19 model ชุดเดียวกัน
+
+| | ✅ ดึงจริง | บอกตรงว่าทำไม่ได้ | 🔴 แต่ง | error |
+| --- | ---: | ---: | ---: | ---: |
+| ก่อนแก้ | 4 | 14 | 0 | 0 |
+| แก้ `AGENTS.md` | 4 | 11 | 1 | 3 |
+| **มี MCP** | **13** | **2** | 1 | 3 |
+
+**4 → 13 เพิ่มสามเท่า** · ตัวที่บอกว่าทำไม่ได้เหลือ 2 จาก 14
+
+9 ตัวที่พลิกจาก "ทำไม่ได้" เป็น "ทำได้" — `cb/gemma-4-31b` · `hf/deepseek-v3.2` ·
+`hf/gemma-4-26b` · `hf/qwen2.5-7b` · `hf/qwen3.5-397b` · `nim/nemotron-super-49b` ·
+`oc/gemma4-31b` · `oc/minimax-m3` · `thaillm/thalle-8b`
+
+**หลักฐานที่ตรงที่สุด** — `hf/deepseek-v3.2` ตัวที่ `AGENTS.md` ทำให้ *แต่งข่าว*
+พอมี MCP กลับมา *ดึงจริง* แสดงว่าสองวิธีนี้แก้คนละปัญหา
+
+ยืนยันสมมติฐาน: ปัญหาคือ **"ไม่คิดจะลอง" ไม่ใช่ "ไม่รู้วิธี"** — เขียนคู่มือให้อ่านไม่ช่วย (4→4)
+แต่ยื่น tool ให้ตรง ๆ ช่วย (4→13) model ไม่ได้ขี้เกียจ มันแค่ไม่มองว่า "ยิง RSS แล้ว parse เอง"
+เป็นวิธีตอบคำถามเรื่องข่าว แต่พอเห็น tool ชื่อ `ddg_search` มันใช้ทันที
+
+### 🔒 ทำไมยังไม่เอาเข้า production
+
+`duckduckgo-mcp-server` เป็น package ของ **community** (`nickclyde/duckduckgo-mcp-server`)
+ไม่ใช่ official และในบริบทนี้มันได้สิทธิ์เยอะกว่าที่ควร:
+
+- รันเป็น process ใน container เดียวกับ opencode
+- container นั้นมี `bash` เต็มรูปแบบ — `git clone` จากอินเทอร์เน็ตได้จริง (เห็นมาแล้วจาก log)
+- mount `/workspace` ซึ่งเป็น repo ของลูกค้า
+- มี `.env` ที่มี key ของ LINE · Cloudflare · OKMD · LiteLLM
+
+**ติดตั้งจากชื่อบน PyPI โดยไม่ได้อ่านโค้ดเลยสักบรรทัด** — ความเสี่ยง supply chain
+
+ถอย `Dockerfile.opencode` และ `opencode.json` กลับหมดแล้ว rebuild image ใหม่ให้สะอาด
+(ยืนยัน: ไม่มี `duckduckgo-mcp-server` ใน image · `big-pickle` และ `gateway` ตอบ 391 ·
+LINE ยิง webhook ทดสอบได้ `success: true`)
+
+### ถ้าจะเอาจริงในอนาคต — ทางที่ปลอดภัยกว่า
+
+| ทาง | ข้อดี | ข้อเสีย |
+| --- | --- | --- |
+| `@modelcontextprotocol/server-brave-search` | อยู่ใต้ org **official** ของ MCP | ต้องมี Brave API key (มี free tier) |
+| รัน MCP ใน **container แยก** ต่อแบบ `type: remote` | ไม่มีสิทธิ์แตะ workspace/`.env` เลย | ต้องดูแลอีก service |
+| self-host **SearXNG** แล้วเขียน MCP บาง ๆ เอง | ควบคุมได้ทั้งหมด | งานเยอะสุด |
+
+ทางที่สองน่าจะคุ้มที่สุด — ได้ประโยชน์ของ MCP โดยตัว server ไม่มีสิทธิ์อะไรใน container ของ bot
+
+### กับดักที่เจอ
+
+- **`/experimental/tool` ไม่แสดง tool ของ MCP** แสดงแต่ built-in — ตอนเปิด MCP แล้วเห็นจำนวน
+  tool เท่าเดิม เกือบสรุปว่าไม่ทำงาน ทั้งที่ทำงานอยู่ ต้องยิงทดสอบจริงถึงจะเห็น `ddg_search`
+- **pip ถอยรุ่นเงียบ ๆ** — ใส่ `duckduckgo-mcp-server` ไว้บรรทัดเดียวกับ `mcp>=1.0,<1.10`
+  ได้ `0.1.2` ไม่ใช่ `0.6.1` ที่ทดสอบไว้ตอนแรก บังเอิญที่ `0.1.2` ใช้ได้เหมือนกัน
+  ถ้าจะเอาจริงต้อง pin รุ่นให้ชัด
+
+### ที่ยังค้าง
+
+- `thaillm/openthaigpt-8b` เปลี่ยนจาก "บอกตรง ๆ" → "แต่ง" ทิศทางเดียวกับที่ `AGENTS.md` ทำ
+  อาจเป็นความผันผวน หรือมี tool แล้วมั่นใจเกิน — ต้องยิงซ้ำถึงจะรู้
+- `mi/ministral-8b` · `thaillm/typhoon-s-8b` มี tool แล้วก็ยังไม่ใช้
+- ยังไม่ได้ทดสอบกับ `okmd` 14 ตัว (เว้นไว้กันเผาโควตารายวัน)
+
 ## ตารางเต็มรายตัว
 
 | model | ผล | tool ที่เรียกจริง | `websearch` |
