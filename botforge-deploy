@@ -73,6 +73,9 @@ detect_engine() {
         echo "adkcode"
     elif [[ -f "$dir/server/go.mod" ]]; then
         echo "gocode"
+    elif [[ -f "$dir/config/config.yaml.tmpl" ]]; then
+        # hermes ไม่มี server แยกและไม่มี src/ — ทั้ง service คือ hermes เอง
+        echo "hermes"
     elif [[ -f "$dir/opencode.json" ]]; then
         echo "opencode"
     elif grep -q "GEMINI_MODEL" "$dir/docker-compose.yml" 2>/dev/null; then
@@ -406,6 +409,7 @@ get_server_port() {
     local engine="${1#v2:}"          # v2:adkcode → adkcode
     case "$engine" in
         adkcode) echo "8000" ;;
+        hermes)  echo "9119" ;;   # dashboard ของ Hermes (ไม่ใช่ 4096)
         *)       echo "4096" ;;
     esac
 }
@@ -429,6 +433,10 @@ engine_has_ui() {
     #    แล้วค่อยตั้ง BOTFORGE_EXPOSE_ADKCODE_UI=1
     case "${1#v2:}" in
         adkcode) [[ "${BOTFORGE_EXPOSE_ADKCODE_UI:-0}" == "1" ]] && return 0 || return 1 ;;
+        # hermes ไม่มี container `<name>-server` — ทั้ง service คือตัว hermes เอง
+        # dashboard ปิดไว้โดย default (HERMES_DASHBOARD=0) ใส่ route ไปก็ 502
+        # จะเปิดต้องตั้ง HERMES_DASHBOARD=1 + DASHBOARD_PASS แล้ว BOTFORGE_EXPOSE_HERMES_UI=1
+        hermes)  [[ "${BOTFORGE_EXPOSE_HERMES_UI:-0}" == "1" ]] && return 0 || return 1 ;;
     esac
     case "$1" in
         v2:opencode) return 0 ;;   # V2 ที่มี container ของ engine

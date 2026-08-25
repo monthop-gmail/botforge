@@ -1,0 +1,106 @@
+# --------------------------------------------------------------------------
+# Hermes Agent → LINE OA (1:1 + group + room)  ×  LiteLLM gateway
+#
+# 🔴 เทมเพลตนี้ไม่เหมือน engine ตัวอื่นของ botforge — ไม่มี line-bot ของ botforge
+#
+# engine อื่น:  LINE ──► botforge line-bot (bun + @line/bot-sdk) ──► engine server
+# hermes:       LINE ──► hermes (มี LINE adapter ในตัว 1,758 บรรทัด)
+#
+# Hermes เป็นเจ้าของ LINE channel เอง — ตรวจลายเซ็น HMAC, reply token, Push API,
+# group/room, media cache, ปุ่ม postback ตอนตอบช้า ทำมาให้หมดแล้ว
+# จึงไม่มี src/ ไม่มี Dockerfile ไม่มี package.json ในเทมเพลตนี้ มีแต่ config
+#
+# ⚠️ service ยังชื่อ `line-bot` และ container ยังเป็น {{CONTAINER_PREFIX}}-line-bot
+#    โดยตั้งใจ — `botforge-deploy tunnel setup` ตั้ง ingress ตายตัวไปที่
+#    http://{name}-line-bot:3000 และ `botforge-deploy status/rebuild` map ชื่อนี้
+#    ตั้งชื่ออื่นแล้ว tunnel จะ 502
+#
+# ครั้งแรก:  ./scripts/init.sh  แล้ว  docker compose up -d
+# --------------------------------------------------------------------------
+
+x-logging: &logging
+  logging:
+    driver: json-file
+    options: { max-size: "10m", max-file: "3" }
+
+services:
+  line-bot:
+    image: nousresearch/hermes-agent:${HERMES_VERSION:-v2026.8.3}
+    container_name: {{CONTAINER_PREFIX}}-line-bot
+    command: gateway run
+    environment:
+      # --- model: มาจาก LiteLLM gateway ---------------------------------------
+      # key_env ใน data/config.yaml ชี้มาที่ชื่อตัวแปรนี้
+      # ด่านตรวจอยู่ที่ ./scripts/init.sh — ไม่ใช้ :? ตรงนี้เพราะจะทำให้
+      # `docker compose ps/config` ของ project ที่เพิ่ง scaffold พังทั้งหมด
+      LITELLM_KEY: ${LITELLM_KEY:-}
+
+      # --- LINE Messaging API ------------------------------------------------
+      # adapter อ่าน env ก่อน extra ใน config.yaml เสมอ — creds อยู่ที่นี่ที่เดียว
+      LINE_CHANNEL_ACCESS_TOKEN: ${LINE_CHANNEL_ACCESS_TOKEN:-}
+      LINE_CHANNEL_SECRET: ${LINE_CHANNEL_SECRET:-}
+      # 3000 = ที่ tunnel ของ botforge ชี้มา ห้ามเปลี่ยนถ้าไม่แก้ ingress ด้วย
+      LINE_PORT: ${LINE_PORT:-3000}
+      LINE_HOST: 0.0.0.0
+      # ต้องเป็น https ปลายทางจริง ใช้ตอนส่งรูป/เสียง/ไฟล์กลับเข้า LINE
+      LINE_PUBLIC_URL: ${LINE_PUBLIC_URL:-https://{{DOMAIN}}}
+      # allowlist 3 ชั้น: U... = คน, C... = group, R... = room
+      LINE_ALLOWED_USERS: ${LINE_ALLOWED_USERS:-}
+      LINE_ALLOWED_GROUPS: ${LINE_ALLOWED_GROUPS:-}
+      LINE_ALLOWED_ROOMS: ${LINE_ALLOWED_ROOMS:-}
+      # ⚠️ true = ใครก็คุยได้ ปิด allowlist ทั้งหมด — ใช้ตอนเก็บ id รอบแรกเท่านั้น
+      LINE_ALLOW_ALL_USERS: ${LINE_ALLOW_ALL_USERS:-false}
+      # ปลายทางของ cron / แจ้งเตือนที่บอทเริ่มเอง (ว่างได้)
+      LINE_HOME_CHANNEL: ${LINE_HOME_CHANNEL:-}
+      # reply token ของ LINE อายุ ~60s — เกินเกณฑ์นี้ยิงปุ่ม postback ให้กดรับคำตอบ
+      # ด้วย token ใหม่ (ฟรี) แทน Push ซึ่งกินโควตาข้อความของ OA
+      LINE_SLOW_RESPONSE_THRESHOLD: ${LINE_SLOW_RESPONSE_THRESHOLD:-45}
+
+      # --- runtime ------------------------------------------------------------
+      # image รันด้วย user hermes UID 10000 — ต้อง map ให้ตรง owner ของ ./data
+      PUID: ${PUID:-1001}
+      PGID: ${PGID:-1001}
+      HERMES_DASHBOARD: ${HERMES_DASHBOARD:-0}
+      HERMES_DASHBOARD_BASIC_AUTH_USERNAME: ${DASHBOARD_USER:-}
+      HERMES_DASHBOARD_BASIC_AUTH_PASSWORD: ${DASHBOARD_PASS:-}
+      TZ: ${TZ:-Asia/Bangkok}
+    volumes:
+      # /opt/data = ทุกอย่างที่ persist: config.yaml sessions memories skills logs
+      - ./data:/opt/data
+      # workspace ของ project — ให้ agent เห็นไฟล์งานเหมือน engine ตัวอื่น
+      - ${PROJECT_DIR:-../workspace}:/workspace
+    # browser tool ต้องใช้ shm — ไม่ใส่แล้ว chrome crash (ถ้าปิด toolset browser ตัดได้)
+    shm_size: ${SHM_SIZE:-1g}
+    networks:
+      - default
+      # LiteLLM อยู่บนเน็ตเวิร์กนี้ — สร้างครั้งเดียวต่อเครื่อง:
+      #   docker network create llm-clients
+      #   docker network connect llm-clients llm-litellm
+      - llm-clients
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: ${MEM_LIMIT:-4G}
+          cpus: "${CPU_LIMIT:-2.0}"
+    <<: *logging
+
+  # ทางเข้า https สำหรับ LINE webhook — LINE ไม่ยิง http และไม่ยิง IP เปล่า
+  #   botforge-deploy tunnel setup {{PROJECT_NAME}}
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: {{CONTAINER_PREFIX}}-tunnel
+    # ค่าว่างจะพังตอน start ของ cloudflared เอง — ใช้ :- ไม่ใช่ :? เพราะ compose
+    # interpolate ทุก service เสมอ
+    command: tunnel --no-autoupdate run --token ${CLOUDFLARE_TUNNEL_TOKEN:-}
+    depends_on:
+      - line-bot
+    networks:
+      - default
+    restart: unless-stopped
+    <<: *logging
+
+networks:
+  default:
+  llm-clients:
+    external: true
