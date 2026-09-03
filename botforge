@@ -96,6 +96,7 @@ cmd_new() {
     echo "    7) codex       — OpenAI Codex CLI (agentic, ChatGPT login or API key)"
     echo "    8) copilot-cli — GitHub Copilot SDK (Claude/GPT-5/o4-mini, GitHub OAuth)"
     echo "    9) codex-appserver — OpenAI Codex App Server (WebSocket JSON-RPC, persistent)"
+    echo "   10) hermes      — Hermes Agent (มี LINE adapter ในตัว · ไม่ใช้ line-bot ของ botforge)"
     read -rp "  Select [1]: " engine_choice
     engine_choice="${engine_choice:-1}"
 
@@ -110,6 +111,7 @@ cmd_new() {
         7) engine="codex"; bot_template="bot-service-codex" ;;
         8) engine="copilot-cli"; bot_template="bot-service-copilot-cli" ;;
         9) engine="codex-appserver"; bot_template="bot-service-codex-appserver" ;;
+        10) engine="hermes"; bot_template="bot-service-hermes" ;;
         0) engine="v2"; bot_template="bot-service-v2" ;;
     esac
 
@@ -163,7 +165,13 @@ cmd_new() {
     echo "    Engine:     $engine"
     echo "    GitHub:     $github_org/$project_name"
     echo "    Domain:     $domain"
-    echo "    Containers: ${container_prefix}-server, ${container_prefix}-line-bot, ${container_prefix}-tunnel"
+    # hermes ไม่มี container `-server` — ทั้ง service คือตัว hermes เอง
+    # (มี LINE adapter ในตัว จึงไม่มี engine แยกให้ bot คุยด้วย)
+    if [[ "$engine" == "hermes" ]]; then
+        echo "    Containers: ${container_prefix}-line-bot (hermes), ${container_prefix}-tunnel"
+    else
+        echo "    Containers: ${container_prefix}-server, ${container_prefix}-line-bot, ${container_prefix}-tunnel"
+    fi
     echo ""
 
     read -rp "  Proceed? [Y/n]: " confirm
@@ -257,8 +265,16 @@ cmd_new() {
     if [[ -n "$env_generated" ]]; then
         echo ""
         echo -e "  ${GREEN}${BOLD}$env_generated สุ่มให้แล้ว${NC} (${BOTFORGE_PASSWORD_LEN} chars, in .env)"
-        echo -e "  ${BOLD}Why:${NC} the engine UI is exposed at https://${project_name}-server.${domain#*.}"
-        echo "       through the tunnel, and auth is off when this value is empty."
+        if [[ "$engine" == "hermes" ]]; then
+            # dashboard ของ hermes ปิดไว้โดย default และ tunnel ไม่เปิด route ให้
+            # (engine_has_ui คืน false) — สุ่มไว้ล่วงหน้าเผื่อเปิดทีหลัง
+            echo -e "  ${BOLD}Why:${NC} Hermes dashboard ปิดอยู่ (HERMES_DASHBOARD=0) และ tunnel"
+            echo "       ยังไม่เปิด route ให้ — สุ่มไว้ก่อนเผื่อเปิดทีหลัง จะได้ไม่เปิดโล่ง"
+            echo "       เปิดจริง: HERMES_DASHBOARD=1 + BOTFORGE_EXPOSE_HERMES_UI=1 แล้ว tunnel setup ใหม่"
+        else
+            echo -e "  ${BOLD}Why:${NC} the engine UI is exposed at https://${project_name}-server.${domain#*.}"
+            echo "       through the tunnel, and auth is off when this value is empty."
+        fi
     fi
     echo ""
     echo -e "  ${BOLD}Webhook URL:${NC} https://${domain}/webhook"
@@ -361,6 +377,7 @@ engine_to_template() {
         qwen-code)   echo "bot-service-qwen-code" ;;
         codex)       echo "bot-service-codex" ;;
         codex-appserver) echo "bot-service-codex-appserver" ;;
+        hermes)      echo "bot-service-hermes" ;;
         copilot-cli) echo "bot-service-copilot-cli" ;;
         *)           echo "" ;;
     esac
