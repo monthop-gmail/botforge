@@ -106,7 +106,33 @@ tool loop ล้วน ๆ โมเดลจึงต้องผ่าน 3 �
 ./scripts/probe-thai.sh       # ข้อ 3 (ยิงผ่าน Hermes จริง) ← ข้อนี้ยิง API ตรงวัดไม่ได้
 ```
 
-สลับโมเดลจากในแชท: `/fast` `/big` `/nim` `/mistral` หรือ `/model <ชื่อ>`
+สลับโมเดลจากในแชท: `/model <ชื่อ>` (คำสั่ง built-in ของ Hermes)
+
+### ⭐ ตรวจ chain ทุกวัน — `./scripts/check-chain.sh`
+
+```bash
+./scripts/check-chain.sh       # ยิงจริงทุกตัวที่ config อ้างถึง
+./scripts/check-chain.sh -q    # เอาแต่ exit code (ใส่ cron ได้)
+```
+
+**chain ที่ไม่เคยถูกทดสอบ คือ chain ที่ไม่มีอยู่จริง** — ตัวสำรองพังแล้วบอทจะ
+ไม่แสดงอาการอะไรเลยตราบใดที่ตัวหลักยังดีอยู่ กว่าจะรู้คือตอนตัวหลักพังพร้อมกัน
+
+โปรเจกต์ต้นทาง (`hermes-line-bot`) เคยปล่อยให้ fallback อันดับ 1 ตายอยู่เป็น
+สัปดาห์โดยไม่รู้ตัว 2 ครั้ง — `or/ox-alpha` จบช่วง stealth testing และ `zen/hy3`
+ถูกผู้ให้บริการปิดชื่อ
+
+นอกจากยิงทีละตัว มันตรวจ **โครงของ chain** ด้วย:
+
+| | |
+|---|---|
+| **ปัญหา** (exit 1) | ชั้นติดกันอยู่ `quota_pool` เดียวกัน · ชื่อไม่มีใน `/model/info` · เป็น alias ไป provider อื่น |
+| **เตือน** (exit 0) | `status: dead/unknown` · `tags: deprecated` · `stability` ไม่ใช่ `stable` · `free_until` ใกล้ถึง · `language_*: drift-*` · `status` ค้างเกิน 3 วัน |
+
+> ⚠️ **ชื่อผิดใน chain ไม่มีใครบอก** — LiteLLM เงียบแล้วคืน error ของตัวหลักมาเฉย ๆ
+> อาการเหมือนไม่ได้ตั้ง fallback เลยทุกประการ ต้องตรวจกับ `/model/info` ไม่ใช่รอ runtime
+>
+> `status: rate_limited` **ไม่ใช่คำเตือน** — ตัวสำรองที่ดีคือตัวที่ว่างตอนตัวหลักตาย
 
 > 🔴 ประกาศ provider เป็น **`custom_providers:` (list)** ไม่ใช่ `providers:` (dict)
 > ถ้าใช้ dict Hermes จะนับ provider ตัวเดียวเป็นสองตัว แล้ว `/model <ชื่อ>` จะ error
@@ -154,6 +180,9 @@ bot-service/
 │   └── skills-keep.txt      # skills ที่ให้ seed
 ├── scripts/
 │   ├── init.sh              # เตรียม data/ + gen config + ตรวจทาง LiteLLM
+│   ├── check-chain.sh       # ⭐ chain ยังใช้ได้ไหม + ตรวจโครง (รันทุกวัน)
+│   ├── _verdict.py          #    แยก ตายถาวร / ไม่ฟรีแล้ว / โควตาหมด / ช้าเกิน
+│   ├── _chain_audit.py      #    ตรวจ pool ซ้ำ + ชื่อไม่มีจริง + สัญญาณเตือน
 │   ├── probe-litellm.sh     # คัดโมเดล: tool calling + context
 │   ├── probe-thai.sh        # คัดโมเดล: อยู่กับภาษาไหม (ต้องยิงผ่าน Hermes จริง)
 │   ├── trim-skills.sh       # ตัด bundled skills

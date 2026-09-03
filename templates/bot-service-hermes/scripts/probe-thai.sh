@@ -13,7 +13,7 @@
 #   ./scripts/probe-thai.sh -t 600 mi/magistral-medium   # ยืด timeout ให้ตัวที่ช้า
 # ============================================================================
 set -uo pipefail
-cd "$(dirname "$0")/.."
+cd "$(dirname "$0")/.." || exit 1
 
 GREEN=$'\033[0;32m'; RED=$'\033[0;31m'; YELLOW=$'\033[0;33m'; DIM=$'\033[2m'; RESET=$'\033[0m'
 
@@ -25,6 +25,7 @@ GREEN=$'\033[0;32m'; RED=$'\033[0;31m'; YELLOW=$'\033[0;33m'; DIM=$'\033[2m'; RE
 CONTAINER="${CONTAINER_PREFIX}-line-bot"
 
 ROUNDS=3
+USE_EASY=0
 # ตั้งสูงไว้ก่อน — reasoning model บางตัวใช้ 200s+ ต่อ turn ตัดสายเร็วไปจะอ่านผลผิด
 TIMEOUT="${PROBE_TIMEOUT:-400}"
 LANG_PY="$(dirname "$0")/_lang.py"
@@ -32,6 +33,7 @@ while [[ "${1:-}" == -* ]]; do
   case "$1" in
     -n) ROUNDS="$2"; shift 2 ;;
     -t) TIMEOUT="$2"; shift 2 ;;
+    -e) USE_EASY=1; shift ;;
     *) echo "unknown arg: $1" >&2; exit 1 ;;
   esac
 done
@@ -42,7 +44,14 @@ docker ps --format '{{.Names}}' | grep -qx "$CONTAINER" || {
   echo "${RED}✗ container $CONTAINER ไม่ได้รัน${RESET}" >&2; exit 1; }
 
 # โจทย์ต้องบังคับให้ "ใช้ tool" — ผล tool เป็นอังกฤษล้วนคือตัวที่ทำให้โมเดลไหล
-PROMPT="สรุปให้หน่อยว่าในโฟลเดอร์ /opt/data/logs มีไฟล์อะไรบ้าง และแต่ละอันน่าจะเก็บอะไร"
+# 🔴 โจทย์สำคัญพอ ๆ กับตัวโมเดล — 2026-09-03 พบว่าโจทย์เดิม (ตัวที่อยู่ใน EASY)
+#    ให้ "ผ่าน 3/3" กับ oc/gpt-oss-120b ทั้งที่มันหลุดไปตอบจีน 2/3 กับโจทย์ที่
+#    มีหลายคำถามในประโยคเดียว + สั่งให้ตอบสั้น — โจทย์ง่ายให้ผลบวกลวง
+#    ใช้ -e ถ้าอยากได้โจทย์เดิมเพื่อเทียบ
+STRESS="ดูหน่อยว่าใน /opt/data/logs มีไฟล์อะไรบ้าง แล้วบอกด้วยว่าแต่ละอันน่าจะเก็บอะไร และอันไหนควรดูก่อนถ้าระบบมีปัญหา ตอบสั้นๆ"
+EASY="สรุปให้หน่อยว่าในโฟลเดอร์ /opt/data/logs มีไฟล์อะไรบ้าง และแต่ละอันน่าจะเก็บอะไร"
+PROMPT="$STRESS"
+[ "$USE_EASY" = 1 ] && PROMPT="$EASY"
 
 echo "${DIM}โจทย์: $PROMPT${RESET}"
 echo "${DIM}รอบละโมเดล: $ROUNDS${RESET}"
