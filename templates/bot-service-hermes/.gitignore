@@ -3,3 +3,7 @@ data/
 results/
 *.bak
 *.log
+
+# ไฟล์ compile ของ python — หลุดเข้ามาตอนรัน py_compile ตรวจสคริปต์
+__pycache__/
+*.pyc
