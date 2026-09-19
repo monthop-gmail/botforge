@@ -305,3 +305,33 @@ logging:
   level: INFO
 
 timezone: ${TZ}
+
+# ── ai-collaboration-mcp — read-only discovery (Pilot #2) ────────────────────
+#
+# ปิดเป็นค่าเริ่มต้น · เปิดด้วย AI_COLLAB_ENABLED=true ใน .env เมื่อมี token จริง
+#
+# 🔴 tools.include เป็น allowlist — ตั้งใจให้มีแค่ 4 ตัวที่ "อ่าน" เท่านั้น
+#    ห้ามเติม accept_handoff / post_message / update_task / create_* เข้ามา
+#    จนกว่าจะผ่าน Pilot #3 ซึ่งเป็นรอบที่พิจารณา write semantics
+#    เหตุผลไม่ใช่ความระวังลอย ๆ — identity ชั้นนี้ปลอมได้ (ดู .env.example)
+#    และ agent รายงานว่าตัวเองทำ tool call ที่ไม่เคยเกิดขึ้นได้จริง
+#
+# 🔴 Authorization เก็บเป็น "template" ไม่ใช่ค่าจริง
+#    Hermes เขียน token ลง data/.env เป็น MCP_AI_COLLAB_API_KEY แล้วแทนค่าตอนรัน
+#    config.yaml จึง commit ได้โดยไม่มีความลับติดไป
+mcp_servers:
+  ai-collab:
+    enabled: ${AI_COLLAB_ENABLED}
+    url: ${AI_COLLAB_URL}
+    headers:
+      Authorization: Bearer ${MCP_AI_COLLAB_API_KEY}
+      X-Client-Name: ${AI_COLLAB_CLIENT_NAME}
+    tools:
+      include:
+        - get_workspace_context
+        - get_tasks
+        - get_handoffs
+        - get_discussion
+      prompts: false
+      resources: false
+    connect_timeout: 20
