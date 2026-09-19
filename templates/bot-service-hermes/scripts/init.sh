@@ -123,11 +123,13 @@ else
   AI_COLLAB_ENABLED="${AI_COLLAB_ENABLED:-false}" \
   AI_COLLAB_URL="${AI_COLLAB_URL:-}" \
   AI_COLLAB_CLIENT_NAME="${AI_COLLAB_CLIENT_NAME:-}" \
+  AI_COLLAB_WRITE_ENABLED="${AI_COLLAB_WRITE_ENABLED:-false}" \
   python3 -c '
 import os, re, sys
 allowed = ("LITELLM_BASE_URL", "HERMES_MODEL", "HERMES_MAX_TURNS", "LINE_PORT", "TZ",
            "LINE_GROUP_ALLOWED_CHATS", "LINE_WEBHOOK_PATH",
-           "AI_COLLAB_ENABLED", "AI_COLLAB_URL", "AI_COLLAB_CLIENT_NAME")
+           "AI_COLLAB_ENABLED", "AI_COLLAB_URL", "AI_COLLAB_CLIENT_NAME",
+           "AI_COLLAB_WRITE_ENABLED")
 src = open(sys.argv[1], encoding="utf-8").read()
 out = re.sub(r"\$\{(\w+)\}", lambda m: os.environ[m.group(1)] if m.group(1) in allowed else m.group(0), src)
 open(sys.argv[2], "w", encoding="utf-8").write(out)

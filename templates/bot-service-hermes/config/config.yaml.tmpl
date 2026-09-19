@@ -335,3 +335,37 @@ mcp_servers:
       prompts: false
       resources: false
     connect_timeout: 20
+
+  # ── coordination write (Pilot #3) — แยกเป็น server คนละตัวโดยตั้งใจ ───────
+  #
+  # เหตุผลที่แยกจาก `ai-collab` ข้างบน ไม่ใช่แค่ความเป็นระเบียบ:
+  #   1. credential คนละใบ — Hermes ตั้งชื่อ env จากชื่อ server ให้เอง
+  #        ai-collab       -> MCP_AI_COLLAB_API_KEY        (อ่าน)
+  #        ai-collab-write -> MCP_AI_COLLAB_WRITE_API_KEY  (เขียน)
+  #      gate A ของ Pilot #3 บังคับว่า write ต้องมาจาก credential ของ instance เอง
+  #      ไม่ใช่ shared bearer ที่ใครถือก็ตั้งชื่อเป็นใครก็ได้
+  #   2. เปิดอ่านไว้ได้โดยที่เขียนยังปิดสนิท
+  #   3. ถอนสิทธิ์เขียน = ถอนใบเดียว ไม่กระทบการอ่าน
+  #
+  # 🔴 allowlist มีเท่าที่ lifecycle ของ handoff บังคับ ไม่มากกว่านี้
+  #    ห้ามเติม create_task / create_handoff / record_decision / record_plan
+  #    เพราะนั่นคือการ "สั่งงาน" ไม่ใช่ "ทำงานที่ถูกสั่ง" — คนละเรื่องกัน
+  #
+  # 🔴 กฎ evidence: claim -> evidence reference -> result post
+  #    สิ่งที่ agent จำว่าตัวเองทำ ไม่ใช่หลักฐาน — ต้องชี้ของที่ตรวจซ้ำได้
+  #    (ผลของ tool, output เทสต์, commit/ref, response ของ MCP)
+  #    ไม่มีหลักฐาน หรือหลักฐานขัดกับที่จะรายงาน -> รายงาน blocked ไม่ใช่ done
+  ai-collab-write:
+    enabled: ${AI_COLLAB_WRITE_ENABLED}
+    url: ${AI_COLLAB_URL}
+    headers:
+      Authorization: Bearer ${MCP_AI_COLLAB_WRITE_API_KEY}
+      X-Client-Name: ${AI_COLLAB_CLIENT_NAME}
+    tools:
+      include:
+        - accept_handoff
+        - post_message
+        - update_task
+      prompts: false
+      resources: false
+    connect_timeout: 20
