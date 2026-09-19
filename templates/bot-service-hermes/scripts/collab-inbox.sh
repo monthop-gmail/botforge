@@ -48,15 +48,50 @@ if [ "$MODE" = gates ]; then
     if [ "$1" = yes ]; then printf '  %s✓%s %-46s %s\n' "$GREEN" "$RESET" "$2" "${3:-}"
     else printf '  %s✗%s %-46s %s\n' "$RED" "$RESET" "$2" "${3:-}"; fail=$((fail+1)); fi
   }
-  [ -n "$WRITE_KEY" ] && a=yes || a=no
-  chk "$a" "A. credential ของ instance เอง" \
-      "$([ "$a" = yes ] && echo 'มีใบแล้ว' || echo 'ยังไม่มี MCP_AI_COLLAB_WRITE_API_KEY')"
-  if [ "$a" = no ]; then
-    echo "      ${DIM}ออกใบด้วย MCP_AUTH_TOKENS: <token>=${NAME:-monthop-gmail/<instance>}${RESET}"
-    echo "      ${DIM}ห้ามใช้ใบของ ai-collab (อ่าน) แทน — นั่นคือ shared bearer ที่ปลอมชื่อได้${RESET}"
-  fi
-  if [ -n "$READ_KEY" ] && [ "$READ_KEY" = "$WRITE_KEY" ]; then
-    chk no "A'. ใบเขียนต้องไม่ใช่ใบเดียวกับใบอ่าน" "ตอนนี้เป็นใบเดียวกัน"
+  # ── gate A (Pilot #3) — พิสูจน์ว่างานแยกถูกตัว ไม่ใช่พิสูจน์ว่าโทเค็นแยกใบ ───
+  #
+  # เดิม gate A บังคับว่าต้องมีใบของ instance เอง · เจ้าของงานเปลี่ยนเมื่อ 19 ก.ย.
+  # ให้ใช้ใบร่วมได้ใน pilot เพื่อเทียบกับ Grok bot pilot แบบเงื่อนไขเดียวกัน
+  # ใบแยกต่อ instance ถูกเลื่อนไปขั้น hardening ไม่ได้ยกเลิก
+  #
+  # 🔴 สิ่งที่ด่านนี้ "กันไม่ได้" และต้องรู้ไว้:
+  #    ชื่อมาจาก X-Client-Name ที่ผู้เรียกตั้งเอง ใครถือใบร่วมก็ตั้งเป็นชื่อไหน
+  #    ก็ได้ · ด่านนี้จึงยืนยันว่า "เราเลือกงานถูกตัว" ไม่ได้ยืนยันว่า
+  #    "คนอื่นสวมรอยเราไม่ได้" — เป็นการกันตัวเอง ไม่ใช่กันจากภายนอก
+  #    การกันจากภายนอกต้องใช้ใบแยก (ขั้น hardening) หรือ OAuth
+  if [ -z "$URL" ] || [ -z "$READ_KEY" ]; then
+    chk no "A. งานแยกถูกตัว (target isolation)" "ยังต่อไม่ได้ — ไม่มี URL หรือ key"
+  else
+    probe=$(curl -s -X POST "$URL" \
+      -H "Authorization: Bearer $READ_KEY" \
+      -H "Accept: application/json, text/event-stream" \
+      -H "Content-Type: application/json" \
+      ${NAME:+-H "X-Client-Name: $NAME"} \
+      -d '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"get_workspace_context","arguments":{"limit":1}}}')
+    verdict=$(printf '%s' "$probe" | NAME="$NAME" python3 -c '
+import json, os, sys
+want = os.environ.get("NAME", "")
+doc = None
+for line in sys.stdin.read().splitlines():
+    if line.startswith("data: "):
+        env = json.loads(line[6:])
+        if "result" in env:
+            doc = json.loads(env["result"]["content"][0]["text"])
+if doc is None:
+    print("ERR|ตอบกลับผิดรูป"); sys.exit()
+got = doc.get("you_are", "")
+if got != want:
+    print(f"ERR|server เห็นเป็น {got} ไม่ใช่ {want}"); sys.exit()
+hos = doc["open_items"]["waiting_for_you"]["unaccepted"]["handoffs"]
+print(f"OK|{got} · กล่องมี {len(hos)} ใบ ทุกใบจ่าหน้าถึงตัวเอง")
+')
+    if [ "${verdict%%|*}" = OK ]; then
+      chk yes "A. งานแยกถูกตัว (target isolation)" "${verdict#*|}"
+      echo "      ${DIM}ด่านนี้กัน \"เราหยิบงานผิดตัว\" ไม่ได้กัน \"คนอื่นสวมรอยเรา\"${RESET}"
+      echo "      ${DIM}การกันสวมรอยต้องใช้ใบแยกต่อ instance — เลื่อนไปขั้น hardening${RESET}"
+    else
+      chk no "A. งานแยกถูกตัว (target isolation)" "${verdict#*|}"
+    fi
   fi
   # B: allowlist ในไฟล์ config จริง
   cfg=data/config.yaml
