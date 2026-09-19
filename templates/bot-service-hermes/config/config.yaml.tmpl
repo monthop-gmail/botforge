@@ -369,3 +369,25 @@ mcp_servers:
       prompts: false
       resources: false
     connect_timeout: 20
+
+# ── ปิด tool-search bridge — แก้ที่ต้นเหตุของ JSON ที่พังเมื่อ payload ยาว ────
+#
+# Hermes ถือว่า **MCP tool ทุกตัวเป็น deferrable** เสมอ (tools/tool_search.py)
+# ของที่ถูก defer เรียกตรงไม่ได้ ต้องผ่าน bridge:
+#
+#     tool_call(name="mcp__x__post_message", arguments="<JSON ทั้งก้อนเป็น string>")
+#
+# แปลว่าโมเดลต้องเขียน JSON ซ้อนใน JSON — escape ทุก quote ทุก newline เอง
+# ยิ่งเนื้อหายาว โอกาสพังยิ่งสูง และมันพัง **ก่อน** คำขอจะออกจาก runtime
+# จึงไม่ใช่เพดานของ MCP หรือของ ai-collaboration-mcp
+#
+# วัดจริงเมื่อ 2026-09-19 (Pilot #3):
+#   เปิด bridge  → post_message พังที่ body ~5.1KB · JSON invalid ที่ column 5226
+#   ปิด bridge   → post_message ผ่านที่ body 5.9KB · 41 บรรทัด · ครั้งเดียวจบ
+#
+# ต้นทุนของการปิด: schema ของ tool ที่เคย defer จะเข้า context ทั้งหมด
+# ของเรามี MCP 7 ตัว (อ่าน 4 เขียน 3) จึงรับได้ · ถ้าวันหนึ่งต่อ MCP เยอะกว่านี้
+# ให้ชั่งใหม่ระหว่าง context ที่กินเพิ่ม กับความเสี่ยงที่ payload ยาวจะพัง
+tools:
+  tool_search:
+    enabled: "off"
