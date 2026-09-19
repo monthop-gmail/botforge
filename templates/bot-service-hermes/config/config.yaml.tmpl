@@ -15,6 +15,37 @@
 # "This config predates version 12 ... can no longer be auto-migrated"
 # v2026.8.3 → 33  ตอนอัป HERMES_VERSION ให้รัน `docker compose run --rm hermes config migrate`
 _config_version: 33
+# ── ทางเลือกที่ 2: Nous Portal (ไม่ต้องมี gateway ของตัวเอง) ────────────────
+#
+# ถ้าเครื่องไม่มี LiteLLM หรือ gateway ล่ม ใช้ Nous Portal แทนได้เลย —
+# Hermes ล็อกอิน Nous อยู่แล้วตั้งแต่ `hermes auth` (ดู data/auth.json)
+#
+#   model:
+#     provider: nous
+#     default: upstage/solar-pro4:free
+#
+# บัญชีที่ไม่มีเครดิตยังใช้ได้ แต่เฉพาะ model ที่ลงท้าย `:free`
+# ตัวที่วัดแล้วผ่านเกณฑ์ (tool_calls จริง + ตอบไทย) เมื่อ 2026-09-19:
+#   upstage/solar-pro4:free                  1.0s  ctx 524K   ← เร็วสุด
+#   inclusionai/ling-3.0-flash-sante:free    1.4s  ctx 262K
+#   meituan/longcat-2.0:free                 3.4s  ctx 1M
+#   stepfun/step-3.7-flash:free              6.2s  ctx 262K   ตอบไทยไม่แน่น
+#   poolside/laguna-*:free                   429 rate limit ตอนวัด
+#
+# 🔴 กับดักที่เสียเวลาไปหนึ่งรอบ: เปลี่ยน config แล้วยังวิ่งไปที่เดิม
+#
+# `/model` ในแชทเขียน override ลง **ตาราง `gateway_routing` ใน data/state.db**
+# ต่อห้อง ซึ่งอยู่เหนือ config.yaml และไม่มีอะไรล้างให้เมื่อ provider หายไป
+# (ไฟล์ data/sessions/sessions.json เป็นแค่สำเนา ล้างแล้วไม่พอ)
+#
+#   docker compose stop line-bot
+#   sqlite3 data/state.db "select session_key, entry_json from gateway_routing;"
+#   # ลบคีย์ model/provider/base_url ออกจาก entry_json ของห้องที่ค้าง
+#
+# และถ้าเคยติดตั้ง skill ที่สอน agent ให้ยิง gateway (เช่น llm-gateway-catalog)
+# ให้ปิดด้วย — ไม่งั้น agent จะ curl ไปหา host ที่ตายแล้วทุก turn
+# ─────────────────────────────────────────────────────────────────────────────
+
 
 # --- provider: LiteLLM gateway ----------------------------------------------
 # base URL รับได้ 3 ชื่อ: api / url / base_url (โค้ดไล่หาตามลำดับนี้)
@@ -34,7 +65,7 @@ _config_version: 33
 # switch_model() ตรง ๆ แล้ว ใช้ได้ทั้ง `nim/minimax-m3` และ `litellm/nim/minimax-m3`
 custom_providers:
   - name: litellm
-    api: ${LITELLM_BASE_URL}
+    base_url: ${LITELLM_BASE_URL}
     key_env: LITELLM_KEY
     # 🔴 ปิด fallback ฝั่ง gateway — ให้ Hermes คุม fallback ชั้นเดียว
     #
