@@ -4,16 +4,27 @@
 งานที่ไม่แตะ filesystem เลย — เช่น job runner ที่รับงานมาทำแล้วต้องปิดงานให้จบ —
 จึงไม่มีทางใช้ hook นี้ได้ ทั้งที่กลไกดัน-ให้-เดินต่อที่ต้องการมีอยู่ครบแล้ว
 
-การแก้: ให้ hook เป็นคนตัดสินว่าจะหยุดหรือไปต่อ แทนที่จะให้ `_edited` ตัดสินแทน
-เปิดด้วยคีย์ใหม่ `agent.pre_verify_always` ซึ่งค่าเริ่มต้นเป็น false
-ของเดิมจึงไม่เปลี่ยนพฤติกรรมเลยสำหรับคนที่ไม่ได้เปิด
+การแก้มีสองส่วน
+
+1. ให้ hook เป็นคนตัดสินว่าจะหยุดหรือไปต่อ แทนที่จะให้ `_edited` ตัดสินแทน
+   เปิดด้วยคีย์ใหม่ `agent.pre_verify_always` ค่าเริ่มต้น false
+   ของเดิมจึงไม่เปลี่ยนพฤติกรรมเลยสำหรับคนที่ไม่ได้เปิด
+
+2. flush ประวัติของ turn ลง session store ก่อนเรียก hook
+   hook ที่ตัดสินจากสิ่งที่ turn นี้ "ทำไปแล้ว" มีทางเดียวคืออ่านจาก session store
+   แต่ผล tool ของ turn ปัจจุบันยังไม่ถูก flush ตอนถึงประตูนี้
+   วัดแล้วด้วยการขับ loop จริง: ตอน hook ทำงาน state.db มี 2 แถว แต่หลังจบรอบมี 4
+   ถ้าไม่ flush ก่อน hook จะเห็นประวัติไม่ครบและตัดสินผิดเสมอ
+   ครอบ try/except ไว้ — ถ้า flush พลาด turn ต้องไม่พัง
 
 hook ยังได้รับ `changed_paths` เหมือนเดิม hook ที่สนใจเฉพาะงานโค้ดจึงเขียน
 `if not changed_paths: return None` แล้วจบ ไม่มีต้นทุนเพิ่ม
-
 `max_verify_nudges` ยังคุมเพดานเหมือนเดิม ไม่มีลูปที่ไม่มีที่สิ้นสุดเพิ่มเข้ามา
 
 ตรวจแล้วว่า apply กับ v2026.8.3 ได้สะอาด และทั้งสามไฟล์ compile ผ่าน
+พิสูจน์ด้วยการขับ conversation loop จริงพร้อม provider ปลอม 5 สถานการณ์ ผ่านหมด
+ลายเซ็นที่ได้: tool_calls -> verify_hook_continue -> tool_calls -> stop ใน session เดียว
+
 ยังไม่ได้ apply ลง deployment ไหนทั้งสิ้น
 
 --- a/agent/verify_hooks.py
@@ -41,7 +52,7 @@ hook ยังได้รับ `changed_paths` เหมือนเดิม 
      if not is_truthy_value(_agent_cfg(config).get("verify_guidance", True), default=True):
 --- a/agent/conversation_loop.py
 +++ b/agent/conversation_loop.py
-@@ -7018,11 +7018,15 @@
+@@ -7018,11 +7018,23 @@
                  _edited = sorted(getattr(agent, "_turn_file_mutation_paths", set()) or [])
                  _attempt = getattr(agent, "_pre_verify_nudges", 0)
                  try:
@@ -56,6 +67,14 @@ hook ยังได้รับ `changed_paths` เหมือนเดิม 
 +                    # policies). Off by default, so the historical
 +                    # code-editing-only scope is unchanged for everyone else.
 +                    if (_edited or pre_verify_always()) and has_hook("pre_verify") and _attempt < max_verify_nudges():
++                        # A finalization hook on a no-file-edit turn can only
++                        # see what this turn did through the session store, and
++                        # this turn's tool results are not flushed yet. Flush
++                        # first so the hook reads the same history the loop has.
++                        try:
++                            agent._flush_messages_to_session_db(messages, conversation_history)
++                        except Exception:
++                            logger.debug("pre_verify preflush failed", exc_info=True)
                          # Posture is fixed for the session — resolve once + cache.
                          coding = getattr(agent, "_resolved_is_coding", None)
                          if coding is None:
