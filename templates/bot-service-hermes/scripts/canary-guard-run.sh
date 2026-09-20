@@ -225,14 +225,21 @@ soak() {   # $1 = เลขงาน 1..3
   runtime_state
 
   c_info "--- ยิงหนึ่งรอบ ไม่กระตุ้นซ้ำ ---"
+  # ถ้ารู้ว่าเป็นใบไหน ให้ระบุในคำสั่งด้วย ไม่ใช่ปล่อยให้เลือกเอง
+  # เพราะ workspace อาจมีใบอื่นที่เป็นหลักฐานของรอบก่อนค้างอยู่ ซึ่งห้ามแตะ
+  # การระบุใบไม่ใช่การชี้นำวิธีทำงาน — เป็นการจ่าหน้าว่างานไหน
+  local prompt="มีงานส่งถึงคุณใน ai-collab ที่ workspace ${ws} ทำตามใบงานให้ครบทุกขั้นจนจบในรอบนี้"
+  if [[ -n "${EXPECTED_TASK:-}" ]]; then
+    prompt="มีงานส่งถึงคุณใน ai-collab ที่ workspace ${ws} ใบ ${EXPECTED_TASK} ทำใบนั้นให้ครบทุกขั้นจนจบในรอบนี้ ใบอื่นในที่นี้ไม่ใช่ของรอบนี้ อย่าแตะ"
+  fi
+
   # สัญญางานผูกกับ exec ครั้งนี้ครั้งเดียว ไม่ติดไปถึง gateway ของ LINE
   # เป็นแค่ที่อยู่ของงาน ไม่ใช่หลักฐานสิทธิ์ — สิทธิ์ยังตัดสินที่ token ฝั่ง server
   timeout 900 docker exec -u hermes \
     -e "BOTFORGE_EXPECTED_WORKSPACE=${ws}" \
     -e "BOTFORGE_EXPECTED_TASK=${EXPECTED_TASK:-}" \
     -e "BOTFORGE_EXPECTED_HANDOFF=${EXPECTED_HANDOFF:-}" \
-    "$CTR" hermes -z \
-    "มีงานส่งถึงคุณใน ai-collab ที่ workspace ${ws} ทำตามใบงานให้ครบทุกขั้นจนจบในรอบนี้" \
+    "$CTR" hermes -z "$prompt" \
     > "${EVIDENCE}/soak-${job}.out" 2>&1
   c_info "exit=$?"
   sleep 8
@@ -258,7 +265,7 @@ case "${1:---check}" in
            budget_gate || exit 3
            run "$2" ;;
   --budget) budget_gate ;;
-  --soak)  [[ "${2:-}" =~ ^[123]$ ]] || { echo "ต้องระบุเลขงาน 1-3"; exit 2; }
+  --soak)  [[ "${2:-}" =~ ^[0-9]{1,2}$ ]] || { echo "ต้องระบุเลขงานเป็นตัวเลข"; exit 2; }
            soak "$2" ;;
   *)       sed -n '2,20p' "$0" ;;
 esac
