@@ -212,6 +212,11 @@ UPDATE = "mcp__ai_collab_write__update_task"
 
 
 def main():
+    # guard ทำงานเฉพาะรอบที่ runner ประกาศสัญญางานมาให้ — ตั้งก่อนโหลด plugin
+    # เพราะ plugin อ่าน env ครั้งเดียวตอน import แล้วแช่ไว้กันการเขียนทับระหว่างรอบ
+    os.environ["BOTFORGE_EXPECTED_WORKSPACE"] = "ws-mock"
+    os.environ["BOTFORGE_EXPECTED_TASK"] = "task-MOCK-0001"
+    os.environ["BOTFORGE_EXPECTED_HANDOFF"] = "ho-mock"
     from hermes_cli import plugins
     plugins._ensure_plugins_discovered(force=True)
     from agent.verify_hooks import pre_verify_always, max_verify_nudges
@@ -264,10 +269,22 @@ def main():
              [call(ACCEPT, {"handoff_id": "ho-mock"})] + [say("เดี๋ยวปิดใบให้ครับ")] * 8,
              expect_cap=_cf.MAX_COORDINATION_NUDGES)
 
-    # NO-TASK — ไม่ได้รับใบ ต้องไม่ถูกดัน
-    scenario("NO-TASK — CLI ที่ไม่ได้รับใบงาน",
-             [say("ตอนนี้ไม่มีงานค้างครับ")],
+    # PRE-ACCEPT — ถูกส่งมาทำใบแต่ไม่เคยเรียก accept_handoff เลย
+    # นี่คืออาการจริงของ soak งานที่ 3 ที่ guard รุ่นก่อนมองไม่เห็น
+    scenario("PRE-ACCEPT — ถูกส่งมาทำใบ แต่ไม่เคยรับ",
+             [say("รับ handoff แล้วครับ ไม่มี approval เดี๋ยวปิดใบเป็น blocked")],
+             expect_continue=True)
+
+    # NO-CONTRACT — รอบที่ runner ไม่ได้ประกาศสัญญางาน guard ต้องเงียบสนิท
+    # ปิดด้วยการล้างสัญญาในโมดูลที่ถูกโหลดแล้ว ไม่ใช่แก้ env เพราะอ่านไปตั้งแต่ import
+    import sys as _sys
+    _mod = _sys.modules.get("hermes_plugins.coordination_finalization")
+    _saved = getattr(_mod, "EXPECTED_JOB", None)
+    _mod.EXPECTED_JOB = None
+    scenario("NO-CONTRACT — ไม่มีสัญญางาน guard ต้องเงียบ",
+             [call(ACCEPT, {"handoff_id": "ho-mock"}), say("รับแล้วครับ")],
              expect_continue=False)
+    _mod.EXPECTED_JOB = _saved
 
     # LINE — มีใบค้างแต่เป็น messaging surface ต้องไม่ถูกดัน
     scenario("LINE — มีใบค้างแต่เป็นแชท",

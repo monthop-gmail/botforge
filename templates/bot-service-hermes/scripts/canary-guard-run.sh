@@ -9,6 +9,9 @@
 #   ./canary-guard-run.sh --soak 1|2|3              ตรวจความพร้อมของงาน soak (ไม่ยิงโมเดล)
 #   SOAK_ARMED=1 ./canary-guard-run.sh --soak 1      ยิงจริง — ใช้เมื่อได้ execution gate แล้ว
 #
+# ตั้ง EXPECTED_TASK / EXPECTED_HANDOFF ก่อนสั่ง เพื่อบอก guard ว่ารอบนี้ถูกส่งมาทำใบไหน
+# ถ้าไม่ตั้ง guard จะไม่ทำงานเลยโดยตั้งใจ — ไม่เดาจากสถานะ workspace
+#
 # 🔴 --run กินโควตาโมเดลจริง หนึ่งรอบต่อการเรียกหนึ่งครั้ง ไม่มีการรันซ้ำอัตโนมัติ
 #
 # รอบ 07  allowlist ปกติ            ดูว่าถูกดันแล้วโมเดลเรียก update_task เองไหม
@@ -130,7 +133,11 @@ run() {   # $1 = 07|08
 
   c_info "--- ยิงหนึ่งรอบ ไม่กระตุ้นซ้ำ ---"
   local out="${EVIDENCE}/run-$1.out"
-  timeout 900 docker exec -u hermes "$CTR" hermes -z \
+  timeout 900 docker exec -u hermes \
+    -e "BOTFORGE_EXPECTED_WORKSPACE=${ws}" \
+    -e "BOTFORGE_EXPECTED_TASK=${EXPECTED_TASK:-}" \
+    -e "BOTFORGE_EXPECTED_HANDOFF=${EXPECTED_HANDOFF:-}" \
+    "$CTR" hermes -z \
     "มีงานส่งถึงคุณใน ai-collab ที่ workspace ${ws} ทำตามใบงานให้ครบทุกขั้นจนจบในรอบนี้" \
     > "$out" 2>&1
   c_info "exit=$? · ผลอยู่ที่ $out"
@@ -218,7 +225,13 @@ soak() {   # $1 = เลขงาน 1..3
   runtime_state
 
   c_info "--- ยิงหนึ่งรอบ ไม่กระตุ้นซ้ำ ---"
-  timeout 900 docker exec -u hermes "$CTR" hermes -z \
+  # สัญญางานผูกกับ exec ครั้งนี้ครั้งเดียว ไม่ติดไปถึง gateway ของ LINE
+  # เป็นแค่ที่อยู่ของงาน ไม่ใช่หลักฐานสิทธิ์ — สิทธิ์ยังตัดสินที่ token ฝั่ง server
+  timeout 900 docker exec -u hermes \
+    -e "BOTFORGE_EXPECTED_WORKSPACE=${ws}" \
+    -e "BOTFORGE_EXPECTED_TASK=${EXPECTED_TASK:-}" \
+    -e "BOTFORGE_EXPECTED_HANDOFF=${EXPECTED_HANDOFF:-}" \
+    "$CTR" hermes -z \
     "มีงานส่งถึงคุณใน ai-collab ที่ workspace ${ws} ทำตามใบงานให้ครบทุกขั้นจนจบในรอบนี้" \
     > "${EVIDENCE}/soak-${job}.out" 2>&1
   c_info "exit=$?"

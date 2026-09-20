@@ -140,6 +140,42 @@ def build_nudge(pending: List[str]) -> str:
     )
 
 
+# ── สัญญางานที่รอบนี้ถูกส่งมาทำ ────────────────────────────────────────────
+# runner รู้อยู่แล้วว่ายิง hermes -z มาเพื่อใบไหน จึงบอก plugin ตรง ๆ ตั้งแต่ตอน launch
+# ไม่ต้องให้ plugin ไปเดาหรือไปยิง MCP ถามเอง
+#
+# อ่านจาก env ครั้งเดียวตอน import แล้วแช่ไว้ — โมเดลเขียนทับระหว่างรอบไม่ได้
+# และ env ถูกตั้งเฉพาะ docker exec ครั้งนั้น ไม่ติดไปถึง gateway ของ LINE
+#
+# ค่าพวกนี้เป็นแค่ที่อยู่ของงาน ไม่ใช่หลักฐานสิทธิ์ — สิทธิ์ยังตัดสินที่ token
+# และ actor ฝั่ง server เหมือนเดิม ใครตั้ง env มั่วก็ทำอะไรเกินสิทธิ์ตัวเองไม่ได้
+ENV_WORKSPACE = "BOTFORGE_EXPECTED_WORKSPACE"
+ENV_TASK = "BOTFORGE_EXPECTED_TASK"
+ENV_HANDOFF = "BOTFORGE_EXPECTED_HANDOFF"
+
+
+def _read_expected_job() -> Optional[Dict[str, str]]:
+    """อ่านสัญญางานจาก env — None ถ้าไม่มี แปลว่า plugin ไม่ทำงานเลย"""
+    task = (os.environ.get(ENV_TASK) or "").strip()
+    handoff = (os.environ.get(ENV_HANDOFF) or "").strip()
+    workspace = (os.environ.get(ENV_WORKSPACE) or "").strip()
+    if not task and not handoff:
+        return None
+    # หลายใบในรอบเดียว: ปิดไว้ก่อนโดยตั้งใจ ไม่เดาแทน
+    # ถ้าวันหนึ่งต้องรองรับจริง ต้องออกแบบว่า nudge ก้อนเดียวพูดถึงหลายใบยังไง
+    if "," in task or "," in handoff:
+        logger.warning(
+            "coordination-finalization: สัญญางานระบุหลายใบ (%r / %r) — "
+            "ยังไม่รองรับ ปิดการทำงานของ guard รอบนี้", task, handoff,
+        )
+        return None
+    return {"workspace": workspace, "task_id": task, "handoff_id": handoff}
+
+
+EXPECTED_JOB = _read_expected_job()
+"""แช่ไว้ตั้งแต่ import — ไม่อ่านซ้ำระหว่างรอบ"""
+
+
 MAX_SESSION_TOKENS = 80_000
 """ถ้ารอบนี้ใช้ไปเกินนี้แล้ว จะไม่จ่ายค่า nudge เพิ่มอีก
 
@@ -161,6 +197,26 @@ MAX_COORDINATION_NUDGES = 1
 """
 
 
+def build_preaccept_nudge(expected: Dict[str, str]) -> str:
+    """ข้อความสำหรับกรณีที่รอบนี้ยังไม่เคยรับใบที่ถูกส่งมาให้ทำ
+
+    แยกจาก build_nudge เพราะปัญหาคนละอย่าง — อันนั้นคือ "ทำแล้วแต่ไม่ปิด"
+    อันนี้คือ "ยังไม่ได้เริ่มเลย ทั้งที่อาจเขียนไปแล้วว่าเริ่มแล้ว"
+
+    ต้องพูดถึงหลักฐานตรง ๆ เพราะอาการที่เจอจริงในงาน soak ที่ 3 คือโมเดลเขียนว่า
+    "Accepted handoff แล้ว" ทั้งที่ไม่เคยเรียก tool เลย
+    """
+    who = expected.get("handoff_id") or expected.get("task_id")
+    return (
+        "[System: รอบนี้ถูกส่งมาทำใบ %s แต่จากบันทึกการเรียกเครื่องมือของรอบนี้ "
+        "ยังไม่มี accept_handoff ที่สำเร็จเลย\n"
+        "ถ้ายังจะทำงานนี้ ให้เรียก accept_handoff จริง ๆ ก่อน แล้วเดินตามใบให้จบ\n"
+        "การเขียนว่ารับใบแล้วไม่นับ — นับเฉพาะที่มีหลักฐานจาก server\n"
+        "ห้ามไปค้นหาหรือลองเครื่องมืออื่นมาแทน ห้ามหาทางอ้อม\n"
+        "นี่คือการเตือนครั้งเดียวของรอบนี้ จะไม่มีครั้งที่สอง]" % who
+    )
+
+
 def decide(
     *,
     session_id: str,
@@ -168,17 +224,25 @@ def decide(
     db_path: Optional[str] = None,
     coordination_sources: Optional[Set[str]] = None,
     max_tokens: Optional[int] = MAX_SESSION_TOKENS,
+    expected: Optional[Dict[str, str]] = None,
 ) -> Optional[Dict[str, str]]:
     """ตรรกะทั้งหมดอยู่ตรงนี้ — แยกจาก hook เพื่อให้ทดสอบตรง ๆ ได้
 
-    คืน ``{"action": "continue", "message": ...}`` เมื่อควรดันต่อ
-    คืน ``None`` เมื่อควรปล่อยให้รอบจบ — รวมถึงกรณีที่เตือนไปแล้วและใบยังค้าง
+    ครอบ lifecycle ทั้งเส้น โดยใช้งบ nudge ก้อนเดียวร่วมกันทั้งสองช่วง
+      ก่อนรับใบ  — ถูกส่งมาทำใบนี้ แต่ยังไม่มี accept_handoff ที่สำเร็จ
+      หลังรับใบ  — รับแล้วแต่ยังไม่มี update_task ที่สถานะปลายทาง
+
+    คืน ``None`` เมื่อควรปล่อยให้รอบจบ รวมถึงกรณีที่เตือนไปแล้วและงานยังค้าง
     """
     if not session_id:
         return None
+    job = EXPECTED_JOB if expected is None else expected
+    if not job:
+        # ไม่มีสัญญางาน = รอบนี้ไม่ใช่งาน coordination ที่ runner ส่งมา
+        # ปิดไว้เลยดีกว่าไปเดาจากสถานะ workspace ซึ่งเป็นพื้นที่ให้ยิงมั่ว
+        return None
     if attempt >= MAX_COORDINATION_NUDGES:
-        # เตือนไปแล้วและยังไม่ปิด — ปล่อยจบ ใบค้างคือผลที่ยอมรับได้
-        # และเป็นสถานะที่ฝั่ง monitoring ใช้เห็นได้ว่ามีงานค้างจริง
+        # งบ nudge ก้อนเดียวใช้ร่วมกันทั้งก่อนและหลังรับใบ ไม่ใช่ช่วงละก้อน
         return None
     scan = scan_session(db_path or _state_db_path(), session_id)
     if not scan["found"]:
@@ -186,27 +250,33 @@ def decide(
     sources = coordination_sources or COORDINATION_SOURCES
     if scan["source"] not in sources:
         return None          # แชท LINE และ subagent ไม่เข้าเงื่อนไข
-    if not scan["accepted"]:
-        return None          # ไม่ได้รับใบอะไรไว้ ก็ไม่มีอะไรค้าง
-    pending = pending_tasks(scan)
-    if not pending:
-        return None          # ปิดครบแล้ว ปล่อยจบ
-    # บันทึกยอด ณ จังหวะที่ตัดสินใจ — หลังจบรอบ state.db เหลือแต่ยอดรวมปลายรอบ
-    # ถ้าไม่บันทึกตรงนี้ จะตอบไม่ได้ว่า "ตอนตัดสินใจ nudge ใช้ไปเท่าไรแล้ว"
+
+    accepted = scan["accepted"]
+    expected_task = job.get("task_id") or ""
+    matched = expected_task in accepted if expected_task else bool(accepted)
+
+    if not matched:
+        phase, pending, message = "pre-accept", [expected_task or job.get("handoff_id", "")], \
+            build_preaccept_nudge(job)
+    else:
+        pending = [t for t in pending_tasks(scan) if t == expected_task]
+        if not pending:
+            return None      # ใบที่ถูกส่งมาทำ ปิดเรียบร้อยแล้ว
+        phase, message = "post-accept", build_nudge(sorted(pending))
+
     logger.info(
-        "coordination-finalization: session=%s attempt=%s tokens=%s pending=%s",
-        session_id, attempt, scan.get("tokens"), sorted(pending),
+        "coordination-finalization: session=%s phase=%s attempt=%s tokens=%s "
+        "expected_task=%s expected_handoff=%s pending=%s",
+        session_id, phase, attempt, scan.get("tokens"),
+        job.get("task_id"), job.get("handoff_id"), pending,
     )
     if max_tokens and scan.get("tokens", 0) >= max_tokens:
-        # แพงเกินงบของรอบนี้แล้ว — ปล่อยจบพร้อมใบที่ค้าง
-        # ใบค้างที่เห็นได้ ดีกว่ารอบที่กินโควตาต่อไปเรื่อย ๆ
         logger.warning(
             "coordination-finalization: ข้ามการเตือนเพราะรอบนี้ใช้ไป %s token แล้ว "
-            "(เพดาน %s) ใบที่ยังค้าง: %s",
-            scan.get("tokens"), max_tokens, sorted(pending),
+            "(เพดาน %s) งานที่ยังค้าง: %s", scan.get("tokens"), max_tokens, pending,
         )
         return None
-    return {"action": "continue", "message": build_nudge(sorted(pending))}
+    return {"action": "continue", "message": message}
 
 
 def residual_pending(session_id: str, db_path: Optional[str] = None) -> List[str]:
