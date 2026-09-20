@@ -5,11 +5,19 @@
 #   ./canary-guard-run.sh --check                   ตรวจความพร้อม ไม่รันอะไร ไม่กินโควตา
 #   ./canary-guard-run.sh --run 07                  รอบ success path (มี update_task)
 #   ./canary-guard-run.sh --run 08                  รอบ failure boundary (ตัด update_task)
+#   ./canary-guard-run.sh --budget                  ดูยอดโควตาที่ใช้ไปแล้ว ไม่รันอะไร
+#   ./canary-guard-run.sh --soak 1|2|3              ตรวจความพร้อมของงาน soak (ไม่ยิงโมเดล)
+#   SOAK_ARMED=1 ./canary-guard-run.sh --soak 1      ยิงจริง — ใช้เมื่อได้ execution gate แล้ว
 #
 # 🔴 --run กินโควตาโมเดลจริง หนึ่งรอบต่อการเรียกหนึ่งครั้ง ไม่มีการรันซ้ำอัตโนมัติ
 #
 # รอบ 07  allowlist ปกติ            ดูว่าถูกดันแล้วโมเดลเรียก update_task เองไหม
 # รอบ 08  ตัด update_task ออก        ดูว่าชนเพดานแล้วหยุดสวยไหม — กรณีที่ guard แพ้
+#
+# soak ต่างจาก --run ตรงที่ไม่สร้างสถานการณ์อะไรเลย ไม่ตัด tool ไม่ตั้งกับดัก
+# เป้าหมายคือหา false positive กับงานปกติ ไม่ใช่วัดอัตราความสำเร็จ
+# มีเพดานรวมของทั้ง soak แยกต่างหาก (SOAK_CEILING ค่าเริ่มต้น 150,000)
+# และตรวจก่อนทุกงาน ถ้าเกินจะไม่รันงานถัดไป
 #
 # รอบ 08 จะทำให้ใบค้าง in_progress ถาวร และนั่นคือผลที่ถูกต้อง
 # ห้ามปิดใบนั้นแทนหลังจบรอบ มิฉะนั้นหลักฐานจะอ่านเหมือนรอบที่สำเร็จ
@@ -172,11 +180,72 @@ budget_gate() {
   return 0
 }
 
+# ── soak: งาน coordination ปกติ ไม่ใช่การทดลองแบบสังเคราะห์ ─────────────────
+# ต่างจาก --run ตรงที่ไม่แตะ allowlist เลย และมีเพดานรวมของทั้ง soak แยกต่างหาก
+soak() {   # $1 = เลขงาน 1..3
+  local job="$1" ws="${SOAK_WS:-ws-hermes-soak-01}"
+  local cap="${SOAK_CEILING:-150000}" spent
+  # soak นับงบของตัวเองแยกจาก --run 07/08 ที่ใช้ไป 182K แล้ว
+  # ถ้าใช้ที่เก็บเดียวกัน งบเก่าจะบล็อก soak ทั้งที่เป็นคนละการทดลอง
+  EVIDENCE="${SOAK_EVIDENCE_DIR:-${EVIDENCE}/soak}"
+  mkdir -p "$EVIDENCE"
+
+  head1 "soak งานที่ $job — workspace $ws"
+  spent=$(budget_spent)
+  if (( spent >= cap )); then
+    c_bad "soak ใช้ไปแล้ว ${spent} token จากเพดาน ${cap} — ไม่รันงานถัดไป"
+    return 3
+  fi
+  c_ok "soak ใช้ไปแล้ว ${spent} / ${cap} token"
+  # ต้องติดสลักก่อนถึงจะยิงโมเดลได้ — เหมือน BENCH_ARMED ของ bench-unattended.sh
+  # ผ่าน budget gate ไม่ได้แปลว่าได้รับอนุญาตให้รัน การอนุมัติเป็นคนละเรื่องกับงบ
+  if [[ "${SOAK_ARMED:-}" != "1" ]]; then
+    c_bad "ยังไม่ติดสลัก — ตั้ง SOAK_ARMED=1 เมื่อได้รับ execution gate แล้วเท่านั้น"
+    c_info "ตอนนี้ตรวจความพร้อมอย่างเดียว ไม่ยิงโมเดล"
+    ensure_up && apply_patch >/dev/null && runtime_state
+    ( cd "$CANARY_DIR" && docker compose --project-name "$PROJECT" down >/dev/null 2>&1 )
+    return 4
+  fi
+  live_untouched
+  ensure_up || { c_bad "canary ขึ้นไม่ได้"; return 1; }
+  apply_patch
+
+  c_info "--- เปิด write เฉพาะช่วงงานนี้ (allowlist ไม่ถูกแตะ) ---"
+  set_write true keep
+  docker restart "$CTR" >/dev/null && sleep 12
+  local i; for i in $(seq 1 30); do docker exec "$CTR" true 2>/dev/null && break; sleep 2; done
+  apply_patch >/dev/null
+  runtime_state
+
+  c_info "--- ยิงหนึ่งรอบ ไม่กระตุ้นซ้ำ ---"
+  timeout 900 docker exec -u hermes "$CTR" hermes -z \
+    "มีงานส่งถึงคุณใน ai-collab ที่ workspace ${ws} ทำตามใบงานให้ครบทุกขั้นจนจบในรอบนี้" \
+    > "${EVIDENCE}/soak-${job}.out" 2>&1
+  c_info "exit=$?"
+  sleep 8
+
+  c_info "--- เก็บหลักฐาน ---"
+  docker exec -u hermes "$CTR" sh -c 'cat /opt/data/state.db' > "${EVIDENCE}/state-run-soak${job}.db"
+  docker logs "$CTR" > "${EVIDENCE}/log-soak-${job}.txt" 2>&1
+  c_info "state.db + log -> ${EVIDENCE}/…soak${job}…"
+
+  set_write false keep
+  ( cd "$CANARY_DIR" && docker compose --project-name "$PROJECT" down >/dev/null 2>&1 )
+  c_ok "canary down แล้ว"
+  live_untouched
+
+  head1 "สิ่งที่สังเกตได้จากงานที่ $job"
+  python3 "${BOT_DIR}/scripts/soak-observe.py" \
+    "${EVIDENCE}/state-run-soak${job}.db" "${EVIDENCE}/log-soak-${job}.txt"
+}
+
 case "${1:---check}" in
   --check) check ;;
   --run)   [[ "${2:-}" =~ ^[0-9]{2}$ ]] || { echo "ต้องระบุเลขสองหลัก เช่น 07"; exit 2; }
            budget_gate || exit 3
            run "$2" ;;
   --budget) budget_gate ;;
+  --soak)  [[ "${2:-}" =~ ^[123]$ ]] || { echo "ต้องระบุเลขงาน 1-3"; exit 2; }
+           soak "$2" ;;
   *)       sed -n '2,20p' "$0" ;;
 esac

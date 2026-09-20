@@ -191,6 +191,12 @@ def decide(
     pending = pending_tasks(scan)
     if not pending:
         return None          # ปิดครบแล้ว ปล่อยจบ
+    # บันทึกยอด ณ จังหวะที่ตัดสินใจ — หลังจบรอบ state.db เหลือแต่ยอดรวมปลายรอบ
+    # ถ้าไม่บันทึกตรงนี้ จะตอบไม่ได้ว่า "ตอนตัดสินใจ nudge ใช้ไปเท่าไรแล้ว"
+    logger.info(
+        "coordination-finalization: session=%s attempt=%s tokens=%s pending=%s",
+        session_id, attempt, scan.get("tokens"), sorted(pending),
+    )
     if max_tokens and scan.get("tokens", 0) >= max_tokens:
         # แพงเกินงบของรอบนี้แล้ว — ปล่อยจบพร้อมใบที่ค้าง
         # ใบค้างที่เห็นได้ ดีกว่ารอบที่กินโควตาต่อไปเรื่อย ๆ
