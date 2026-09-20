@@ -1,7 +1,12 @@
 # Upstream PR package — generic `pre_verify` seam
 
-Prepared against **NousResearch/hermes-agent** `eeb85107f9e6` (upstream `main`, 2026-09-20).
-Local branch: `feat/pre-verify-non-editing-turns` · commit `ac57959`.
+Prepared against **NousResearch/hermes-agent** `ec015c906c87` (upstream `main`, 2026-09-20).
+Local branch: `feat/pre-verify-non-editing-turns` · commit `86c0eaa7`.
+
+Rebased once: the first package targeted `eeb85107`; `main` advanced to `ec015c90`
+while the package sat waiting for authorisation. The new commit touches
+`tools/plugin_guard*` and its tests only — no overlap with this change — and the
+rebase was clean with the same 107 tests passing.
 Patch: `0002-upstream-pr-pre-verify-always.patch` (`git am`-ready).
 
 **Not pushed. No fork created. No PR opened.** See "What remains" below.
@@ -103,7 +108,7 @@ That is why there are two patches:
 | file | target | used for |
 | --- | --- | --- |
 | `0001-pre-verify-always.patch` | `v2026.8.3` | our canary runtime |
-| `0002-upstream-pr-pre-verify-always.patch` | `main` @ `eeb85107` | the PR |
+| `0002-upstream-pr-pre-verify-always.patch` | `main` @ `ec015c90` | the PR |
 
 They implement the same two changes. The `main` version is smaller and cleaner
 because the extracted module gave the preflush an obvious place to live.

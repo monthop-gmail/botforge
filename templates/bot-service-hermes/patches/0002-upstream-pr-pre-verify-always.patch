@@ -1,4 +1,4 @@
-From ac579597871afa1bfbf14ff66889e93baff7a75e Mon Sep 17 00:00:00 2001
+From 86c0eaa749c2be72dba5497b99610de6d7276389 Mon Sep 17 00:00:00 2001
 From: monthop-gmail <monthop-gmail@users.noreply.github.com>
 Date: Sun, 20 Sep 2026 09:42:42 +0700
 Subject: [PATCH] feat(agent): opt-in pre_verify for turns that edited no files
@@ -42,7 +42,7 @@ flush failure, and the config reader.
  create mode 100644 tests/agent/test_pre_verify_always.py
 
 diff --git a/agent/turn_stop_gates.py b/agent/turn_stop_gates.py
-index 01ca598..b60b3a5 100644
+index 01ca5983..b60b3a54 100644
 --- a/agent/turn_stop_gates.py
 +++ b/agent/turn_stop_gates.py
 @@ -49,16 +49,28 @@ def _verify_on_stop_nudge(agent) -> Optional[str]:
@@ -91,7 +91,7 @@ index 01ca598..b60b3a5 100644
          agent._pre_verify_nudges = _attempt + 1
          final_msg["finish_reason"] = "verify_hook_continue"
 diff --git a/agent/verify_hooks.py b/agent/verify_hooks.py
-index 7b554bc..886a1a2 100644
+index 7b554bcb..886a1a28 100644
 --- a/agent/verify_hooks.py
 +++ b/agent/verify_hooks.py
 @@ -34,6 +34,21 @@ def max_verify_nudges(config: Optional[dict[str, Any]] = None) -> int:
@@ -123,7 +123,7 @@ index 7b554bc..886a1a2 100644
 -__all__ = ["CODING_VERIFY_GUIDANCE", "DEFAULT_MAX_VERIFY_NUDGES", "coding_verify_guidance", "max_verify_nudges"]
 +__all__ = ["CODING_VERIFY_GUIDANCE", "DEFAULT_MAX_VERIFY_NUDGES", "coding_verify_guidance", "max_verify_nudges", "pre_verify_always"]
 diff --git a/hermes_cli/config_defaults.py b/hermes_cli/config_defaults.py
-index 586be09..6486201 100644
+index 586be09d..64862011 100644
 --- a/hermes_cli/config_defaults.py
 +++ b/hermes_cli/config_defaults.py
 @@ -189,6 +189,13 @@ DEFAULT_CONFIG = {
@@ -142,7 +142,7 @@ index 586be09..6486201 100644
          # passive ledger). False (default) because the nudges proved more noise than signal; true =
 diff --git a/tests/agent/test_pre_verify_always.py b/tests/agent/test_pre_verify_always.py
 new file mode 100644
-index 0000000..6f42ab8
+index 00000000..6f42ab84
 --- /dev/null
 +++ b/tests/agent/test_pre_verify_always.py
 @@ -0,0 +1,139 @@
