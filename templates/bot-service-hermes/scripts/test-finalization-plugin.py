@@ -50,10 +50,11 @@ class Fixture:
         os.close(fd)
         self.session_id = session_id
         db = sqlite3.connect(self.path)
-        db.execute("create table sessions (id text primary key, source text)")
+        db.execute("create table sessions (id text primary key, source text, "
+                   "input_tokens integer default 0, output_tokens integer default 0)")
         db.execute("create table messages (session_id text, role text, "
                    "tool_name text, content text, finish_reason text)")
-        db.execute("insert into sessions values (?,?)", (session_id, source))
+        db.execute("insert into sessions (id, source) values (?,?)", (session_id, source))
         db.commit()
         db.close()
 
@@ -91,6 +92,14 @@ class Fixture:
     def says(self, text):
         """โมเดลพูดอย่างเดียว ไม่เรียก tool — ถ้อยคำต้องไม่มีผลต่อการตัดสิน"""
         self._add("assistant", content=text, finish="stop")
+        return self
+
+    def spend(self, tokens):
+        """ตั้งยอด token ที่รอบนี้ใช้ไปแล้ว — เลียนแบบสิ่งที่ background writer ของ Hermes เขียน"""
+        db = sqlite3.connect(self.path)
+        db.execute("update sessions set input_tokens=? where id=?", (tokens, self.session_id))
+        db.commit()
+        db.close()
         return self
 
     def ask(self, attempt=0):
@@ -190,24 +199,24 @@ def main(argv):
     print("  n/a 8  รอบที่ถูกตัดกลางคัน (end_reason=None)               "
           "— ไม่มี turn-end ให้ hook เกาะ จึงไม่อ้างว่าแก้ได้")
 
-    # 9. ชน max_verify_nudges -> loop หยุดเอง และสถานะที่ค้างต้องยังอ่านออก
+    # 9. เพดานของ guard นี้คือ 1 ครั้ง ไม่ใช่ 3 ของ Hermes — วนแล้วต้องหยุดที่ครั้งเดียว
     f = Fixture()
     f.accept("task-E").read()
     fired = 0
     for attempt in range(MAX_VERIFY_NUDGES + 2):
-        if attempt >= MAX_VERIFY_NUDGES:
-            allowed = False                      # เงื่อนไขในตัว conversation_loop
-        else:
-            allowed = f.ask(attempt=attempt) is not None
-        if not allowed:
+        if attempt >= MAX_VERIFY_NUDGES:      # เพดานทั่วไปของ Hermes ใน conversation_loop
+            break
+        if f.ask(attempt=attempt) is None:    # เพดานที่เข้มกว่าของ guard นี้
             break
         fired += 1
-    residual = plugin.pending_tasks(plugin.scan_session(f.path, f.session_id))
-    ok = fired == MAX_VERIFY_NUDGES and residual == ["task-E"]
+    residual = plugin.residual_pending(f.session_id, f.path)
+    ok = fired == plugin.MAX_COORDINATION_NUDGES and residual == ["task-E"]
     (PASS if ok else FAIL).append("9")
-    print("  %s 9  %-52s ดันไป %d ครั้งแล้วหยุด · ใบที่ยังค้าง=%s"
-          % ("ok  " if ok else "FAIL", "ชนเพดาน max_verify_nudges", fired, residual))
+    print("  %s 9  %-52s เตือน %d ครั้ง (เพดาน guard=%d · ของ Hermes=%d) · ใบค้าง=%s"
+          % ("ok  " if ok else "FAIL", "หยุดที่เพดานของ guard ไม่ใช่ของ Hermes",
+             fired, plugin.MAX_COORDINATION_NUDGES, MAX_VERIFY_NUDGES, residual))
     f.cleanup()
+
 
     # 10. รับหลายใบในรอบเดียว — ต้องปิดครบทุกใบถึงจะปล่อยจบ
     f = Fixture()
@@ -231,6 +240,45 @@ def main(argv):
     f.update("task-G", "done")      # มีผล update แต่ไม่เคย accept ในรอบนี้
     check("11", "ปิดใบที่ไม่ได้รับในรอบนี้ — ไม่ถือเป็นใบค้าง", f.ask() is not None, False)
     f.cleanup()
+
+    # 12. เตือนไปแล้วหนึ่งครั้ง ใบยังค้าง -> ปล่อยจบ ไม่เตือนซ้ำ (เข้มกว่า max_verify_nudges=3)
+    f = Fixture()
+    f.accept("task-H").read()
+    first = f.ask(attempt=0) is not None
+    second = f.ask(attempt=1) is not None
+    residual = plugin.residual_pending(f.session_id, f.path)
+    ok = first and not second and residual == ["task-H"]
+    (PASS if ok else FAIL).append("12")
+    print("  %s 12 %-52s ครั้งแรก=%s · ครั้งที่สอง=%s · ใบค้าง=%s"
+          % ("ok  " if ok else "FAIL", "เตือนได้ครั้งเดียว แล้วปล่อยจบพร้อมใบค้าง",
+             "ดันต่อ" if first else "ปล่อยจบ", "ดันต่อ" if second else "ปล่อยจบ", residual))
+    f.cleanup()
+
+    # 13. รอบที่ใช้โควตาเกินงบแล้ว -> ไม่จ่ายค่า nudge เพิ่ม
+    f = Fixture()
+    f.accept("task-I").read().spend(plugin.MAX_SESSION_TOKENS + 1)
+    over = f.ask(attempt=0) is not None
+    g = Fixture(session_id="s-under")
+    g.accept("task-J").read().spend(plugin.MAX_SESSION_TOKENS - 1)
+    under = g.ask(attempt=0) is not None
+    ok = (not over) and under
+    (PASS if ok else FAIL).append("13")
+    print("  %s 13 %-52s เกินงบ=%s · ยังไม่เกิน=%s"
+          % ("ok  " if ok else "FAIL",
+             "เพดานโควตาต่อรอบ (%s token)" % plugin.MAX_SESSION_TOKENS,
+             "ดันต่อ" if over else "ปล่อยจบ", "ดันต่อ" if under else "ปล่อยจบ"))
+    f.cleanup(); g.cleanup()
+
+    # 14. ข้อความ nudge ต้องห้ามหาทางอ้อมชัดเจน — บทเรียนจากรอบ 08 ที่โมเดลไปเรียก skills_list
+    msg = plugin.build_nudge(["task-K"])
+    need = ["ห้ามไปค้นหาหรือลองเครื่องมืออื่น", "ห้ามหาทางอ้อม", "โพสต์ blocker",
+            "จะไม่มีครั้งที่สอง", 'update_task(status="blocked")', 'update_task(status="done")']
+    miss = [n for n in need if n not in msg]
+    ok = not miss
+    (PASS if ok else FAIL).append("14")
+    print("  %s 14 %-52s %s"
+          % ("ok  " if ok else "FAIL", "ข้อความ nudge ห้ามทางอ้อม + บอกทางออกครบ",
+             "ครบทุกข้อ" if ok else "ขาด: %s" % miss))
 
     print()
     print("=" * 104)

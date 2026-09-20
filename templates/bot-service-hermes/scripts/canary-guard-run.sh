@@ -140,8 +140,43 @@ run() {   # $1 = 07|08
   live_untouched
 }
 
+# ── กันการรันซ้ำหลังใช้โควตาเกินงบ ──────────────────────────────────────────
+# ไม่ใช่การตัดกลางรอบ — เป็นการปฏิเสธ "รอบถัดไป" หลังรู้ยอดแล้วเท่านั้น
+# การตัดระหว่างรอบทำที่ plugin (MAX_SESSION_TOKENS) ซึ่งปฏิเสธไม่จ่ายค่า nudge เพิ่ม
+budget_spent() {
+  python3 - "$EVIDENCE" <<'PYBUDGET'
+import glob, os, sqlite3, sys
+total = 0
+for f in sorted(glob.glob(os.path.join(sys.argv[1], "state-run-*.db"))):
+    try:
+        db = sqlite3.connect("file:%s?mode=ro" % f, uri=True)
+        r = db.execute("select coalesce(input_tokens,0)+coalesce(output_tokens,0) "
+                       "from sessions where source='cli' "
+                       "order by started_at desc limit 1").fetchone()
+        total += int(r[0]) if r else 0
+    except Exception:
+        pass
+print(total)
+PYBUDGET
+}
+
+budget_gate() {
+  local cap="${QUOTA_CEILING:-90000}" spent
+  spent=$(budget_spent)
+  if (( spent >= cap )); then
+    c_bad "ใช้โควตาไปแล้ว ${spent} token จากเพดาน ${cap} — ปฏิเสธการรันรอบใหม่"
+    c_info "ถ้าจงใจจะรันต่อ ต้องตั้ง QUOTA_CEILING ให้สูงกว่านี้อย่างชัดเจน"
+    return 1
+  fi
+  c_ok "โควตาที่ใช้ไปแล้ว ${spent} / ${cap} token"
+  return 0
+}
+
 case "${1:---check}" in
   --check) check ;;
-  --run)   [[ "${2:-}" =~ ^0[78]$ ]] || { echo "ต้องระบุ 07 หรือ 08"; exit 2; }; run "$2" ;;
+  --run)   [[ "${2:-}" =~ ^[0-9]{2}$ ]] || { echo "ต้องระบุเลขสองหลัก เช่น 07"; exit 2; }
+           budget_gate || exit 3
+           run "$2" ;;
+  --budget) budget_gate ;;
   *)       sed -n '2,20p' "$0" ;;
 esac

@@ -222,6 +222,16 @@ def main():
     print("  pre_verify_always()   : %s" % pre_verify_always())
     print("  max_verify_nudges()   : %s" % max_verify_nudges())
     print("  has_hook(pre_verify)  : %s" % has_hook("pre_verify"))
+    # seam ที่ patch พึ่งพาเป็น private API ของ Hermes — ถ้าวันหนึ่ง upstream
+    # เปลี่ยนชื่อ guard จะเงียบไปโดยไม่มีใครรู้ เพราะ patch ครอบ try/except ไว้
+    # เทสนี้จึงต้องดังทันทีที่ seam หาย ไม่ใช่รอให้ scenario ล้มแล้วมาไล่หาสาเหตุ
+    from run_agent import AIAgent
+    seam = hasattr(AIAgent, "_flush_messages_to_session_db")
+    print("  seam _flush_messages_to_session_db : %s%s"
+          % (seam, "" if seam else "   <<< หายแล้ว — preflush ของ patch จะเงียบ"))
+    if not seam:
+        print("\nหยุดที่นี่: seam ที่ patch พึ่งพาหายไปจาก Hermes รุ่นนี้")
+        return 1
     print("  hook ที่ลงทะเบียน      : %s" % {
         k: [f.__module__ + "." + f.__name__ for f in v]
         for k, v in getattr(plugins.get_plugin_manager(), "_hooks", {}).items()})
@@ -243,10 +253,16 @@ def main():
               say("บันทึก blocker ลงใบแล้วครับ")],
              expect_continue=True)
 
-    # NARRATION-ONLY — พูดอย่างเดียวตลอด ต้องถูกดันจนชนเพดานแล้วหยุด
-    scenario("NARRATION-ONLY — พูดอย่างเดียว ต้องชนเพดานแล้วหยุด",
+    # NARRATION-ONLY — พูดอย่างเดียวตลอด ต้องถูกดันครั้งเดียวแล้วหยุด
+    # เพดานที่ใช้คือของ plugin (1) ไม่ใช่ของ Hermes (3) — เข้มกว่าโดยตั้งใจ
+    # หลังบทเรียนจากรอบ 08 จริงที่การเตือนสามครั้งกินโควตาเกือบสามเท่าของรอบ 07
+    import importlib.util as _ilu
+    _sp = _ilu.spec_from_file_location(
+        "cf", "/opt/data/plugins/coordination-finalization/__init__.py")
+    _cf = _ilu.module_from_spec(_sp); _sp.loader.exec_module(_cf)
+    scenario("NARRATION-ONLY — พูดอย่างเดียว ต้องเตือนครั้งเดียวแล้วหยุด",
              [call(ACCEPT, {"handoff_id": "ho-mock"})] + [say("เดี๋ยวปิดใบให้ครับ")] * 8,
-             expect_cap=max_verify_nudges())
+             expect_cap=_cf.MAX_COORDINATION_NUDGES)
 
     # NO-TASK — ไม่ได้รับใบ ต้องไม่ถูกดัน
     scenario("NO-TASK — CLI ที่ไม่ได้รับใบงาน",
