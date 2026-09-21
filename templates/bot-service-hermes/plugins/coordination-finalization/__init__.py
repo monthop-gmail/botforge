@@ -22,7 +22,6 @@ from __future__ import annotations
 import json
 import logging
 import os
-import re
 import sqlite3
 from typing import Any, Dict, List, Optional, Set
 
@@ -34,7 +33,16 @@ UPDATE_TOOL_MARKERS = ("update_task",)
 COORDINATION_SOURCES = {"cli"}
 
 # ผล MCP tool ห่อสองชั้น: untrusted_tool_result -> {"result": "<json string>"}
-_RESULT_RE = re.compile(r'\{"result":\s*"(.*)"\}', re.S)
+#
+# เดิมใช้ regex `\{"result":\s*"(.*)"\}` ซึ่ง `.*` เป็น greedy — ถ้าข้อความหนึ่งมีซอง
+# มากกว่าหนึ่งอัน มันจะคาบตั้งแต่ซองแรกถึงปลายซองสุดท้ายแล้ว json.loads ล้ม
+# คืน None เงียบ ๆ · แถวนั้นถูกข้ามไปโดยไม่มีใครรู้ ซึ่งแปลว่า accept หรือ update
+# รอบนั้นหายไปจากสายตา plugin: หาย accept = ไม่ nudge ทั้งที่ควร · หาย update =
+# nudge ทั้งที่ปิดใบแล้ว
+#
+# ตอนนี้ใช้ตัวถอด JSON จริงไล่ทีละซองแทน และ log เมื่อเห็นซองแต่แกะไม่ออก
+# — ความว่างที่ไม่บอกอะไรเลย อ่านได้พอดีทั้ง "ไม่มี" และ "ไม่ได้ดู"
+_RESULT_MARK = '{"result":'
 
 
 def _state_db_path() -> str:
@@ -42,16 +50,38 @@ def _state_db_path() -> str:
 
 
 def _parse_tool_result(content: Optional[str]) -> Optional[Dict[str, Any]]:
-    """ดึง JSON ของจริงออกจากผลลัพธ์ tool — None ถ้าอ่านไม่ออก (ไม่ raise)"""
+    """ดึง JSON ของจริงออกจากผลลัพธ์ tool — None ถ้าอ่านไม่ออก (ไม่ raise)
+
+    ทนต่อคีย์ที่ไม่รู้จักทุกชนิด: อ่านด้วยชื่อคีย์เสมอ ไม่ยึดลำดับหรือจำนวน
+    (ยืนยันกับ ai-collaboration-mcp ที่ dis-c6095786 seq 28)
+    """
     if not content:
         return None
-    m = _RESULT_RE.search(content)
-    if not m:
-        return None
-    try:
-        return json.loads(json.loads('"%s"' % m.group(1)))
-    except (ValueError, TypeError):
-        return None
+    decoder = json.JSONDecoder()
+    seen_envelope = False
+    idx = content.find(_RESULT_MARK)
+    while idx != -1:
+        seen_envelope = True
+        try:
+            envelope, _ = decoder.raw_decode(content, idx)
+        except ValueError:
+            envelope = None
+        if isinstance(envelope, dict) and isinstance(envelope.get("result"), str):
+            try:
+                inner = json.loads(envelope["result"])
+            except (ValueError, TypeError):
+                inner = None
+            if isinstance(inner, dict):
+                return inner
+        idx = content.find(_RESULT_MARK, idx + 1)
+    if seen_envelope:
+        # เห็นซองแต่แกะไม่ออก — ต้องดังพอให้คนเห็น ไม่ใช่เงียบแล้วข้าม
+        logger.warning(
+            "coordination-finalization: เห็นซอง %s แต่แกะ JSON ไม่ออก — "
+            "แถวนี้ถูกข้าม ใบที่รับหรือปิดในแถวนี้จะมองไม่เห็น (ยาว %d ตัวอักษร)",
+            _RESULT_MARK, len(content),
+        )
+    return None
 
 
 def scan_session(db_path: str, session_id: str) -> Dict[str, Any]:

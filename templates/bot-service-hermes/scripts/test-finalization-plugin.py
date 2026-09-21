@@ -297,6 +297,51 @@ def main(argv):
                                  "ข้อความ nudge ทั้งสองแบบครบเงื่อนไข",
                                  "ครบ" if ok else "ขาด: %s" % miss))
 
+    # N. การแกะซองของผลลัพธ์ tool — ทนคีย์ใหม่ และไม่เงียบเมื่อแกะไม่ออก
+    #
+    #    ที่มา: ai-collaboration-mcp ถามที่ dis-c6095786 ว่าคีย์ใหม่ (acted_as ฯลฯ)
+    #    จะทำให้ plugin พังไหม · คำตอบคือไม่ แต่การตอบครั้งนั้นเปิดจุดที่เข้มกว่า
+    #    คือชั้นแกะซอง ซึ่งเคยล้มเงียบเมื่อมีซองมากกว่าหนึ่งอันในข้อความเดียว
+    real_update = {"task_id": "task-N1", "status": "blocked",
+                   "assigned_to": "monthop-gmail/botforge",
+                   "updated_by": "monthop-gmail/botforge",
+                   "acted_as": {"addressed_to": "monthop-gmail/botforge",
+                                "acted_by": "monthop-gmail/botforge", "delegated": False},
+                   "updated_at": "2026-09-20T15:23:18.299Z", "handoff": None}
+    weird = {"task_id": "task-N2", "task_status": "in_progress",
+             "acted_as": {"delegated": True}, "standing_rules": [{"id": "dec-1"}],
+             "quiet_discussions": {"hidden": 0}, "ซ้อนสามชั้น": {"ก": {"ข": [1, 2, 3]}}}
+    quoted = {"task_id": "task-N3", "status": "done",
+              "detail": 'เขาเขียนว่า "ไม่มี approval" มาในใบ'}
+    two_envelopes = (tool_result("mcp__ai_collab__accept_handoff", {"task_id": "task-N4",
+                                                                   "task_status": "in_progress"})
+                     + "\n"
+                     + tool_result("mcp__ai_collab__update_task", {"task_id": "task-N4",
+                                                                   "status": "done"}))
+    cases = [
+        ("ผลจริงของ update_task ที่มี acted_as",
+         plugin._parse_tool_result(tool_result("mcp__ai_collab__update_task", real_update)),
+         "blocked", "status"),
+        ("accept_handoff + คีย์ที่ไม่รู้จัก 4 ตัว",
+         plugin._parse_tool_result(tool_result("mcp__ai_collab__accept_handoff", weird)),
+         "in_progress", "task_status"),
+        ("ค่าที่มีเครื่องหมายคำพูดอยู่ข้างใน",
+         plugin._parse_tool_result(tool_result("mcp__ai_collab__update_task", quoted)),
+         "done", "status"),
+        ("สองซองในข้อความเดียว — ต้องได้ซองแรก ไม่ใช่ None",
+         plugin._parse_tool_result(two_envelopes), "in_progress", "task_status"),
+    ]
+    miss = [name for name, got, want, key in cases
+            if not isinstance(got, dict) or got.get(key) != want]
+    # และของที่ไม่มีซองเลยต้องคืน None เฉย ๆ ไม่ใช่ระเบิด
+    if plugin._parse_tool_result("ข้อความธรรมดาไม่มีผล tool") is not None:
+        miss.append("ข้อความที่ไม่มีซองต้องได้ None")
+    ok = not miss
+    (PASS if ok else FAIL).append("N")
+    print("  %s N   %-50s %s" % ("ok  " if ok else "FAIL",
+                                 "แกะซองผลลัพธ์: ทนคีย์ใหม่ + ซองซ้อน",
+                                 "ครบ 5 เคส" if ok else "ตก: %s" % miss))
+
     print()
     print("=" * 108)
     print("ผ่าน %d · ไม่ผ่าน %d%s" % (len(PASS), len(FAIL),
