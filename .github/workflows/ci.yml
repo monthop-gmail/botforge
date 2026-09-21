@@ -1,0 +1,57 @@
+# CI ของสาย V1 (`main`)
+#
+# ทำไมถึงมีไฟล์นี้ และทำไมมันไม่เหมือนของ `v2`
+#
+#   ruleset "V1 freeze — main" บังคับ required status check ไว้สองตัวโดยยกชื่อ
+#   ของสาย v2 มาใช้ (`packages — test + typecheck` · `conformance — ADR-0006`)
+#   แต่ `main` เป็น V1 ซึ่งไม่มีทั้ง packages/ และ conformance/ — และไม่เคยมี
+#   workflow ที่ root เลย เช็คสองตัวนั้นจึงไม่มีทางรัน
+#
+#   ผลคือ PR ที่ยิงเข้า main ผ่านไม่ได้ทุกกรณี ไม่ใช่เพราะ gate เข้มงวด
+#   แต่เพราะ gate ไม่มีวันเขียว — ซึ่งปิดสายที่บอท 14 ตัวยึดอยู่และควรรับ
+#   security fix ได้ (botforge#33)
+#
+#   ไฟล์นี้จึงให้ main มีเช็คที่ "รันได้จริงกับของที่ main มี" คือสคริปต์ bash
+#   ไม่ใช่ก๊อปของ v2 มาทั้งดุ้นแล้วให้มันพังด้วยเหตุผลอื่นแทน
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  scripts:
+    name: "scripts — bash syntax"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # ด่านที่บังคับจริง — ล้มเฉพาะตอนไวยากรณ์พัง ไม่ใช่เรื่องสไตล์
+      # V1 คือสคริปต์สามตัวที่บอทที่ deploy อยู่พึ่งพาโดยตรง ของพังที่นี่คือของพังจริง
+      - name: bash -n
+        run: |
+          set -euo pipefail
+          files=$(git ls-files '*.sh')
+          for cli in botforge botforge-deploy botforge-models; do
+            [ -f "$cli" ] && files="$files $cli"
+          done
+          echo "ตรวจ $(echo $files | wc -w) ไฟล์"
+          for f in $files; do
+            bash -n "$f" && echo "  ok   $f"
+          done
+
+      # ด่านที่ไม่บังคับ — รายงานอย่างเดียวจนกว่าจะมีคนไล่ปิดของเก่า
+      # เปิดเป็น required ตั้งแต่วันแรกโดยไม่รู้ว่ามันจะฟ้องกี่ข้อ
+      # เท่ากับสร้าง gate ที่แดงค้าง ซึ่งเป็นปัญหาเดียวกับที่ไฟล์นี้มาแก้
+      - name: shellcheck (รายงานอย่างเดียว)
+        continue-on-error: true
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq shellcheck
+          files=$(git ls-files '*.sh')
+          for cli in botforge botforge-deploy botforge-models; do
+            [ -f "$cli" ] && files="$files $cli"
+          done
+          shellcheck --severity=error $files || true
