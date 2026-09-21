@@ -44,5 +44,17 @@ properties:
     minimum: 0
   details:
     type: object
+    description: >-
+      **ตัวชี้ ไม่ใช่ที่เก็บเนื้อหา** — ใส่ id ของ record ที่เกิดเหตุ ชื่อ resource
+      รหัส หรือค่าที่นับได้ · **ห้ามใส่ credential, PII, ข้อความที่ subject พูด
+      หรือเนื้อหา prompt ของผู้ใช้** เหมือนกฎของ `message`
+
+      ⚠️ เป็น **open object โดยเจตนา** เพราะ platform ไม่รู้จักโดเมนของ error
+      แต่ open object แปลว่า **ไม่มีใครทบทวนตอนมีคนเพิ่มคีย์** — ผู้ผลิตต้องมีทะเบียน
+      คีย์ของตัวเองที่บังคับด้วย CI ไม่ใช่พึ่งการรีวิว
+
+      🔒 กฎนี้บังคับได้ที่ **ผู้ผลิต** เท่านั้น · validator บอกได้ว่าคีย์ไหนมีอยู่
+      บอกไม่ได้ว่า**ใครเป็นคนเขียนค่านั้น** ซึ่งเป็นแกนจริงของกฎ
+      — `code` ที่ระบบสร้างเอง กับข้อความที่ผู้ใช้พิมพ์ เป็น `string` เหมือนกันทุกประการ
   correlation_id:
     $ref: https://schemas.agent-platform.internal/identity/v1/identity.schema.yaml#/$defs/Id

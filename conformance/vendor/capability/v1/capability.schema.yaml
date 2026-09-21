@@ -1,10 +1,10 @@
 $schema: https://json-schema.org/draft/2020-12/schema
 $id: https://schemas.agent-platform.internal/capability/v1/capability.schema.yaml
 title: Capability Taxonomy
-description: >-
-  รายการ capability ที่ platform รู้จัก พร้อมนิยามและระดับความเสี่ยง (ADR-0009)
-  capability คือ "ทำอะไรได้" — ไม่ใช่ "ใครให้บริการ" (นั่นคือ provider/v1)
-  เพิ่มค่าใหม่ใน enum = ไม่ breaking · ลบหรือเปลี่ยนความหมาย = breaking (ADR-0006)
+# ⚠️ ไฟล์นี้เคยมี `description` สองครั้งที่ระดับบนสุด — PyYAML รับแล้วเก็บอันหลังเงียบ ๆ
+#    ส่วน YAML 1.2 (`yaml` ของ npm) ปฏิเสธด้วย "Map keys must be unique"
+#    ผลคือคำอธิบายระดับไฟล์ไม่เคยถูกอ่านโดย parser ตัวไหนเลย
+#    รวมเป็นอันเดียวที่ root แล้ว (#56) · drift_check จับ key ซ้ำได้ตั้งแต่รอบนี้
 
 $defs:
   CapabilityId:
@@ -24,6 +24,33 @@ $defs:
       - autonomous_execution
       - docker
       - network_egress
+      # tool_calling = model ปล่อย tool call ออกมาได้ไหม — คุณสมบัติของ provider
+      # เหมือน vision/long_context/streaming ([ADR-0024](../../../decisions/0024-tool-calling-and-canonical-scope.md))
+      # ⚠️ คนละเรื่องกับ mcp/github/browser ซึ่งคือ "มี tool อะไรให้เรียก"
+      #    model ที่ tool_calling ไม่ได้ เรียก github ไม่ได้แม้ tool นั้นจะต่ออยู่
+      - tool_calling
+
+  # ── แผนที่ id → scope ที่เป็นทางการ ─────────────────────────────────────
+  # ทุก catalog ต้องยึดค่านี้ ห้ามตัดสินเอง
+  # ([ADR-0024](../../../decisions/0024-tool-calling-and-canonical-scope.md))
+  #
+  # เดิม `scope` เป็น field ของแต่ละรายการใน catalog แปลว่าคนทำ catalog ตัดสินเอง
+  # กฎ "capability ตัวเดียวกันอยู่ได้แค่ scope เดียว" จึงไม่มีอะไรทำให้จริง
+  # และวันนี้ยังไม่มีใครตอบได้ด้วยซ้ำว่า `github` อยู่ scope ไหน
+  #
+  # 🔒 แผนที่นี้ list ค่าซ้ำกับ CapabilityId โดยจำเป็น (JSON Schema derive ไม่ได้)
+  #    จึงบังคับด้วย drift_check ว่า keys ทั้งหมดรวมกันต้องเท่ากับ enum เป๊ะ
+  #    ขาด = มีค่าที่ไม่มีใครบอกว่าอยู่ scope ไหน · เกิน = ค่าที่ไม่อยู่ใน taxonomy แล้ว
+  #    ซ้ำ = ละเมิดกฎ "ตัวเดียวกันอยู่ได้แค่ scope เดียว" ตรง ๆ
+  canonical_scope:
+    provider:   [vision, long_context, streaming, tool_calling]
+    host:       [code_execution, shell, filesystem, docker, network_egress]
+    tool:       [git, github, browser, mcp]
+    # ⚠️ autonomous_execution ไม่ใช่ความสามารถทางเทคนิค แต่เป็น **ระดับอำนาจ**
+    #    จึงไม่เข้ากับสาม scope ที่ ADR-0009 นิยามไว้ · บันทึกไว้เป็นข้อยกเว้นที่รู้แล้ว
+    #    ไม่ยัดเข้ากลุ่มใดกลุ่มหนึ่งเพื่อให้ตารางสวย · การจัดที่ให้มันต้องเป็น ADR ของตัวเอง
+    #    เพราะแตะนิยามของ CapabilityScope ที่ frozen อยู่ใน ADR-0009
+    unscoped:   [autonomous_execution]
 
   CapabilityScope:
     description: >-
@@ -41,7 +68,14 @@ $defs:
     enum: [low, medium, high, critical]
 
 type: object
-description: หนึ่งรายการใน catalog
+description: >-
+  **หนึ่งรายการใน catalog** ของ capability ที่ platform รู้จัก พร้อมนิยามและระดับความเสี่ยง
+  ([ADR-0009](../../../decisions/0009-capability-model.md))
+
+  capability คือ **"ทำอะไรได้"** — ไม่ใช่ **"ใครให้บริการ"** (นั่นคือ [`provider/v1`](../../provider/v1/))
+
+  เพิ่มค่าใหม่ใน enum = ไม่ breaking · ลบหรือเปลี่ยนความหมาย = breaking
+  ([ADR-0006](../../../decisions/0006-contract-versioning.md))
 required: [id, scope, action_risk, description]
 properties:
   id:
