@@ -107,7 +107,22 @@ Request:
           $ref: https://schemas.agent-platform.internal/capability/v1/capability.schema.yaml#/$defs/ActionRisk
         resource:
           type: string
-          description: สิ่งที่ถูกกระทำ เช่น `github:monthop-gmail/agent-platform#12`
+          description: >-
+            สิ่งที่ถูกกระทำ เช่น `github:monthop-gmail/agent-platform#12`
+
+            🔒 **ต้อง unique ภายใน tenant ที่ decision นี้ถูกประเมิน**
+            ([ADR-0033](../../../decisions/0033-resource-must-carry-its-own-scope.md))
+            — ขอบเขตเดียวกับ `ToolId` เพราะนโยบายบังคับใช้ที่ระดับ tenant
+
+            ค่าที่ระบบต้นทาง unique **แคบกว่า** tenant (id ที่ unique ต่อ instance,
+            ต่อ server, ต่อ workspace) **ต้องเติม namespace ไว้หน้าเป็น
+            `<namespace>:<local_id>`** — ปล่อยค่าเปล่าไม่ได้ · ถ้าระบบนั้นมาทาง MCP
+            namespace คือ `mcp/v1` `server_id` เหมือนที่ `ToolId` ใช้
+            ([ADR-0027](../../../decisions/0027-toolid-transformation-must-be-deterministic.md))
+            · นอก MCP ผู้ผลิตประกาศเอง และต้องบอกได้ว่าอะไรทำให้มัน unique
+
+            ⚠️ **กฎนี้บังคับได้ที่ผู้ผลิตและผู้ประเมินเท่านั้น** — validator กลางตรวจได้
+            แค่ว่าค่าเป็น string · ดู `platform_rules` ท้ายไฟล์สำหรับกฎเต็มหกข้อ
     consent:
       $ref: https://schemas.agent-platform.internal/consent/v1/consent.schema.yaml#/$defs/Evaluation
       description: >-
@@ -153,3 +168,32 @@ Decision:
     การ mapping `action_risk × tenant/profile → authority` ต้องเป็น config
     ห้าม hard-code ใน implementation — tenant หนึ่งอาจให้ high = approval_required
     ขณะที่อีก tenant ให้ high = human_command_required
+
+platform_rules:
+  description: >-
+    กฎระดับ schema ที่ `agent-platform` เพิ่มเอง — ไม่ใช่ semantics ของ decision แต่ละใบ
+  rules:
+    - "`action.resource` ต้อง **unique ภายใน tenant** ที่ decision นั้นถูกประเมิน
+       (ADR-0033) — ขอบเขตเดียวกับ `ToolId` (ADR-0027) เพราะนโยบายบังคับใช้ที่ระดับ
+       tenant ตาม `context.tenant_id` · ค่าที่ unique แคบกว่านั้นทำให้กฎที่เขียนถึงมัน
+       คุ้มแค่บางส่วนของ tenant โดยไม่มีอะไรบอก ซึ่งเป็นแผลเดียวกับ ADR-0026 ข้อ 4"
+    - "ค่าที่ระบบต้นทาง unique แคบกว่า tenant **ต้องเติม namespace ไว้หน้า** เป็น
+       `<namespace>:<local_id>` — namespace ต้องคงที่และ unique ภายใน tenant
+       ถ้าระบบนั้นมาทาง MCP namespace คือ `mcp/v1` `server_id` เหมือนที่ `ToolId` ใช้
+       นอก MCP ผู้ผลิตประกาศเอง และ **ต้องบอกได้ว่าอะไรทำให้มัน unique**
+       ไม่ใช่แค่ตั้งชื่อให้ดูต่างกัน"
+    - "ถ้าสองสิ่งที่ต่างกันได้ `resource` ค่าเดียวกัน → **reject ไม่ใช่เลือกอันใดอันหนึ่ง**
+       การชนเกิดจากการตั้งชื่อของเรา ไม่ใช่ความผิดของระบบต้นทาง · ปล่อยเงียบแปลว่า
+       สิ่งคนละสิ่งอยู่หลังค่าเดียวกัน และกฎที่เขียนถึงตัวหนึ่งจะไปคุมอีกตัวโดยไม่มีใครรู้
+       (ADR-0027 ข้อ 5 · หลักเดียวกับ consent/v1 tenant mismatch และ ADR-0022 required ∩ deny)"
+    - "**การเติม namespace ต้องย้อนกลับได้** — audit ต้องตามจาก `resource` กลับไปหาสิ่งที่
+       ระบบต้นทางเรียกมันได้ · หลักเดียวกับที่ ADR-0027 บังคับกับการแปลงชื่อ tool"
+    - "`resource` **ไม่ใช่** `CapabilityScope` และ **ไม่ใช่** `action.type` — สามแกนตั้งฉากกัน
+       ห้ามยุบเป็นแกนเดียว: `resource` = ลงมือกับอะไร · `action.type` = ทำอะไร ·
+       `CapabilityScope` = อะไรทำให้ความสามารถนี้มีอยู่ (ADR-0009) ·
+       การยุบสองแกนเป็นหนึ่งคือแผลที่ ADR-0029 บันทึกไว้"
+    - "กฎที่ไม่ระบุ `resource` **ห้ามให้สิทธิ์แก่ action ที่มี `resource`** —
+       ข้อนี้บังคับที่ผู้ประเมิน ไม่ใช่ที่ schema"
+    - "⚠️ ทุกข้อข้างบนบังคับได้ที่ **ผู้ผลิตและผู้ประเมิน** เท่านั้น — validator กลางตรวจได้
+       แค่ว่าค่าเป็น string · เขียนไว้ตรงนี้เพื่อไม่ให้ผู้อ่านเชื่อว่าเครื่องบังคับให้
+       (หลักเดียวกับที่ ADR-0030 เขียนข้อจำกัดของกฎ `error/v1.details` ไว้ในสัญญา)"

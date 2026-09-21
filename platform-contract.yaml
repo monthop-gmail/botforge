@@ -81,7 +81,15 @@ not_yet:
   - artifact/v1     # ไม่ผลิต artifact
 
 # ─────────────────────────────────────────────────────────────────────────────
-# leaf ที่อาจถือข้อความของคน — RFC-0013 · event/v1 semantics 1.3 (agent-platform#71)
+# leaf ที่อาจถือข้อความของคน — RFC-0013 · event/v1 semantics 1.5 (agent-platform#71, #72)
+#
+# pin ปัจจุบันอยู่ที่ semantics 1.5 (event/v1 v1.8.0) — ขยับจาก 1.3 ที่ไล่ leaf ไว้ครั้งแรก
+# 1.4 และ 1.5 ไม่เพิ่มงานไล่ leaf ให้ repo นี้ เพราะทั้งสองข้อผูกกับ approval/v1
+# ซึ่งเราไม่ได้ pin (ยืนยันที่ dis-b492ed20 seq 7 และตรวจกับ schema ที่ vendor แล้ว)
+# ส่วน platform_rules สองข้อใหม่ของ v1.8.0 (event.schema.yaml บรรทัด 264-269)
+# บังคับสิ่งที่ payload_check ทำอยู่แล้ว:
+#   · การประกาศต้องเป็นสิ่งที่ตัวตรวจอ่านจริง  → อ่านจากใบนี้โดยตรง ไม่ถือสำเนา
+#   · metadata ไม่ได้ถูกยกเว้นเพราะสัญญาไม่ได้ตั้งชื่อคีย์ → ปิดด้วยทะเบียน key ไม่ใช้ wildcard
 #
 # ไล่จาก payload จริงที่ conformance/emit_payloads.ts ปล่อยออกมา ไม่ได้ไล่จาก schema
 #   error/v1 16 ใบ · channel-event/v1 17 ใบ
@@ -170,7 +178,7 @@ conformance:
   #   2. payload จริง    conformance/payload_check.py รัน core จริงแล้ว validate ผลลัพธ์
   #   3. release gate   ruleset "V1 freeze — main" บังคับ PR + สอง check นี้ ไม่มี bypass
   status: passing
-  last_verified: "2026-09-20"
+  last_verified: "2026-09-21"
 
   # ขอบเขตของ gate — คุมทั้งสอง branch
   #
