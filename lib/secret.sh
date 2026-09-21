@@ -92,6 +92,8 @@ secret_key_for() {
             # V1 ทุก engine มี service `server` และ tunnel เปิด route ให้ทุกตัว
             case "$name" in
                 opencode) echo "OPENCODE_PASSWORD" ;;
+                # hermes ไม่มี container server — รหัสที่มีคือ basic auth ของ dashboard
+                hermes)   echo "DASHBOARD_PASS" ;;
                 *)        echo "API_PASSWORD" ;;
             esac ;;
         v2)

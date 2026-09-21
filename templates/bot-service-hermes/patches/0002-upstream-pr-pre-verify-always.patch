@@ -1,0 +1,290 @@
+From 86c0eaa749c2be72dba5497b99610de6d7276389 Mon Sep 17 00:00:00 2001
+From: monthop-gmail <monthop-gmail@users.noreply.github.com>
+Date: Sun, 20 Sep 2026 09:42:42 +0700
+Subject: [PATCH] feat(agent): opt-in pre_verify for turns that edited no files
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+`pre_verify` is the only turn-end seam a plugin can use to keep an agent
+going, but the gate is reachable only after the agent edited code:
+
+    if _edited and has_hook("pre_verify") and attempt < max_verify_nudges():
+
+A hook whose policy is not about files can never run. Programmatic callers
+are the obvious case: a job runner launches an agent to complete a unit of
+work, the model narrates that it finished and stops, and nothing in Hermes
+can notice that the work was left undone. The mechanism to fix that already
+exists one line away — only its precondition excludes the caller.
+
+This adds `agent.pre_verify_always` (default false) so the hook, not the
+edit list, decides whether the turn may end. Hooks keep receiving
+`changed_paths` and can `return None` immediately, so nothing changes for
+existing hooks whether or not the option is on. `max_verify_nudges` still
+bounds the loop.
+
+The option alone is not enough. A hook that decides on what the turn has
+already done can only read that back through the session store, and the
+current turn's tool results are not flushed when the gate runs — measured on
+a real turn, the store held 2 rows at hook time and 4 once the turn ended, so
+the hook saw a turn that had apparently called nothing. The patch flushes
+first, reusing the same persistence call the interim-answer path already
+makes, wrapped so a failed flush cannot end the turn.
+
+Tests cover both scopes of the gate, the hook contract, flush ordering,
+flush failure, and the config reader.
+---
+ agent/turn_stop_gates.py              |  25 ++++-
+ agent/verify_hooks.py                 |  17 +++-
+ hermes_cli/config_defaults.py         |   7 ++
+ tests/agent/test_pre_verify_always.py | 139 ++++++++++++++++++++++++++
+ 4 files changed, 182 insertions(+), 6 deletions(-)
+ create mode 100644 tests/agent/test_pre_verify_always.py
+
+diff --git a/agent/turn_stop_gates.py b/agent/turn_stop_gates.py
+index 01ca5983..b60b3a54 100644
+--- a/agent/turn_stop_gates.py
++++ b/agent/turn_stop_gates.py
+@@ -49,16 +49,28 @@ def _verify_on_stop_nudge(agent) -> Optional[str]:
+     return None
+ 
+ 
+-def _pre_verify_nudge(agent, final_response, attempt: int) -> Optional[str]:
++def _pre_verify_nudge(
++    agent, final_response, attempt: int, messages=None, conversation_history=None
++) -> Optional[str]:
+     """After code edits a registered ``pre_verify`` hook may keep the agent going one
+-    more turn; no default continuation cost."""
++    more turn; no default continuation cost. With ``agent.pre_verify_always`` the gate
++    also opens on turns that edited nothing, for hooks whose policy is not about files."""
+     _edited = sorted(getattr(agent, "_turn_file_mutation_paths", set()) or [])
+     try:
+-        from agent.verify_hooks import max_verify_nudges
++        from agent.verify_hooks import max_verify_nudges, pre_verify_always
+         from hermes_cli.lifecycle import has_hook
+         from hermes_cli.plugins import get_pre_verify_continue_message
+ 
+-        if _edited and has_hook("pre_verify") and attempt < max_verify_nudges():
++        if (_edited or pre_verify_always()) and has_hook("pre_verify") and attempt < max_verify_nudges():
++            # A hook that decides on what this turn already did can only read it
++            # back through the session store, and this turn's tool results are
++            # not flushed yet. Flush first so the hook sees the same history the
++            # loop has. Failing to flush must not end the turn.
++            if messages is not None:
++                try:
++                    agent._flush_messages_to_session_db(messages, conversation_history)
++                except Exception:
++                    logger.debug("pre_verify preflush failed", exc_info=True)
+             # Posture is fixed for the session — resolve once + cache.
+             coding = getattr(agent, "_resolved_is_coding", None)
+             if coding is None:
+@@ -140,7 +152,10 @@ def apply_stop_gates(
+         return verdict
+ 
+     _attempt = getattr(agent, "_pre_verify_nudges", 0)
+-    _verify_nudge2 = _pre_verify_nudge(agent, final_response, _attempt)
++    _verify_nudge2 = _pre_verify_nudge(
++        agent, final_response, _attempt, messages=messages,
++        conversation_history=conversation_history,
++    )
+     if _verify_nudge2:
+         agent._pre_verify_nudges = _attempt + 1
+         final_msg["finish_reason"] = "verify_hook_continue"
+diff --git a/agent/verify_hooks.py b/agent/verify_hooks.py
+index 7b554bcb..886a1a28 100644
+--- a/agent/verify_hooks.py
++++ b/agent/verify_hooks.py
+@@ -34,6 +34,21 @@ def max_verify_nudges(config: Optional[dict[str, Any]] = None) -> int:
+         return DEFAULT_MAX_VERIFY_NUDGES
+ 
+ 
++def pre_verify_always(config: Optional[dict[str, Any]] = None) -> bool:
++    """Whether ``pre_verify`` may fire on turns that edited no files.
++
++    Default ``False`` preserves the historical scope: the gate only opens after
++    the agent edited code. Set ``agent.pre_verify_always: true`` when a hook
++    implements a policy that is not about file edits at all — a programmatic job
++    runner, for example, that must not let a turn end while work the job was
++    launched for is still unfinished. Hooks still receive ``changed_paths`` and
++    can ``return None`` immediately when they only care about edits, so enabling
++    this costs nothing for hooks that do not opt in. ``max_verify_nudges`` keeps
++    bounding the loop either way.
++    """
++    return is_truthy_value(_agent_cfg(config).get("pre_verify_always", False), default=False)
++
++
+ def coding_verify_guidance(config: Optional[dict[str, Any]] = None) -> Optional[str]:
+     """Return the optional guidance appended to verification-stop nudges."""
+     if not is_truthy_value(_agent_cfg(config).get("verify_guidance", True), default=True):
+@@ -53,4 +68,4 @@ def _agent_cfg(config: Optional[dict[str, Any]]) -> dict[str, Any]:
+     return agent_cfg if isinstance(agent_cfg, dict) else {}
+ 
+ 
+-__all__ = ["CODING_VERIFY_GUIDANCE", "DEFAULT_MAX_VERIFY_NUDGES", "coding_verify_guidance", "max_verify_nudges"]
++__all__ = ["CODING_VERIFY_GUIDANCE", "DEFAULT_MAX_VERIFY_NUDGES", "coding_verify_guidance", "max_verify_nudges", "pre_verify_always"]
+diff --git a/hermes_cli/config_defaults.py b/hermes_cli/config_defaults.py
+index 586be09d..64862011 100644
+--- a/hermes_cli/config_defaults.py
++++ b/hermes_cli/config_defaults.py
+@@ -189,6 +189,13 @@ DEFAULT_CONFIG = {
+         "verify_guidance": True,
+         # Max consecutive `pre_verify` "continue" nudges per turn (hooks can't trap the loop).
+         "max_verify_nudges": 3,
++        # Fire `pre_verify` hooks on turns that edited no files. Default false
++        # keeps the historical code-editing-only scope. Enable when a hook
++        # implements a policy unrelated to file edits — for example a
++        # programmatic job runner that must not end a turn while the work it was
++        # launched for is still unfinished. `max_verify_nudges` still bounds the
++        # loop, and hooks still receive `changed_paths`.
++        "pre_verify_always": False,
+         # Verification closure: after code edits in a workspace, refuse a final answer until fresh
+         # verification evidence exists or the agent explains why it can't check (bounded loop,
+         # passive ledger). False (default) because the nudges proved more noise than signal; true =
+diff --git a/tests/agent/test_pre_verify_always.py b/tests/agent/test_pre_verify_always.py
+new file mode 100644
+index 00000000..6f42ab84
+--- /dev/null
++++ b/tests/agent/test_pre_verify_always.py
+@@ -0,0 +1,139 @@
++"""Regression coverage for `agent.pre_verify_always` — the opt-in that lets
++`pre_verify` hooks run on turns that edited no files, plus the preflush that
++makes the current turn's tool results readable by those hooks.
++
++The gate itself lives in `agent/turn_stop_gates.py`; the config reader lives in
++`agent/verify_hooks.py` and is covered alongside the other agent-config readers
++in `tests/agent/test_verify_hooks.py`.
++"""
++
++from __future__ import annotations
++
++from types import SimpleNamespace
++from unittest.mock import MagicMock
++
++import pytest
++
++from agent import turn_stop_gates, verify_hooks
++
++
++@pytest.fixture
++def agent():
++    return SimpleNamespace(
++        _turn_file_mutation_paths=set(),
++        _resolved_is_coding=False,
++        session_id="pre-verify-test",
++        platform="cli",
++        model="test/model",
++        _flush_messages_to_session_db=MagicMock(),
++    )
++
++
++def _wire(monkeypatch, *, always: bool, hook_result="keep going", has_hook=True):
++    """Patch the three lazily-imported collaborators the gate resolves."""
++    calls = {}
++
++    def _get_message(**kwargs):
++        calls.update(kwargs)
++        calls["invoked"] = True
++        return hook_result
++
++    monkeypatch.setattr(verify_hooks, "pre_verify_always", lambda *a, **k: always)
++    monkeypatch.setattr(verify_hooks, "max_verify_nudges", lambda *a, **k: 3)
++    monkeypatch.setattr("hermes_cli.lifecycle.has_hook", lambda name: has_hook)
++    monkeypatch.setattr(
++        "hermes_cli.plugins.get_pre_verify_continue_message", _get_message
++    )
++    return calls
++
++
++class TestGateScope:
++    def test_no_edits_and_option_off_does_not_invoke_hook(self, agent, monkeypatch):
++        calls = _wire(monkeypatch, always=False)
++        assert turn_stop_gates._pre_verify_nudge(agent, "done", 0) is None
++        assert "invoked" not in calls
++
++    def test_no_edits_and_option_on_invokes_hook(self, agent, monkeypatch):
++        calls = _wire(monkeypatch, always=True)
++        assert turn_stop_gates._pre_verify_nudge(agent, "done", 0) == "keep going"
++        assert calls["invoked"] is True
++        # The hook still receives changed_paths so edit-only hooks can bail out.
++        assert calls["changed_paths"] == []
++
++    def test_file_edit_behaviour_unchanged_when_option_off(self, agent, monkeypatch):
++        calls = _wire(monkeypatch, always=False)
++        agent._turn_file_mutation_paths = {"src/app.py"}
++        assert turn_stop_gates._pre_verify_nudge(agent, "done", 0) == "keep going"
++        assert calls["changed_paths"] == ["src/app.py"]
++
++    def test_hook_returning_none_produces_no_nudge(self, agent, monkeypatch):
++        _wire(monkeypatch, always=True, hook_result=None)
++        assert turn_stop_gates._pre_verify_nudge(agent, "done", 0) is None
++
++    def test_no_registered_hook_short_circuits(self, agent, monkeypatch):
++        calls = _wire(monkeypatch, always=True, has_hook=False)
++        assert turn_stop_gates._pre_verify_nudge(agent, "done", 0) is None
++        assert "invoked" not in calls
++
++    def test_attempt_budget_still_bounds_the_gate(self, agent, monkeypatch):
++        calls = _wire(monkeypatch, always=True)
++        assert turn_stop_gates._pre_verify_nudge(agent, "done", 3) is None
++        assert "invoked" not in calls
++
++
++class TestPreflush:
++    def test_current_turn_is_flushed_before_the_hook_runs(self, agent, monkeypatch):
++        """A hook deciding on what this turn already did reads it from the session
++        store, so the turn must be persisted before the hook is asked."""
++        order = []
++        agent._flush_messages_to_session_db = MagicMock(
++            side_effect=lambda *a, **k: order.append("flush")
++        )
++
++        def _get_message(**kwargs):
++            order.append("hook")
++            return "keep going"
++
++        monkeypatch.setattr(verify_hooks, "pre_verify_always", lambda *a, **k: True)
++        monkeypatch.setattr(verify_hooks, "max_verify_nudges", lambda *a, **k: 3)
++        monkeypatch.setattr("hermes_cli.lifecycle.has_hook", lambda name: True)
++        monkeypatch.setattr(
++            "hermes_cli.plugins.get_pre_verify_continue_message", _get_message
++        )
++
++        messages = [{"role": "tool", "content": "result"}]
++        turn_stop_gates._pre_verify_nudge(
++            agent, "done", 0, messages=messages, conversation_history=None
++        )
++        assert order == ["flush", "hook"]
++        agent._flush_messages_to_session_db.assert_called_once_with(messages, None)
++
++    def test_flush_failure_does_not_end_the_turn(self, agent, monkeypatch):
++        calls = _wire(monkeypatch, always=True)
++        agent._flush_messages_to_session_db = MagicMock(
++            side_effect=RuntimeError("db locked")
++        )
++        nudge = turn_stop_gates._pre_verify_nudge(
++            agent, "done", 0, messages=[{"role": "tool"}], conversation_history=None
++        )
++        assert nudge == "keep going"
++        assert calls["invoked"] is True
++
++    def test_no_messages_means_no_flush(self, agent, monkeypatch):
++        _wire(monkeypatch, always=True)
++        turn_stop_gates._pre_verify_nudge(agent, "done", 0)
++        agent._flush_messages_to_session_db.assert_not_called()
++
++
++class TestConfigReader:
++    def test_default_is_off(self):
++        assert verify_hooks.pre_verify_always({}) is False
++        assert verify_hooks.pre_verify_always({"agent": {}}) is False
++
++    def test_reads_truthy_values(self):
++        assert verify_hooks.pre_verify_always({"agent": {"pre_verify_always": True}})
++        assert verify_hooks.pre_verify_always({"agent": {"pre_verify_always": "yes"}})
++
++    def test_reads_falsey_values(self):
++        assert not verify_hooks.pre_verify_always({"agent": {"pre_verify_always": False}})
++        assert not verify_hooks.pre_verify_always({"agent": {"pre_verify_always": "off"}})
+-- 
+2.47.3
+

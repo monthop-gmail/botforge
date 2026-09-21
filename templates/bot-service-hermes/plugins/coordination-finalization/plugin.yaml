@@ -1,0 +1,6 @@
+name: coordination-finalization
+version: "0.1.0"
+description: "กันงาน coordination จบทั้งที่ใบยังค้าง — ถ้ารอบนี้รับใบแล้วแต่ยังไม่มี update_task สถานะปลายทาง ให้ดันต่อในรอบเดิม (จำกัดครั้ง) ตัดสินจากผล tool ที่เป็น JSON ไม่ใช่จากถ้อยคำ · ทำงานเฉพาะ CLI job ไม่แตะแชท"
+author: "botforge (monthop-gmail)"
+hooks:
+  - pre_verify
