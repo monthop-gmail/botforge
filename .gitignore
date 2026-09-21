@@ -2,9 +2,15 @@
 projects/
 
 # Environment / secrets
+# ⚠️ ใส่ * ท้ายทุกชื่อโดยตั้งใจ — ของเดิมครอบแค่ชื่อเป๊ะ ๆ ทำให้ไฟล์สำรองอย่าง
+#    .botforge-deploy.env.bak-20260824-142916 (มี CF_API_TOKEN จริง) หลุดตะแกรง
+#    และรอ git add -A ครั้งเดียวก็ขึ้นไปอยู่ในประวัติถาวร
 .env
-.botforge-deploy.env
-.botforge-models.env
+.env.bak*
+# .env.example เป็นของที่ต้อง track — negate ไว้กันกฎข้างบนขยายเกินโดยไม่ตั้งใจ
+!.env.example
+.botforge-deploy.env*
+.botforge-models.env*
 models/
 
 # Node
@@ -12,6 +18,9 @@ node_modules/
 
 # Claude Code
 .claude/
+# config ของ MCP ระดับโปรเจกต์ — เป็นของเครื่องคนทำ ไม่ใช่ของที่ repo ส่งมอบ
+# (หลักเดียวกับ .claude/ ที่ตัดสินไว้แล้ว)
+.mcp.json
 
 # OS
 .DS_Store
