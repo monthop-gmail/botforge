@@ -80,13 +80,105 @@ not_yet:
   - consent/v1      # ไม่ได้จัดการ PII ที่ต้องขอความยินยอม
   - artifact/v1     # ไม่ผลิต artifact
 
+# ─────────────────────────────────────────────────────────────────────────────
+# leaf ที่อาจถือข้อความของคน — RFC-0013 · event/v1 semantics 1.5 (agent-platform#71, #72)
+#
+# pin ปัจจุบันอยู่ที่ semantics 1.5 (event/v1 v1.8.0) — ขยับจาก 1.3 ที่ไล่ leaf ไว้ครั้งแรก
+# 1.4 และ 1.5 ไม่เพิ่มงานไล่ leaf ให้ repo นี้ เพราะทั้งสองข้อผูกกับ approval/v1
+# ซึ่งเราไม่ได้ pin (ยืนยันที่ dis-b492ed20 seq 7 และตรวจกับ schema ที่ vendor แล้ว)
+# ส่วน platform_rules สองข้อใหม่ของ v1.8.0 (event.schema.yaml บรรทัด 264-269)
+# บังคับสิ่งที่ payload_check ทำอยู่แล้ว:
+#   · การประกาศต้องเป็นสิ่งที่ตัวตรวจอ่านจริง  → อ่านจากใบนี้โดยตรง ไม่ถือสำเนา
+#   · metadata ไม่ได้ถูกยกเว้นเพราะสัญญาไม่ได้ตั้งชื่อคีย์ → ปิดด้วยทะเบียน key ไม่ใช้ wildcard
+#
+# ไล่จาก payload จริงที่ conformance/emit_payloads.ts ปล่อยออกมา ไม่ได้ไล่จาก schema
+#   error/v1 16 ใบ · channel-event/v1 17 ใบ
+#   ก่อนตัด actor.display_name: leaf 35 ตัว · หลังตัด: 34 (error 4 · event 30)
+#   ตัวชี้ 30 · ประกาศเป็นข้อความ 4
+#
+# ⚠️ payload_check.py อ่านบล็อกนี้โดยตรง ไม่ถือรายการของตัวเอง
+#    leaf ที่ไม่อยู่ในทะเบียนตัวชี้ของ checker และไม่ได้ประกาศที่นี่ = แดง
+#    (ทดสอบสองทางใน selftest ของ payload_check — ถอด path ออกจากที่นี่แล้วต้องแดง)
+# ─────────────────────────────────────────────────────────────────────────────
+text_fields:
+  - path: $.transition.reason
+    contract: channel-event/v1
+    event_types: [STATE_TRANSITION]
+    written_by: system
+    detail: >-
+      วันนี้เป็นข้อความคงที่ที่โค้ดเขียนเอง — `รอคิวของ session` (queued) และ
+      `ผู้ใช้สั่ง /abort` (cancelled ค่า default) · แต่ไม่ใช่ชุดปิด:
+      cancelled(ctx, reason) และ emitter.transition(extra.reason) รับ string อะไรก็ได้
+      ประกาศเพราะ seam เปิด ไม่ใช่เพราะค่าที่ปล่อยอยู่วันนี้ — ตัวตรวจบอกได้ว่า leaf ไหน
+      ไม่ใช่ตัวชี้ แต่บอกไม่ได้ว่าใครพิมพ์ค่า
+    retention_layer: ดู cutover.retention_layer
+
+  - path: $.metadata.reason
+    contract: channel-event/v1
+    event_types: [SESSION_CLOSED]
+    written_by: system
+    detail: >-
+      เหตุผลที่ session ถูกปิด · sessionClosed(ctx, reason) เป็นพารามิเตอร์เปิดและ
+      ไม่มีค่า default ต่างจาก cancelled() — เป็น seam ที่เปิดกว้างที่สุดในสองตัวนี้
+      · เป็น key เดียวใน metadata ที่ประกาศเป็นข้อความ ที่เหลือเป็นทะเบียนตัวชี้ปิด
+    retention_layer: ดู cutover.retention_layer
+
+  - path: $.error.message
+    contract: channel-event/v1
+    event_types: [EXECUTION_FAILED]
+    written_by: system
+    detail: >-
+      ข้อความดิบจาก provider · เราไม่ได้แต่งประโยคเองและคุมเนื้อในไม่ได้ —
+      provider บางเจ้าสะท้อนเนื้อหา prompt กลับมาในข้อความ error
+      · payload_check บังคับอยู่แล้วว่าห้ามมี credential และตัดที่ 200 ตัวอักษร
+    retention_layer: ดู cutover.retention_layer
+
+  - path: $.message
+    contract: error/v1
+    written_by: system
+    detail: >-
+      leaf เดียวกันในคนละบริบท — getErrorHint() ส่งต่อข้อความของ provider ตรง ๆ
+      16 ใบที่ตรวจทุกรอบเป็นข้อความของเครื่องทั้งหมด ประกาศเพราะต้นทางเป็นข้อความ
+      ที่เราไม่ได้เขียน
+    retention_layer: >-
+      ใบ error/v1 แบบยืนเดี่ยวไม่ได้ถูกบันทึกเป็น audit — ส่งกลับให้ผู้ใช้เห็นทาง LINE
+      แล้วจบ ไม่มี store ฝั่งเรา
+
+# จุด cutover — RFC-0013 บังคับให้ประกาศว่า "ตั้งแต่เมื่อไหร่" และ "ของเก่าค้างอะไร"
+cutover:
+  since: v2 — PR ที่ใส่บล็อกนี้
+  outstanding: >-
+    ไม่มี — ยังไม่เคยมี audit event ของ V2 ถูกเขียนในของจริงเลยสักใบ
+    หลักฐาน: apps/line-bot เป็นที่เดียวที่ผูก EventSink และไม่มี container ของมันรันอยู่
+    · ทั้ง 16 project ใน projects/ ไม่มีตัวไหนใช้ @botforge/core — ทุกตัวเป็น V1
+    (main @ v1-final) ซึ่งไม่ปล่อย event อะไรเลย
+    · ต่างจาก care-agent-platform ที่ actor.display_name ค้างอยู่ในใบเก่าทุกใบตั้งแต่
+    ใบแรกของระบบและลบไม่ได้ — เราจึงตัดสินใจข้อนี้ได้ก่อนจ่ายราคา ซึ่งเป็นสิ่งที่
+    RFC-0013 บอกเองว่าข้อจำกัดแบบนี้ต้องมาก่อนมี production data ไม่ใช่หลัง
+  retention_layer: >-
+    sink ของ V2 คือ console.log(JSON.stringify(event)) → stdout ของ container
+    → docker log driver json-file ของโฮสต์
+    · ลบราย field ไม่ได้ (append-only ตาม frozen guarantee ของ event/v1)
+    · ลบได้ทางเดียวคือลบ container ทิ้งทั้งตัว
+    · ⚠️ ยังไม่มี log rotation — ไม่มีบล็อก logging: ใน apps/line-bot/docker-compose.yml
+    และโฮสต์ไม่มี /etc/docker/daemon.json · ต้องตั้งเพดานก่อน V2 ขึ้นของจริง
+    ไม่ใช่เพราะ RFC สั่ง แต่เพราะข้อ 3 ของ invariant ถามว่ากฎการเก็บอยู่ชั้นไหน
+    และ "ไม่มีกฎ" ไม่ใช่คำตอบ
+  closed_by_checker: >-
+    สามข้อนี้ปิดด้วยโค้ดใน payload_check.py ไม่ใช่ด้วยคำแถลงในไฟล์นี้ —
+    (1) actor.display_name ห้ามมีในใบไหนเลย (ชื่อคนจากโปรไฟล์ LINE · ตัดที่ emit แล้ว)
+    (2) metadata เป็นทะเบียน key ปิด — key นอกทะเบียนแดงทันที แม้ event/v1 จะนิยาม
+        metadata เป็น open bag
+    (3) error.details ต้องว่างหรือมีแต่ตัวชี้ — วันนี้ไม่เคยใส่เลยสักใบ ปิดไว้ก่อน
+        มีคนใส่ครั้งแรก
+
 conformance:
   # ครบทั้ง 3 ข้อของ ADR-0006 — 2026-08-23
   #   1. manifest       ไฟล์นี้
   #   2. payload จริง    conformance/payload_check.py รัน core จริงแล้ว validate ผลลัพธ์
   #   3. release gate   ruleset "V1 freeze — main" บังคับ PR + สอง check นี้ ไม่มี bypass
   status: passing
-  last_verified: "2026-08-23"
+  last_verified: "2026-09-21"
 
   # ขอบเขตของ gate — คุมทั้งสอง branch
   #
@@ -122,13 +214,19 @@ conformance:
       command: python3 conformance/payload_check.py
       status: passing
       scope: >-
-        error/v1 — 15 payload จริงจาก classify() ครอบคลุม 7 category
+        error/v1 — 16 payload จริงจาก classify() ครอบคลุม 8 category
         (rate_limited · timeout · authentication · provider_error · validation
-        · budget_exceeded · internal)
+        · budget_exceeded · conflict · internal)
         channel-event/v1 (allOf event/v1) — 17 event จริงจาก scenario LINE webhook เต็มรอบ
         ทั้งหมดมาจาก @botforge/core จริง ไม่มี fixture ที่เขียนขึ้นเพื่อให้ผ่าน
         + ตรวจ guarantee ที่ JSON Schema ตรวจไม่ได้ — ห้าม credential · ห้าม reply_token
         · ห้าม chain-of-thought · ห้าม job_id ปลอม · sequence เพิ่มขึ้นเสมอต่อ subject
+        + สำมะโน leaf ตาม RFC-0013 — เดิน leaf ทุกตัวของทั้งสองสัญญา (34 leaf ต่างกัน)
+        แล้วบังคับว่าต้องเป็นตัวชี้ที่ขึ้นทะเบียนไว้ หรือถูกประกาศใน text_fields ของใบนี้
+        · อ่านการประกาศจาก platform-contract.yaml โดยตรง ไม่ถือสำเนา
+        · selftest สองทาง 6 เคส กลายพันธุ์จาก payload จริง — ชื่อคนกลับเข้ามา ·
+        key ใหม่ใน metadata · error.details มีของ · leaf ใหม่ใน error/v1 ·
+        ถอดการประกาศออกจากใบแล้วต้องแดง · ของจริงที่ไม่ได้แตะต้องเงียบ
 
     - name: core_test
       command: npm test --workspaces

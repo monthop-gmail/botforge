@@ -46,7 +46,11 @@ const ctx = (execId: string, msgId: string): TurnContext => ({
   executionId: execId,
   channelId: GROUP,
   channelType: "line",
-  actor: makePrincipal("line", "U4af4980629f1b2c3d4e5f6a7b8c9d0e1", "สมชาย"),
+  // ไม่ส่ง displayName — ชื่อจากโปรไฟล์ LINE เป็นข้อความที่คนพิมพ์เอง และ audit
+  // ของเราเป็น append-only ที่ลบรายฟิลด์ไม่ได้ · เลือกไม่ปล่อยแทนการประกาศไว้ถือ
+  // (RFC-0013 · platform-contract.yaml `cutover.closed_by_checker` ข้อ 1)
+  // payload_check แดงทันทีถ้ามี actor.display_name โผล่ในใบไหนก็ตาม
+  actor: makePrincipal("line", "U4af4980629f1b2c3d4e5f6a7b8c9d0e1"),
   messageId: msgId,
 })
 
