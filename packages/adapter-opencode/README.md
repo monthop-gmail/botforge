@@ -6,9 +6,10 @@
 และมี feature มากที่สุดในบรรดา 9 engine — multi-provider · `parts[]` parsing เต็ม ·
 partial response on timeout · `stripThinkTags` ถ้า port รองรับตัวนี้ได้ ที่เหลือง่ายกว่า
 
-## ลองเลย — ไม่ต้องมี API key
+## ลองเลย — ไม่ต้องมีเครดิต
 
-`opencode/big-pickle` กับ `opencode/nemotron-3-super` เป็น **model ฟรีผ่าน Zen**
+`opencode/big-pickle` เป็น **model ฟรีผ่าน Zen** — ไม่ใช้เครดิต
+**แต่ใช้ได้เฉพาะตอนวิ่งผ่าน OpenCode runtime** ยิง endpoint ของ Zen ตรงจะได้ `FreeTierError`
 
 ```bash
 # ต้องมี OpenCode server รันอยู่ก่อน

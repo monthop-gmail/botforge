@@ -30,7 +30,13 @@ _config_version: 33
 #   inclusionai/ling-3.0-flash-sante:free    1.4s  ctx 262K
 #   meituan/longcat-2.0:free                 3.4s  ctx 1M
 #   stepfun/step-3.7-flash:free              6.2s  ctx 262K   ตอบไทยไม่แน่น
-#   poolside/laguna-*:free                   429 rate limit ตอนวัด
+#   poolside/laguna-*:free                   429 rate limit ตอนวัดวันนั้น
+#
+# ตรวจซ้ำ 2026-09-22 — /models คืน :free 7 ชื่อ · ทั้งห้าตัวข้างบนยังอยู่ครบ
+# และ poolside/laguna-s-2.1:free กับ laguna-xs-2.1:free ขึ้นรายชื่อแล้ว
+# ⚠️ solar-pro4:free วัดได้ 9.6s ต่อ call เดี่ยววันนั้น (จาก 1.0s) — ยังตอบ แต่ช้าลงจริง
+# ⚠️ ling-3.0-flash-sante:free เป็น reasoning model — max_tokens น้อยจะได้ content ว่าง
+#    พร้อม finish_reason: length ซึ่งอ่านเหมือนโมเดลเสีย ทั้งที่แค่ budget ไม่พอ
 #
 # 🔴 กับดักที่เสียเวลาไปหนึ่งรอบ: เปลี่ยน config แล้วยังวิ่งไปที่เดิม
 #
@@ -90,8 +96,11 @@ custom_providers:
       # เวลาคือ "ต่อ turn จริงใน Hermes" ไม่ใช่ latency ของ call เดี่ยว
       - mi/ministral-14b       # Mistral    18s   ← main · 1B token/เดือน
       - mi/devstral-medium     # Mistral    51s   ใกล้เพดาน reply token ของ LINE (60s)
-      - zen/laguna-s-2.1       # OpenCode Zen · reasoning · ไม่ต้องมี key · rpm-only
-                               # แทน zen/hy3 ที่ตายถาวร 2026-09-03
+      # ⚠️ ถอด zen/laguna-s-2.1 ออกเมื่อ 2026-09-22 — ชื่อ `laguna-s-2.1-free`
+      #    หายจาก /models ของ OpenCode Zen แล้ว (รูปเดียวกับ zen/hy3 ที่ตาย 2026-09-03)
+      #    ตัวโมเดลไม่ได้หาย ย้ายไปอยู่ฝั่ง Nous Portal เป็น poolside/laguna-s-2.1:free
+      #    และ free tier ของ Zen วันนี้ตอบ FreeTierError ถ้าไม่ได้ยิงจากใน OpenCode
+      #    จึงใช้ผ่าน LiteLLM ไม่ได้อยู่ดี — ดู dis-2272160f ในโต๊ะกลาง
       - cb/gpt-oss-120b        # Cerebras   เร็วสุด แต่ verified_max_prompt แค่ 13,655
                                #            และค้างเงียบที่ ~32K — เลือกเองได้ แต่ไม่อยู่ใน fallback
       - nim/minimax-m3         # NVIDIA NIM  40 RPM
@@ -135,7 +144,11 @@ model:
 fallback_providers:
   - { provider: "custom:litellm", model: "mi/devstral-medium" }  # Mistral      51s · max 127,972 · คุยรู้เรื่อง
   - { provider: "custom:litellm", model: "nim/minimax-m3" }      # NVIDIA NIM   pool อื่นตัวแรก — แกว่ง/ช้าบ้าง
-  - { provider: "custom:litellm", model: "zen/laguna-s-2.1" }    # OpenCode Zen ไทย 3/3 แต่ทำตามคำสั่งไม่แน่น
+  # ⚠️ ถอด zen/laguna-s-2.1 (ชั้น 3 เดิม) ออกเมื่อ 2026-09-22 — ชื่อตายไปแล้วที่ Zen
+  #    ชั้นที่ชี้ไปชื่อที่ไม่มีอยู่จริง แย่กว่าไม่มีชั้นนั้น เพราะ LiteLLM เงียบแล้วคืน
+  #    error ของตัวหลักมาแทน อาการเหมือนไม่ได้ตั้ง fallback ไว้เลย
+  #    chain จึงเหลือสองชั้นและยังข้าม pool ได้ (mistral → nvidia-nim)
+  #    ถ้าจะเติมชั้นสาม ให้เทียบกับ /model/info ก่อน อย่าเดาจากชื่อที่เคยใช้ได้
   # ⚠️ ถอด cb/gpt-oss-120b ออกจาก chain — verified_max_prompt แค่ 13,655 ซึ่งต่ำกว่า
   #    context ที่ hermes ใช้จริง (สูงสุด 43,330) และมันพังแบบ "ค้างเงียบ" ไม่คืน error
   #    fallback ที่ล้มแบบเงียบแย่กว่าไม่มี fallback เพราะกินเวลา timeout ไปเปล่า ๆ

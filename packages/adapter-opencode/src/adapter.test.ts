@@ -180,10 +180,10 @@ test("/model เปลี่ยนแล้ว session ใหม่ใช้ mod
   await a.sendPrompt(prompt())
   assert.equal(lastModel.modelID, MODELS[DEFAULT_MODEL]!.modelID)
 
-  await a.setModel("line-c1", "opencode/nemotron-3-super")
-  assert.equal(a.modelOf("line-c1"), "opencode/nemotron-3-super")
+  await a.setModel("line-c1", "deepseek/deepseek-chat")
+  assert.equal(a.modelOf("line-c1"), "deepseek/deepseek-chat")
   await a.sendPrompt(prompt())
-  assert.equal(lastModel.modelID, "nemotron-3-super-free")
+  assert.equal(lastModel.modelID, "deepseek-chat")
 })
 
 test("/model ที่ไม่รู้จักถูกปฏิเสธ", async () => {
