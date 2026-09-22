@@ -83,7 +83,11 @@ not_yet:
 # ─────────────────────────────────────────────────────────────────────────────
 # leaf ที่อาจถือข้อความของคน — RFC-0013 · event/v1 semantics 1.5 (agent-platform#71, #72)
 #
-# pin ปัจจุบันอยู่ที่ semantics 1.5 (event/v1 v1.8.0) — ขยับจาก 1.3 ที่ไล่ leaf ไว้ครั้งแรก
+# pin ปัจจุบันอยู่ที่ semantics 1.5 (event/v1 v1.8.1) — ขยับจาก 1.3 ที่ไล่ leaf ไว้ครั้งแรก
+# v1.8.1 เพิ่ม platform_rules ข้อ "การประกาศแบบ wildcard กลืน ratchet ของตัวเอง ห้ามใช้"
+# ซึ่ง agent-platform เขียนจากข้อที่ repo นี้จับได้ตอนร่าง (agent-platform#83)
+# เราทำตามอยู่แล้วตั้งแต่ใบแรก — ประกาศ 4 leaf เป็นชื่อจริงทั้งหมด ไม่มี wildcard
+# และปิด metadata ด้วยทะเบียนคีย์ใน payload_check
 # 1.4 และ 1.5 ไม่เพิ่มงานไล่ leaf ให้ repo นี้ เพราะทั้งสองข้อผูกกับ approval/v1
 # ซึ่งเราไม่ได้ pin (ยืนยันที่ dis-b492ed20 seq 7 และตรวจกับ schema ที่ vendor แล้ว)
 # ส่วน platform_rules สองข้อใหม่ของ v1.8.0 (event.schema.yaml บรรทัด 264-269)
@@ -178,7 +182,7 @@ conformance:
   #   2. payload จริง    conformance/payload_check.py รัน core จริงแล้ว validate ผลลัพธ์
   #   3. release gate   ruleset "V1 freeze — main" บังคับ PR + สอง check นี้ ไม่มี bypass
   status: passing
-  last_verified: "2026-09-21"
+  last_verified: "2026-09-22"
 
   # ขอบเขตของ gate — คุมทั้งสอง branch
   #

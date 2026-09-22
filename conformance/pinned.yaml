@@ -8,8 +8,8 @@
 #    drift_check ตอน dev ยังเทียบกับ sibling checkout ถ้ามี — ดู README ของ conformance
 
 repo: monthop-gmail/agent-platform
-commit: 2461d027c759926e2751c5a7fcca1281c2b43467
-vendored_at: "2026-09-21"
+commit: ba0a35e35cedb534c5ea91de73a9d385d025e22b
+vendored_at: "2026-09-22"
 
 schemas:
   - error/v1/error.schema.yaml
