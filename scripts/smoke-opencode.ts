@@ -4,7 +4,7 @@
  * ใช้ model ฟรีผ่าน Zen เป็นค่าเริ่มต้น — ไม่ต้องมี API key ของ provider ไหน
  *
  *   OPENCODE_URL=http://localhost:4096 node --experimental-strip-types scripts/smoke-opencode.ts
- *   OPENCODE_URL=... BOTFORGE_MODEL=opencode/nemotron-3-super ... "อธิบาย docker compose สั้น ๆ"
+ *   OPENCODE_URL=... BOTFORGE_MODEL=opencode/big-pickle ... "อธิบาย docker compose สั้น ๆ"
  *
  * ไม่ต้องมี LINE — ใช้ transport ที่พิมพ์ลง stdout แทน
  */

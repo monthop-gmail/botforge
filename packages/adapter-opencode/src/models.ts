@@ -1,7 +1,16 @@
 /**
  * ทะเบียน model ของ OpenCode — ยกมาจาก `MODELS` ของ v1-final ทั้งชุด
  *
- * สองตัวแรกเป็น **model ฟรีผ่าน Zen** ใช้ทดสอบได้โดยไม่ต้องมี API key
+ * ตัวแรกเป็น **model ฟรีผ่าน Zen** — ไม่ใช้เครดิต แต่**ใช้ได้เฉพาะตอนวิ่งผ่าน
+ * OpenCode runtime เท่านั้น** · ยิง `https://opencode.ai/zen/v1` ตรงจากที่อื่นจะได้
+ *   {"error":{"type":"FreeTierError","message":"OpenCode's free tier can only be
+ *    used from within OpenCode"}}
+ * (ตรวจเมื่อ 2026-09-22 · ดู dis-2272160f ในโต๊ะกลาง)
+ *
+ * ⚠️ ชื่อของ Zen ตายได้โดยไม่มีใครบอก — `nemotron-3-super-free` เคยอยู่ในทะเบียนนี้
+ * และหายจาก `/models` ไปแล้ว · ก่อนเพิ่มชื่อใหม่ให้เทียบกับ `/models` ของ Zen
+ * (ลิสติ้งเปิดสาธารณะ ไม่ต้องมี key) แล้ว**ทดสอบผ่าน runtime จริง** ไม่ใช่ยิง endpoint เปล่า
+ *
  * ที่เหลือต้องมี key ของ provider นั้น
  */
 export interface ModelSpec {
@@ -18,7 +27,6 @@ export interface ModelSpec {
 export const MODELS: Readonly<Record<string, ModelSpec>> = {
   // opencode (Free via Zen)
   "opencode/big-pickle": { providerID: "opencode", modelID: "big-pickle", label: "Big Pickle (Free)" },
-  "opencode/nemotron-3-super": { providerID: "opencode", modelID: "nemotron-3-super-free", label: "Nemotron 3 Super (Free)" },
   // deepseek (API key)
   "deepseek/deepseek-chat": { providerID: "deepseek", modelID: "deepseek-chat", label: "DeepSeek Chat" },
   "deepseek/deepseek-reasoner": { providerID: "deepseek", modelID: "deepseek-reasoner", label: "DeepSeek Reasoner" },
@@ -45,8 +53,11 @@ export const MODELS: Readonly<Record<string, ModelSpec>> = {
 
 export const DEFAULT_MODEL = "opencode/big-pickle"
 
-/** model ที่ใช้ได้โดยไม่ต้องมี API key — ใช้ smoke test ได้เลย */
-export const FREE_MODELS = ["opencode/big-pickle", "opencode/nemotron-3-super"] as const
+/**
+ * model ที่ไม่ใช้เครดิต — ใช้ smoke test ได้ **เมื่อรันผ่าน OpenCode runtime**
+ * (`nemotron-3-super` ถูกถอดออกเมื่อ 2026-09-22 เพราะหายจาก `/models` ของ Zen)
+ */
+export const FREE_MODELS = ["opencode/big-pickle"] as const
 
 /** ต่อท้ายตอนผู้ใช้เปลี่ยนไป model ที่ไม่มี tool calling */
 export const NO_TOOLS_NOTE = "\n⚠️ โมเดลนี้ตอบข้อความอย่างเดียว อ่าน/แก้ไฟล์ไม่ได้"

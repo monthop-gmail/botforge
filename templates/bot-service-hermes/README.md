@@ -33,9 +33,26 @@ hermes:       LINE ──► hermes  (มี LINE adapter ในตัว)
 > (adapter ไม่มี logic mention เลย ต่างจาก Mattermost ที่มี `MATTERMOST_REQUIRE_MENTION`)
 > กลุ่มที่คนคุยกันเยอะจะเผาโควตาโมเดลเร็วมาก — ตั้ง `LINE_ALLOWED_GROUPS` ให้แคบไว้ก่อน
 
-## เริ่มใช้
+## เริ่มใช้ — เลือกทางใดทางหนึ่ง
 
-ต้องมี **LiteLLM gateway** รันอยู่บนเครื่องนี้ และอยู่บน network `llm-clients`:
+### ทางที่ 1 · Nous Portal (ไม่ต้องมี gateway ของตัวเอง) ← สั้นที่สุด
+
+Hermes ล็อกอิน Nous อยู่แล้วตั้งแต่ `hermes auth` · **บัญชีที่ไม่มีเครดิตยังยิงได้
+เฉพาะ model ที่ลงท้าย `:free`** และ endpoint เป็น OpenAI-compatible
+
+```yaml
+model:
+  provider: nous
+  default: upstage/solar-pro4:free
+```
+
+รายชื่อ `:free` ที่วัดแล้วผ่านเกณฑ์อยู่ในหัวไฟล์ `config/config.yaml.tmpl`
+· ⚠️ token ใน `data/auth.json` เป็น credential ของบัญชีคน **ห้ามก๊อปข้ามโปรเจกต์**
+ให้แต่ละโปรเจกต์รัน `hermes auth` ด้วยบัญชีของตัวเอง
+
+### ทางที่ 2 · LiteLLM gateway (ถ้าคุมโมเดลเอง/มี key ของ provider)
+
+ต้องมี gateway รันอยู่บนเครื่องนี้ และอยู่บน network `llm-clients`:
 
 ```bash
 docker network create llm-clients
@@ -44,6 +61,8 @@ docker network connect llm-clients llm-litellm
 
 แล้วออก **virtual key แยกใบ** ให้ project นี้ (อย่าใช้ master key — มันเป็น admin
 ของทั้ง gateway: ออก/เพิกถอน key คนอื่นได้ ข้าม budget ได้) เอาไปใส่ `LITELLM_KEY` ใน `.env`
+
+> ⚠️ `init.sh` จะเตือนถ้าไม่มีทาง LiteLLM — **ไม่ใช่ error** ถ้าเลือกทางที่ 1
 
 ```bash
 ./scripts/init.sh            # เตรียม data/ + gen config + ตรวจทาง LiteLLM

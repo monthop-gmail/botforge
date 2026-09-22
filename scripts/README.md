@@ -41,7 +41,8 @@ docker run -d --name botforge-v2-smoke \
 docker rm -f botforge-v2-smoke      # เลิกใช้แล้วลบ
 ```
 
-`opencode/big-pickle` กับ `opencode/nemotron-3-super` ใช้ได้เลยโดยไม่ต้องมี API key
+`opencode/big-pickle` ไม่ใช้เครดิตและไม่ต้องมี key ของ provider — **แต่ต้องมี OpenCode
+server รันอยู่จริง** เพราะ free tier ของ Zen ใช้ได้เฉพาะจากใน OpenCode (ยิงตรงได้ `FreeTierError`)
 ส่วน provider อื่นใน `opencode.json` ต้องมี key ของแต่ละเจ้า
 
 

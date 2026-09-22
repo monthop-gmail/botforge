@@ -15,7 +15,6 @@ const lineOAUrl = process.env.LINE_OA_URL ?? "https://line.me/ti/p/~your-oa"
 const MODELS: Record<string, { providerID: string; modelID: string; label: string; noTools?: boolean }> = {
   // opencode (Free via Zen)
   "opencode/big-pickle":              { providerID: "opencode",  modelID: "big-pickle",                label: "Big Pickle (Free)" },
-  "opencode/nemotron-3-super":        { providerID: "opencode",  modelID: "nemotron-3-super-free",     label: "Nemotron 3 Super (Free)" },
   // deepseek (API key)
   "deepseek/deepseek-chat":           { providerID: "deepseek",  modelID: "deepseek-chat",             label: "DeepSeek Chat" },
   "deepseek/deepseek-reasoner":       { providerID: "deepseek",  modelID: "deepseek-reasoner",         label: "DeepSeek Reasoner" },

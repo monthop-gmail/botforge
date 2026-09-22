@@ -2,12 +2,16 @@ import { test } from "node:test"
 import assert from "node:assert/strict"
 import { MODELS, DEFAULT_MODEL, FREE_MODELS, isNoTools, modelSwitchedMessage, NO_TOOLS_NOTE } from "./models.ts"
 
-test("ทะเบียนตรงกับ v1-final — 18 model ครบทุก provider", () => {
+// ⚠️ ทะเบียนนี้เคยเท่ากับ v1-final เป๊ะ ๆ (18 model · opencode 2)
+//    2026-09-22 ถอด `opencode/nemotron-3-super` ออกหนึ่งตัว เพราะชื่อ
+//    `nemotron-3-super-free` หายจาก `/models` ของ Zen แล้ว (ตรวจจากลิสติ้งสาธารณะ)
+//    เป็นการต่างจากต้นฉบับ "โดยตั้งใจ" ครั้งแรก — ไม่ใช่ของหลุด
+test("ทะเบียนตรงกับ v1-final ยกเว้นชื่อที่ Zen ปลดไปแล้ว — 17 model", () => {
   const byProvider: Record<string, number> = {}
   for (const spec of Object.values(MODELS)) byProvider[spec.providerID] = (byProvider[spec.providerID] ?? 0) + 1
-  assert.equal(Object.keys(MODELS).length, 18)
+  assert.equal(Object.keys(MODELS).length, 17)
   assert.deepEqual(byProvider, {
-    opencode: 2,          // ฟรีผ่าน Zen
+    opencode: 1,          // ฟรีผ่าน Zen — ใช้ได้เฉพาะเมื่อวิ่งผ่าน OpenCode runtime
     deepseek: 2,
     qwen: 1,
     groq: 1,
