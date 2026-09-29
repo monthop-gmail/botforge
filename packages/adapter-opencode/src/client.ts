@@ -65,6 +65,25 @@ export class OpenCodeClient {
     await this.request("POST", `/session/${sessionId}/abort`).catch(() => {})
   }
 
+  /**
+   * session นี้ยังอยู่บน server ไหม — ใช้ตอน restore จากทะเบียนหลัง process ตาย
+   *
+   * ไม่มี endpoint `GET /session/{id}` ให้ใช้ จึงถาม message list แทน
+   * `request()` โยน error เมื่อไม่ใช่ 2xx → 404 (session ถูกลบ) จึงแยกออกจาก
+   * "session ว่างเพราะยังไม่มีข้อความ" ซึ่งคืน array ว่างและไม่โยน
+   *
+   * ⚠️ แยก false เพราะ "ไม่มี session" กับเพราะ "server ล่ม" ไม่ได้ —
+   *    ทั้งสองกรณีต้องไม่ restore อยู่แล้ว จึงยอมรับความคลุมเครือนี้
+   */
+  async sessionExists(sessionId: string): Promise<boolean> {
+    try {
+      await this.request("GET", `/session/${sessionId}/message`)
+      return true
+    } catch {
+      return false
+    }
+  }
+
   /** คำตอบล่าสุดของ assistant — ใช้ดึงคำตอบบางส่วนหลัง timeout (feature 2.8) */
   async lastAssistantMessage(sessionId: string): Promise<any | null> {
     try {

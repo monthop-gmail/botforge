@@ -34,7 +34,7 @@ const sink: EventSink = {
   emit(event) { console.log(JSON.stringify(event)) },
 }
 
-const runtime = await createRuntime(config, process.env)
+const runtime = await createRuntime(config, process.env, log)
 const events = new BotforgeEvents(new EventEmitter(config.scope, { sink }))
 
 const channel = await createLineChannel({
