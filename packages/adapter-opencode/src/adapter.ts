@@ -8,7 +8,11 @@
  * session state อยู่ที่นี่ ไม่ใช่ที่ core — เพราะ sessionId เป็นของ runtime
  * core รู้จักแค่ `sessionKey` ซึ่งเป็นห้องสนทนา
  */
-import type { PromptInput, RuntimeResult, RuntimePort } from "@botforge/core/router"
+import type { PromptInput, RuntimeResult } from "@botforge/core/router"
+import {
+  declareCapabilities, type RuntimeAdapter, type RuntimeDescriptor,
+  type RuntimeSessionInfo, type SessionRegistry,
+} from "@botforge/core/runtime"
 import { isSessionExpired } from "@botforge/core/errors"
 import { OpenCodeClient, type OpenCodeConfig } from "./client.ts"
 import { extractResponse } from "./extract.ts"
@@ -19,23 +23,52 @@ export interface OpenCodeAdapterOptions extends OpenCodeConfig {
   /** timeout ต่อ prompt — v1 ใช้ `PROMPT_TIMEOUT_MS` default 120,000 */
   promptTimeoutMs?: number
   log?: (...args: unknown[]) => void
+  /**
+   * ทะเบียน session ที่อยู่รอดข้าม process — ไม่ใส่ก็ทำงานเหมือนเดิมทุกอย่าง
+   * (`Map` ในหน่วยความจำ · restart แล้วเริ่มใหม่) ตาม DoD ข้อ 7 ของ plan-a587bb31
+   */
+  registry?: SessionRegistry
+  /**
+   * ชื่อ session ที่ส่งให้ OpenCode — ค่าเริ่มต้น **ไม่ผูกกับ channel ใด ๆ**
+   *
+   * ของเดิมเป็น `LINE: ${userId.slice(-8)}` ซึ่งทำสองอย่างที่ Phase A ขอให้เลิก:
+   * ผูกชื่อ channel ไว้ใน runtime และพาเศษของ id ผู้ใช้ไปโผล่ใน UI ของ OpenCode
+   */
+  sessionTitle?: (sessionKey: string) => string
 }
 
 interface SessionState {
   sessionId: string
   model: string
+  createdAt: string
+  lastUsedAt: string
 }
 
-export class OpenCodeAdapter implements RuntimePort {
+export class OpenCodeAdapter implements RuntimeAdapter {
   readonly client: OpenCodeClient
   readonly #sessions = new Map<string, SessionState>()
   readonly #promptTimeout: number
   readonly #log: (...args: unknown[]) => void
+  readonly #registry: SessionRegistry | undefined
+  readonly #title: (sessionKey: string) => string
 
   constructor(options: OpenCodeAdapterOptions) {
     this.client = new OpenCodeClient(options)
     this.#promptTimeout = options.promptTimeoutMs ?? 120_000
     this.#log = options.log ?? (() => {})
+    this.#registry = options.registry
+    this.#title = options.sessionTitle ?? ((k) => `botforge: ${k}`)
+  }
+
+  /** ประกาศความสามารถ — `runRuntimeConformance()` บังคับว่าประกาศแล้วต้องมีจริง */
+  describe(): RuntimeDescriptor {
+    return {
+      name: "opencode",
+      family: "rest",
+      capabilities: declareCapabilities({
+        sessions: true, abort: true, model: true, usage: true, persistence: true,
+      }),
+    }
   }
 
   // ── session ─────────────────────────────────────────────────────────
@@ -55,6 +88,7 @@ export class OpenCodeAdapter implements RuntimePort {
     const prev = this.#sessions.get(sessionKey)
     if (prev?.sessionId) await this.client.deleteSession(prev.sessionId).catch(() => {})
     this.#sessions.delete(sessionKey)
+    await this.#forget(sessionKey)
     this.#pendingModel.set(sessionKey, modelKey)
     // คืนข้อความยืนยันให้ผู้เรียกส่งต่อ — ต่อ NO_TOOLS_NOTE ให้อัตโนมัติถ้าโมเดลนั้นไม่มี tool
     return modelSwitchedMessage(modelKey)
@@ -65,6 +99,7 @@ export class OpenCodeAdapter implements RuntimePort {
     const s = this.#sessions.get(sessionKey)
     if (s?.sessionId) await this.client.deleteSession(s.sessionId).catch(() => {})
     this.#sessions.delete(sessionKey)
+    await this.#forget(sessionKey)
   }
 
   /** `/abort` — `cancellation: graceful` ตาม `provider/v1/agent-provider` */
@@ -81,17 +116,78 @@ export class OpenCodeAdapter implements RuntimePort {
     return s?.sessionId ? { sessionId: s.sessionId, model: s.model } : null
   }
 
+  // ── capability: persistence ─────────────────────────────────────────
+
+  /** ของที่พอให้กลับมาคุยต่อได้ — `null` ถ้าคีย์นี้ยังไม่ผูก session */
+  exportSession(sessionKey: string): RuntimeSessionInfo | null {
+    const s = this.#sessions.get(sessionKey)
+    if (!s?.sessionId) return null
+    return {
+      sessionKey,
+      runtimeName: "opencode",
+      runtimeSessionId: s.sessionId,
+      createdAt: s.createdAt,
+      lastUsedAt: s.lastUsedAt,
+      model: s.model,
+    }
+  }
+
+  /**
+   * รับ session จากทะเบียนกลับเข้ามาใช้ต่อ — **ถาม server ก่อนตอบ true**
+   *
+   * คืน `true` แล้วต้องใช้ต่อได้จริง ไม่ใช่แค่จำค่าไว้ใน Map · ถ้า OpenCode
+   * ลบ session ไปแล้ว (restart ฝั่งมัน หรือคนลบเอง) ต้องคืน `false` เพื่อให้
+   * `#ensureSession()` สร้างใหม่ ไม่ใช่ยิง prompt เข้า id ที่ไม่มีอยู่
+   */
+  async restoreSession(info: RuntimeSessionInfo): Promise<boolean> {
+    if (info.runtimeName !== "opencode" || !info.runtimeSessionId) return false
+    if (!(await this.client.sessionExists(info.runtimeSessionId))) {
+      this.#log(`session ${info.runtimeSessionId} ไม่อยู่บน server แล้ว — จะสร้างใหม่`)
+      await this.#forget(info.sessionKey)
+      return false
+    }
+    this.#sessions.set(info.sessionKey, {
+      sessionId: info.runtimeSessionId,
+      model: info.model ?? DEFAULT_MODEL,
+      createdAt: info.createdAt,
+      lastUsedAt: new Date().toISOString(),
+    })
+    return true
+  }
+
+  async #forget(sessionKey: string): Promise<void> {
+    await this.#registry?.delete(sessionKey).catch?.(() => {})
+  }
+
   async #ensureSession(sessionKey: string, userId: string, isGroup: boolean): Promise<SessionState> {
     const existing = this.#sessions.get(sessionKey)
     if (existing?.sessionId) return existing
-    const title = `LINE: ${userId.slice(-8)}${isGroup ? " (group)" : ""}`
-    const created = await this.client.createSession(title)
+
+    // ยังไม่มีในหน่วยความจำ — ลองกู้จากทะเบียนก่อนสร้างใหม่ (restart มาแล้ว)
+    if (this.#registry && !this.#pendingModel.has(sessionKey)) {
+      const saved = await this.#registry.get(sessionKey).catch(() => undefined)
+      if (saved && (await this.restoreSession(saved))) {
+        this.#log(`กู้ session ของ ${sessionKey} จากทะเบียนได้: ${saved.runtimeSessionId}`)
+        return this.#sessions.get(sessionKey)!
+      }
+    }
+
+    const now = new Date().toISOString()
+    const created = await this.client.createSession(this.#title(sessionKey))
     const state: SessionState = {
       sessionId: created.id,
       model: this.#pendingModel.get(sessionKey) ?? existing?.model ?? DEFAULT_MODEL,
+      createdAt: now,
+      lastUsedAt: now,
     }
     this.#pendingModel.delete(sessionKey)
     this.#sessions.set(sessionKey, state)
+
+    // เขียนทะเบียนตอนผูก session ใหม่เท่านั้น ไม่ใช่ทุกข้อความ —
+    // ทะเบียนมีขนาดเท่าจำนวนห้อง ไม่ใช่เท่าจำนวนเทิร์น
+    // ผลข้างเคียงที่ยอมรับ: lastUsedAt ในไฟล์คือเวลาที่ผูก ไม่ใช่เวลาที่คุยล่าสุด
+    const info = this.exportSession(sessionKey)
+    if (info) await this.#registry?.put(info).catch?.(() => {})
     return state
   }
 

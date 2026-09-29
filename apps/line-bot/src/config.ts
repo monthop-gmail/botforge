@@ -6,6 +6,7 @@
  */
 import { resolveScope, type Scope } from "@botforge/core/identity"
 import type { RuntimePort } from "@botforge/core/router"
+import { FileSessionRegistry } from "@botforge/core/runtime"
 import type { UserContextFormat } from "@botforge/core/context"
 
 export const RUNTIMES = ["opencode", "codex", "claude", "adkcode"] as const
@@ -70,6 +71,7 @@ export function readConfig(env: Record<string, string | undefined>): BotConfig {
 export async function createRuntime(
   config: BotConfig,
   env: Record<string, string | undefined>,
+  log: (...args: unknown[]) => void = () => {},
 ): Promise<RuntimePort> {
   switch (config.runtimeName) {
     case "opencode": {
@@ -79,6 +81,11 @@ export async function createRuntime(
         password: env.OPENCODE_PASSWORD,
         directory: env.OPENCODE_DIR ?? config.workspaceDir,
         promptTimeoutMs: config.promptTimeoutMs,
+        // ทะเบียน session ที่อยู่รอดข้าม restart — ปิดได้ด้วย BOTFORGE_SESSION_REGISTRY=off
+        // (ปิดแล้วพฤติกรรมกลับไปเท่าเดิมทุกอย่าง คือ Map ในหน่วยความจำ)
+        ...(env.BOTFORGE_SESSION_REGISTRY === "off"
+          ? {}
+          : { registry: FileSessionRegistry.fromEnv(env, log) }),
       })
     }
     case "codex": {

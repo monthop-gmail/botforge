@@ -3,6 +3,7 @@ import assert from "node:assert/strict"
 import { OpenCodeAdapter } from "./adapter.ts"
 import { buildPrefix, QUESTION_TOOL_GUARD, GROUP_CHAT_INSTRUCTION } from "./prompt.ts"
 import { DEFAULT_MODEL, MODELS } from "./models.ts"
+import { MemorySessionRegistry, runRuntimeConformance } from "@botforge/core/runtime"
 
 interface Req { method: string; path: string; body?: any }
 
@@ -273,4 +274,110 @@ test("โควต้า OKMD หมด → core แปลงเป็นข้�
   const { classify, toUserMessage } = await import("@botforge/core/errors")
   assert.equal(classify(out.result).category, "budget_exceeded")
   assert.ok(toUserMessage(out.result).includes("โควต้าของโมเดลนี้หมด"))
+})
+
+// ── Phase A ของ plan-a587bb31 — capability + ทะเบียน session ที่อยู่รอดข้าม process ──
+
+test("conformance — สิ่งที่ประกาศกับสิ่งที่มีต้องตรงกัน", async () => {
+  const { fetchImpl } = fakeServer(() => ({ body: {} }))
+  const problems = await runRuntimeConformance(make(fetchImpl))
+  assert.deepEqual(problems, [], problems.join(" · "))
+
+  const d = make(fetchImpl).describe()
+  assert.equal(d.name, "opencode")
+  assert.equal(d.family, "rest")
+  assert.deepEqual(d.capabilities, {
+    sessions: true, abort: true, model: true, usage: true, persistence: true,
+  })
+})
+
+test("ทะเบียน — ผูก session แล้วเขียนลงทะเบียน · instance ใหม่กู้กลับมาใช้ต่อ", async () => {
+  const registry = new MemorySessionRegistry()
+  let created = 0
+  const handler = (r: Req) => {
+    if (r.path === "/session" && r.method === "POST") return { body: { id: "s" + ++created } }
+    return { body: { parts: [{ type: "text", text: "ok" }] } }
+  }
+
+  const first = make(fakeServer(handler).fetchImpl, { registry })
+  await first.sendPrompt(prompt())
+  const saved = await registry.get(prompt().sessionKey)
+  assert.equal(saved?.runtimeSessionId, "s1", "ต้องเขียนลงทะเบียนตอนผูก session")
+  assert.equal(saved?.runtimeName, "opencode")
+
+  // process ตาย — adapter ตัวใหม่ ไม่มีอะไรใน Map เลย
+  const { seen, fetchImpl } = fakeServer(handler)
+  const second = make(fetchImpl, { registry })
+  await second.sendPrompt(prompt())
+
+  assert.equal(created, 1, "ต้องไม่สร้าง session ใหม่ — กู้ของเดิมมาใช้")
+  assert.equal(second.sessionInfo(prompt().sessionKey)?.sessionId, "s1")
+  assert.ok(
+    seen.some((r) => r.method === "GET" && r.path === "/session/s1/message"),
+    "ต้องถาม server ก่อนว่า session ยังอยู่ไหม ไม่ใช่เชื่อทะเบียน",
+  )
+})
+
+test("ทะเบียน — ถ้า session หายจาก server ต้องสร้างใหม่ ไม่ใช่ยิงเข้า id ที่ไม่มี", async () => {
+  const registry = new MemorySessionRegistry()
+  await registry.put({
+    sessionKey: prompt().sessionKey,
+    runtimeName: "opencode",
+    runtimeSessionId: "s-gone",
+    createdAt: "2026-09-29T00:00:00.000Z",
+    lastUsedAt: "2026-09-29T00:00:00.000Z",
+  })
+
+  let created = 0
+  const { fetchImpl } = fakeServer((r: Req) => {
+    if (r.path === "/session/s-gone/message") return { status: 404, body: { error: "no" } }
+    if (r.path === "/session" && r.method === "POST") return { body: { id: "s-new" + ++created } }
+    return { body: { parts: [{ type: "text", text: "ok" }] } }
+  })
+
+  const a = make(fetchImpl, { registry })
+  await a.sendPrompt(prompt())
+  assert.equal(created, 1, "ต้องสร้างใหม่")
+  assert.equal(a.sessionInfo(prompt().sessionKey)?.sessionId, "s-new1")
+  assert.equal(
+    (await registry.get(prompt().sessionKey))?.runtimeSessionId, "s-new1",
+    "ทะเบียนต้องถูกเขียนทับด้วยของใหม่",
+  )
+})
+
+test("restoreSession — ปฏิเสธของที่ไม่ใช่ของ runtime นี้", async () => {
+  const { seen, fetchImpl } = fakeServer(() => ({ body: {} }))
+  const ok = await make(fetchImpl).restoreSession({
+    sessionKey: "k", runtimeName: "codex", runtimeSessionId: "t1",
+    createdAt: "t", lastUsedAt: "t",
+  })
+  assert.equal(ok, false, "runtimeName ไม่ตรงต้องไม่รับ")
+  assert.equal(seen.length, 0, "และต้องไม่ยิงถาม server เลย")
+})
+
+test("/new และ /model ต้องล้างทะเบียนด้วย ไม่ใช่ล้างแค่ Map", async () => {
+  const registry = new MemorySessionRegistry()
+  const { fetchImpl } = fakeServer((r: Req) =>
+    r.path === "/session" && r.method === "POST" ? { body: { id: "s1" } } : { body: {} })
+  const a = make(fetchImpl, { registry })
+  await a.sendPrompt(prompt())
+  assert.ok(await registry.get(prompt().sessionKey))
+
+  await a.resetSession(prompt().sessionKey)
+  assert.equal(await registry.get(prompt().sessionKey), undefined, "/new ต้องลบออกจากทะเบียน")
+
+  await a.sendPrompt(prompt())
+  await a.setModel(prompt().sessionKey, "deepseek/deepseek-chat")
+  assert.equal(await registry.get(prompt().sessionKey), undefined, "/model ต้องลบออกจากทะเบียน")
+})
+
+test("ชื่อ session ที่ส่งให้ OpenCode ไม่มีชื่อ channel และไม่มีเศษ id ผู้ใช้", async () => {
+  const { seen, fetchImpl } = fakeServer((r: Req) =>
+    r.path === "/session" && r.method === "POST" ? { body: { id: "s1" } } : { body: {} })
+  await make(fetchImpl).sendPrompt(prompt())
+  const title = String(seen.find((r) => r.path === "/session")?.body?.title ?? "")
+  // sessionKey เป็นตัวชี้ที่ channel ตั้งเอง (มีคำว่า line อยู่ในตัวโดยชอบธรรม)
+  // ที่ต้องพิสูจน์คือ **adapter ไม่เติมอะไรของ channel เข้าไปเอง** และไม่พา id ผู้ใช้ไปด้วย
+  assert.equal(title, `botforge: ${prompt().sessionKey}`, "adapter ต้องไม่เติมป้ายของ channel เอง")
+  assert.doesNotMatch(title, /U4af/, "ต้องไม่พาเศษ id ผู้ใช้ไปโผล่ใน UI ของ OpenCode")
 })
